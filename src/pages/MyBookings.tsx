@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -27,6 +27,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 const bookingDecisionSeenKey = (userId?: string | null) =>
   `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
+
+const BOOKING_DECISION_SEEN_EVENT = "guest-booking-decisions-seen";
 
 interface Booking {
   id: string;
@@ -98,6 +100,13 @@ type SupportTicketRow = {
   status: string | null;
 };
 
+const getLatestBookingDecisionTimestamp = (bookings: Booking[]) => bookings
+  .filter((booking) => booking.confirmation_status === "approved" || booking.confirmation_status === "rejected")
+  .map((booking) => booking.confirmed_at || booking.rejected_at || "")
+  .filter(Boolean)
+  .sort()
+  .at(-1) || "";
+
 const MyBookings = () => {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
@@ -130,6 +139,20 @@ const MyBookings = () => {
     if (typeof window === "undefined" || !user?.id) return;
     setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
   }, [user?.id]);
+
+  const markBookingDecisionsSeen = useCallback((seenAt?: string) => {
+    if (typeof window === "undefined" || !user?.id) return;
+
+    const nextSeenAt = seenAt || new Date().toISOString();
+    localStorage.setItem(bookingDecisionSeenKey(user.id), nextSeenAt);
+    setDecisionSeenAt(nextSeenAt);
+    window.dispatchEvent(new CustomEvent(BOOKING_DECISION_SEEN_EVENT, { detail: { seenAt: nextSeenAt } }));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || location.pathname !== "/my-bookings") return;
+    markBookingDecisionsSeen();
+  }, [location.pathname, markBookingDecisionsSeen, user?.id]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -912,12 +935,7 @@ const MyBookings = () => {
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id || isLoading || bookings.length === 0) return;
 
-    const latestDecision = bookings
-      .filter((booking) => booking.confirmation_status === "approved" || booking.confirmation_status === "rejected")
-      .map((booking) => booking.confirmed_at || booking.rejected_at || "")
-      .filter(Boolean)
-      .sort()
-      .at(-1);
+    const latestDecision = getLatestBookingDecisionTimestamp(bookings);
 
     if (!latestDecision) return;
 
@@ -925,9 +943,8 @@ const MyBookings = () => {
     const latestDate = new Date(latestDecision);
     if (!Number.isFinite(latestDate.getTime()) || latestDate <= seenDate) return;
 
-    localStorage.setItem(bookingDecisionSeenKey(user.id), latestDecision);
-    setDecisionSeenAt(latestDecision);
-  }, [bookings, decisionSeenAt, isLoading, user?.id]);
+    markBookingDecisionsSeen(latestDecision);
+  }, [bookings, decisionSeenAt, isLoading, markBookingDecisionsSeen, user?.id]);
 
   if (authLoading || !user || isLoading) {
     return (

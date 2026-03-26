@@ -30,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,6 +65,16 @@ const getCurrencySymbol = (code: string) => {
 
 const bookingDecisionSeenKey = (userId?: string | null) =>
   `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
+
+const BOOKING_DECISION_SEEN_EVENT = "guest-booking-decisions-seen";
+
+const getLatestBookingDecisionTimestamp = (
+  bookings: Array<{ confirmation_status?: string | null; confirmed_at?: string | null; rejected_at?: string | null }>
+) => bookings
+  .map((booking) => booking.confirmation_status === "approved" ? booking.confirmed_at : booking.rejected_at)
+  .filter((value): value is string => Boolean(value))
+  .sort()
+  .at(-1) || "";
 
 const Navbar = () => {
   const location = useLocation();
@@ -226,9 +236,11 @@ const Navbar = () => {
     syncSeenAt();
     window.addEventListener("storage", syncSeenAt);
     window.addEventListener("focus", syncSeenAt);
+    window.addEventListener(BOOKING_DECISION_SEEN_EVENT, syncSeenAt as EventListener);
     return () => {
       window.removeEventListener("storage", syncSeenAt);
       window.removeEventListener("focus", syncSeenAt);
+      window.removeEventListener(BOOKING_DECISION_SEEN_EVENT, syncSeenAt as EventListener);
     };
   }, [location.pathname, user?.id]);
 
@@ -245,6 +257,15 @@ const Navbar = () => {
       return Number.isFinite(dt.getTime()) && dt > seenDate;
     }).length;
   }, [bookingDecisions, decisionSeenAt]);
+
+  const markBookingDecisionsSeen = useCallback((seenAt?: string) => {
+    if (typeof window === "undefined" || !user?.id) return;
+
+    const nextSeenAt = seenAt || getLatestBookingDecisionTimestamp(bookingDecisions) || new Date().toISOString();
+    localStorage.setItem(bookingDecisionSeenKey(user.id), nextSeenAt);
+    setDecisionSeenAt(nextSeenAt);
+    window.dispatchEvent(new CustomEvent(BOOKING_DECISION_SEEN_EVENT, { detail: { seenAt: nextSeenAt } }));
+  }, [bookingDecisions, user?.id]);
 
   const primaryDashboardPath = useMemo(() => getPreferredDashboardPath(roles), [roles]);
 
@@ -479,7 +500,10 @@ const Navbar = () => {
                     <User className="w-4 h-4 mr-2" />
                     {primaryDashboardPath ? "My Dashboard" : "My Profile"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/my-bookings")} className="relative">
+                  <DropdownMenuItem onClick={() => {
+                    markBookingDecisionsSeen();
+                    navigate("/my-bookings");
+                  }} className="relative">
                     <User className="w-4 h-4 mr-2" />
                     {t("actions.myBookings")}
                     {unreadBookingDecisionCount > 0 && (
@@ -702,6 +726,7 @@ const Navbar = () => {
                         className="justify-start gap-2 relative"
                         onClick={() => {
                           setMobileMenuOpen(false);
+                          markBookingDecisionsSeen();
                           navigate("/my-bookings");
                         }}
                       >
