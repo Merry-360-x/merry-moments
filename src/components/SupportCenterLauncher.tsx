@@ -863,9 +863,9 @@ export default function SupportCenterLauncher() {
                   onClick={() => setStep("ai")}
                   className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
                 >
-                    <div className="relative h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 flex items-center justify-center shrink-0 shadow-lg">
-                      <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
-                    <img src="/brand/logo.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
+                    <div className="relative h-10 w-10 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+                      <span className="absolute inset-0 rounded-full border border-white/70" />
+                    <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
                     <div className="text-sm font-medium text-foreground">Merry</div>
@@ -911,9 +911,9 @@ export default function SupportCenterLauncher() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div className="flex items-center gap-2">
-                  <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-md">
-                    <span className="absolute inset-0 rounded-full border border-white/40 animate-pulse" />
-                    <img src="/brand/logo.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
+                  <div className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
+                    <span className="absolute inset-0 rounded-full border border-white/70" />
+                    <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">Merry</div>
@@ -1021,11 +1021,11 @@ export default function SupportCenterLauncher() {
                     <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-foreground shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative flex h-9 w-9 items-center justify-center">
-                          <span className="absolute inset-0 rounded-full border border-rose-200/70 bg-white/70" />
-                          <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_180deg,rgba(244,63,94,0)_0deg,rgba(244,63,94,0.95)_72deg,rgba(249,115,22,0.95)_170deg,rgba(251,191,36,0.98)_235deg,rgba(244,63,94,0)_320deg)] blur-[2px] animate-spin" />
-                          <span className="absolute inset-[1px] rounded-full border border-white/80 bg-white" />
-                          <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 via-orange-500 to-amber-400 text-white shadow-[0_0_18px_rgba(249,115,22,0.45)]">
-                            <img src="/brand/logo.png" alt="Merry360x" className="h-4 w-4 object-contain" loading="eager" />
+                          <span className="absolute inset-0 rounded-full border border-slate-200 bg-white" />
+                          <span className="absolute inset-[-3px] rounded-full bg-[conic-gradient(from_180deg,rgba(15,23,42,0)_0deg,rgba(15,23,42,0.95)_82deg,rgba(71,85,105,0.78)_170deg,rgba(15,23,42,0.92)_250deg,rgba(15,23,42,0)_320deg)] blur-[2px] animate-spin" />
+                          <span className="absolute inset-[1px] rounded-full border border-white/90 bg-white" />
+                          <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-[0_0_18px_rgba(15,23,42,0.16)]">
+                            <img src="/brand/logo_dark.png" alt="Merry360x" className="h-4 w-4 object-contain" loading="eager" />
                           </div>
                         </div>
                         <div>
