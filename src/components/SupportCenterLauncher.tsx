@@ -844,14 +844,14 @@ export default function SupportCenterLauncher() {
             <div className="flex flex-1 flex-col p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-sm font-semibold text-foreground">Meet Merry</div>
-                  <div className="text-[11px] text-muted-foreground">AI concierge for booking, cart, and checkout</div>
+                  <div className="text-sm font-semibold text-slate-900">Meet Merry</div>
+                  <div className="text-[11px] text-slate-500">AI concierge for booking, cart, and checkout</div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground p-1">
+                  <button type="button" onClick={() => setExpanded(!expanded)} className="p-1 text-slate-400 hover:text-slate-700">
                     {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </button>
-                  <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground p-1">
+                  <button type="button" onClick={() => setOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -861,43 +861,43 @@ export default function SupportCenterLauncher() {
                 <button
                   type="button"
                   onClick={() => setStep("ai")}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
                 >
                     <div className="relative h-10 w-10 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
                       <span className="absolute inset-0 rounded-full border border-white/70" />
                     <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-foreground">Merry</div>
-                    <div className="text-xs text-muted-foreground">Plan, save to cart, and move to checkout</div>
+                    <div className="text-sm font-medium text-slate-900">Merry</div>
+                    <div className="text-xs text-slate-500">Plan, save to cart, and move to checkout</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setStep("chat")}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
                 >
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                     <Headset className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-foreground">Chat with Support</div>
-                    <div className="text-xs text-muted-foreground">Get help from our team</div>
+                    <div className="text-sm font-medium text-slate-900">Chat with Support</div>
+                    <div className="text-xs text-slate-500">Get help from our team</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => window.open("https://wa.me/250796214719", "_blank", "noopener,noreferrer")}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-amber-100/80 bg-white/78 px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-white"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50"
                 >
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0">
                     <MessageCircle className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-foreground">WhatsApp</div>
-                    <div className="text-xs text-muted-foreground">Message us on WhatsApp</div>
+                    <div className="text-sm font-medium text-slate-900">WhatsApp</div>
+                    <div className="text-xs text-slate-500">Message us on WhatsApp</div>
                   </div>
                 </button>
               </div>
@@ -916,15 +916,15 @@ export default function SupportCenterLauncher() {
                     <img src="/brand/logo_dark.png" alt="Merry360x" className="relative h-5 w-5 object-contain" loading="eager" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-foreground">Merry</div>
-                    <div className="text-[11px] text-muted-foreground">AI trip advisor and operator</div>
+                    <div className="text-sm font-semibold text-slate-900">Merry</div>
+                    <div className="text-[11px] text-slate-500">AI trip advisor and operator</div>
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-1">
-                  <button type="button" onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground p-1">
+                  <button type="button" onClick={() => setExpanded(!expanded)} className="p-1 text-slate-400 hover:text-slate-700">
                     {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </button>
-                  <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground p-1">
+                  <button type="button" onClick={() => setOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -938,7 +938,7 @@ export default function SupportCenterLauncher() {
                       className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                         m.role === "user"
                           ? "ml-auto bg-slate-900 text-white"
-                          : "border border-amber-100/70 bg-[rgba(255,250,246,0.9)] text-foreground"
+                          : "border border-slate-200 bg-white text-slate-900"
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
@@ -947,7 +947,7 @@ export default function SupportCenterLauncher() {
                           {m.recommendations.map((rec) => (
                             <div
                               key={`${idx}-${rec.id}`}
-                              className="w-full overflow-hidden rounded-2xl border border-amber-100/70 bg-[rgba(255,248,242,0.9)]"
+                              className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
                             >
                               {rec.image_url ? (
                                 <img
@@ -958,13 +958,13 @@ export default function SupportCenterLauncher() {
                                 />
                               ) : null}
                               <div className="px-3 py-3">
-                                <div className="text-xs font-semibold text-foreground line-clamp-1">{rec.title}</div>
-                                <div className="mt-1 text-[11px] text-muted-foreground line-clamp-1">
+                                <div className="text-xs font-semibold text-slate-900 line-clamp-1">{rec.title}</div>
+                                <div className="mt-1 text-[11px] text-slate-500 line-clamp-1">
                                   {rec.location || "Location not specified"}
                                 </div>
                                 <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
-                                  <span className="font-medium text-foreground">{formatRecommendationPrice(rec.price, rec.currency)}</span>
-                                  <span className="text-muted-foreground">
+                                  <span className="font-medium text-slate-900">{formatRecommendationPrice(rec.price, rec.currency)}</span>
+                                  <span className="text-slate-500">
                                     {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
                                       ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
                                       : rec.property_type || "Stay"}
@@ -1008,7 +1008,7 @@ export default function SupportCenterLauncher() {
                               key={`${idx}-${action.type}-${action.referenceId || action.url || action.bookingId || action.orderId || action.label}`}
                               type="button"
                               onClick={() => void runAiAction(action)}
-                              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-amber-100/80 bg-[rgba(255,249,245,0.92)] hover:bg-[rgba(255,243,235,0.96)]"}`}
+                              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${action.variant === "primary" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}
                             >
                               {action.label}
                             </button>
@@ -1018,7 +1018,7 @@ export default function SupportCenterLauncher() {
                     </div>
                   ))}
                   {aiSending && (
-                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-foreground shadow-sm">
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="relative flex h-9 w-9 items-center justify-center">
                           <span className="absolute inset-0 rounded-full border border-slate-200 bg-white" />
@@ -1030,7 +1030,7 @@ export default function SupportCenterLauncher() {
                         </div>
                         <div>
                           <div className="font-medium">Merry is thinking</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
+                          <div className="mt-1 text-xs text-slate-500">
                             Building your next step with Merry's live trip assistant.
                           </div>
                         </div>
@@ -1038,9 +1038,9 @@ export default function SupportCenterLauncher() {
                     </div>
                   )}
                   {shouldShowAiRating ? (
-                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs text-foreground shadow-sm">
+                    <div className="max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs text-slate-900 shadow-sm">
                       <div className="font-medium">Was this response helpful?</div>
-                      <div className="mt-1 text-muted-foreground">Choose thumbs up or down, then add an optional note.</div>
+                      <div className="mt-1 text-slate-500">Choose thumbs up or down, then add an optional note.</div>
                       <div className="mt-2 flex items-center gap-2">
                         {([
                           ["up", "Thumbs up", "👍"],
@@ -1101,7 +1101,7 @@ export default function SupportCenterLauncher() {
               </ScrollArea>
 
               <div className="border-t border-slate-200 bg-white p-3 shrink-0">
-                <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-500">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   Merry can answer, save items, and route you to checkout.
                 </div>
