@@ -505,9 +505,9 @@ const Index = () => {
       <Footer />
 
       <Dialog open={showUpdatesPopup} onOpenChange={(open) => !open && closeUpdatesPopup()}>
-        <DialogContent className="max-w-md overflow-hidden border border-slate-200 bg-white p-0 shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
-          <div className="relative bg-white p-6">
-            <div className="mb-5 flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-0 shadow-[0_30px_90px_rgba(15,23,42,0.18)]">
+          <div className="relative bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
               <div className="flex items-start gap-3">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-500 shadow-sm">
                   <Sparkles className="h-5 w-5" />
@@ -522,7 +522,7 @@ const Index = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="mb-4 grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">Deals before public launch</div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">Stories from local hosts</div>
             </div>
@@ -572,7 +572,7 @@ const Index = () => {
                 closeUpdatesPopup();
                 navigate("/announcements");
               }}
-              className="mt-4 flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100"
+              className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100"
             >
               <span className="flex items-start gap-3">
                 <Bell className="mt-0.5 h-4 w-4 text-rose-500" />
