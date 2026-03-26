@@ -6719,13 +6719,13 @@ export default function HostDashboard() {
 
                 <div>
                     <Label className="text-base font-medium">Property Type</Label>
-                    <div className="grid grid-cols-3 gap-3 mt-2">
+                    <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {propertyTypes.map((type) => (
                         <button
                           key={type}
                           type="button"
                           onClick={() => setPropertyForm((f) => ({ ...f, property_type: type }))}
-                          className={`p-4 rounded-xl border-2 text-center transition-all ${
+                          className={`flex min-h-[92px] items-center justify-center rounded-xl border-2 px-3 py-4 text-center text-sm font-medium leading-tight whitespace-normal break-words transition-all sm:min-h-[84px] sm:px-4 sm:text-base ${
                             propertyForm.property_type === type
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border hover:border-primary/50"
