@@ -32,6 +32,7 @@ import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContaine
 import {
   PAWAPAY_PROCESSING_FEE_PERCENT,
   calculatePawaPayProcessing,
+  calculateBookingFinancialsFromGuestPaidTotal,
   calculateBookingFinancialsFromDiscountedListing,
   getGuestFeePercent,
   getProviderFeePercent,
@@ -3547,22 +3548,18 @@ For support, contact: support@merry360x.com
         const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
         if (!(paidAmount > 0)) return totals;
 
-        const {
-          listingSubtotal: listingSubtotalAfterDiscount,
-          subtotalCurrency,
-        } = resolveListingSubtotalForBooking(booking as any, serviceType);
-        const financials = calculateBookingFinancialsFromDiscountedListing(listingSubtotalAfterDiscount, serviceType);
-        const pawapay = calculatePawaPayProcessing(paidAmount);
+        const financials = calculateBookingFinancialsFromGuestPaidTotal(paidAmount, serviceType);
+        const pawapay = calculatePawaPayProcessing(financials.guestTotal);
 
         const discountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
 
-        totals.totalAmountBooked += toRwfAmount(paidAmount, paidCurrency);
+        totals.totalAmountBooked += toRwfAmount(financials.guestTotal, paidCurrency);
         totals.totalDiscountApplied += toRwfAmount(discountRaw, paidCurrency);
-        totals.totalAmountAfterPlatformFees += toRwfAmount(paidAmount + discountRaw, paidCurrency);
-        totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, subtotalCurrency);
-        totals.platformGuestFees += toRwfAmount(financials.guestFee, subtotalCurrency);
-        totals.hostFees += toRwfAmount(financials.hostFee, subtotalCurrency);
-        totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, subtotalCurrency);
+        totals.totalAmountAfterPlatformFees += toRwfAmount(financials.guestTotal + discountRaw, paidCurrency);
+        totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, paidCurrency);
+        totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
+        totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
+        totals.earnedFromCharges += toRwfAmount(financials.platformTotalEarnings, paidCurrency);
         totals.totalPawapayFees += toRwfAmount(pawapay.processingFee, paidCurrency);
         totals.totalAmountAfterPawapay += toRwfAmount(pawapay.netAmount, paidCurrency);
         return totals;
@@ -3644,12 +3641,8 @@ For support, contact: support@merry360x.com
       const paidCurrency = String(booking.checkout_requests?.currency || booking.currency || "RWF").toUpperCase();
       if (!(paidAmount > 0)) return;
 
-      const {
-        listingSubtotal: discountedBase,
-        subtotalCurrency,
-      } = resolveListingSubtotalForBooking(booking as any, serviceType);
-      const financials = calculateBookingFinancialsFromDiscountedListing(discountedBase, serviceType);
-      const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, subtotalCurrency);
+      const financials = calculateBookingFinancialsFromGuestPaidTotal(paidAmount, serviceType);
+      const hostEarningsRwf = toRwfAmount(financials.hostNetEarnings, paidCurrency);
 
       const hostId = resolvedHostId;
       const current = totals.get(hostId) || {
