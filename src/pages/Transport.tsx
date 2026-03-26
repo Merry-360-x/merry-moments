@@ -13,6 +13,7 @@ import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 import { useTripCart } from "@/hooks/useTripCart";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
@@ -68,6 +69,7 @@ const Transport = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
@@ -213,6 +215,20 @@ const Transport = () => {
     },
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
+  });
+
+  const { data: tripCartCount = 0 } = useQuery({
+    queryKey: ["trip_cart_items", "count", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("trip_cart_items")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id);
+
+      if (error) return 0;
+      return count ?? 0;
+    },
   });
 
   // Fetch airport transfer routes with their vehicles and pricing
@@ -404,8 +420,15 @@ const Transport = () => {
   }, [vehicles, scoreText, strictLocationMode]);
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
+    const hasExistingCartItems = user ? tripCartCount > 0 : guestCart.length > 0;
     const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
     if (!ok) return;
+
+    if (!hasExistingCartItems) {
+      navigate("/checkout");
+      return;
+    }
+
     toast({ title: t("common.addedToCart") });
   };
 
