@@ -1039,6 +1039,48 @@ function capRecommendationsByType(items, total = 6, perType = 2) {
   return picked;
 }
 
+function deriveRecommendationPreferences(userText = "") {
+  const normalized = normalizeText(userText);
+  return {
+    wantsStay: /stay|hotel|property|room|accommodation|villa|apartment|guesthouse|lodge/.test(normalized),
+    wantsTours: /tour|activity|activities|experience|things to do|safari|gorilla|game drive|hiking/.test(normalized),
+    wantsPackages: /package|packages|event|events|honeymoon package|tour package/.test(normalized),
+    wantsTransport: /transport|car|driver|vehicle|pickup|dropoff|transfer|ride/.test(normalized),
+    wantsAirportTransport: /airport|airport transfer|airport pickup|pickup from airport|drop off airport|dropoff airport/.test(normalized),
+    prefersCheap: /cheap|cheapest|budget|lowest|affordable|under\s+\$?\d/.test(normalized),
+    prefersReviewed: /reviewed|best reviewed|top rated|highest rated|good reviewed|well reviewed/.test(normalized),
+  };
+}
+
+function sortTransportFallback(items, preferences) {
+  return [...items].sort((a, b) => {
+    const priceA = Number(a.price || 0);
+    const priceB = Number(b.price || 0);
+    const reviewA = Number(a.review_count || 0);
+    const reviewB = Number(b.review_count || 0);
+    const ratingA = Number(a.rating || 0);
+    const ratingB = Number(b.rating || 0);
+
+    if (preferences.prefersReviewed) {
+      const reviewScoreDiff = (ratingB + reviewB * 0.03) - (ratingA + reviewA * 0.03);
+      if (reviewScoreDiff !== 0) return reviewScoreDiff;
+    }
+
+    if (preferences.prefersCheap || preferences.wantsAirportTransport) {
+      if (priceA > 0 && priceB > 0 && priceA !== priceB) return priceA - priceB;
+      if (priceA > 0 && priceB <= 0) return -1;
+      if (priceB > 0 && priceA <= 0) return 1;
+    }
+
+    const ratingDiff = ratingB - ratingA;
+    if (ratingDiff !== 0) return ratingDiff;
+    if (reviewB !== reviewA) return reviewB - reviewA;
+
+    if (priceA > 0 && priceB > 0 && priceA !== priceB) return priceA - priceB;
+    return 0;
+  });
+}
+
 function formatRecommendationType(itemType) {
   switch (String(itemType || "property")) {
     case "tour":
@@ -1127,6 +1169,7 @@ async function fetchRecommendations(userText) {
   if (terms.length === 0) return [];
   const specificTerms = terms.filter((term) => !GENERIC_SEARCH_TERMS.has(term));
   const queryTerms = specificTerms.length > 0 ? specificTerms : terms;
+  const preferences = deriveRecommendationPreferences(userText);
 
   const [propertiesResult, toursResult, packagesResult, vehiclesResult] = await Promise.all([
     supabaseAdmin
@@ -1169,7 +1212,10 @@ async function fetchRecommendations(userText) {
       property_type: item.property_type ? String(item.property_type) : formatRecommendationType("property"),
       image_url: Array.isArray(item.images) && item.images[0] ? String(item.images[0]) : undefined,
       view_url: `/properties/${encodeURIComponent(String(item.id))}`,
-      _score: scoreListing([item.title, item.location, item.property_type], queryTerms) + Number(item.rating || 0) * 0.2 + Math.min(Number(item.review_count || 0), 40) * 0.02,
+      _score: scoreListing([item.title, item.location, item.property_type], queryTerms)
+        + Number(item.rating || 0) * 0.2
+        + Math.min(Number(item.review_count || 0), 40) * 0.02
+        + (preferences.wantsStay ? 0.8 : 0),
     })),
     ...tours.map((item) => ({
       id: String(item.id),
@@ -1183,7 +1229,10 @@ async function fetchRecommendations(userText) {
       property_type: formatRecommendationType("tour"),
       image_url: item.main_image ? String(item.main_image) : Array.isArray(item.images) && item.images[0] ? String(item.images[0]) : undefined,
       view_url: `/tours/${encodeURIComponent(String(item.id))}`,
-      _score: scoreListing([item.title, item.location, item.category], queryTerms) + Number(item.rating || 0) * 0.2 + Math.min(Number(item.review_count || 0), 40) * 0.02,
+      _score: scoreListing([item.title, item.location, item.category], queryTerms)
+        + Number(item.rating || 0) * 0.2
+        + Math.min(Number(item.review_count || 0), 40) * 0.02
+        + (preferences.wantsTours ? 0.8 : 0),
     })),
     ...packages.map((item) => ({
       id: String(item.id),
@@ -1197,7 +1246,7 @@ async function fetchRecommendations(userText) {
       property_type: formatRecommendationType("tour_package"),
       image_url: item.cover_image ? String(item.cover_image) : Array.isArray(item.gallery_images) && item.gallery_images[0] ? String(item.gallery_images[0]) : undefined,
       view_url: `/tours/${encodeURIComponent(String(item.id))}`,
-      _score: scoreListing([item.title, item.city, item.country], queryTerms),
+      _score: scoreListing([item.title, item.city, item.country], queryTerms) + (preferences.wantsPackages ? 0.8 : 0),
     })),
     ...vehicles.map((item) => ({
       id: String(item.id),
@@ -1206,18 +1255,47 @@ async function fetchRecommendations(userText) {
       location: item.location ? String(item.location) : undefined,
       currency: item.currency ? String(item.currency) : "RWF",
       price: Number(item.price_per_day || 0),
-      rating: 0,
-      review_count: 0,
+      rating: Number(item.rating || 0),
+      review_count: Number(item.review_count || 0),
       property_type: formatRecommendationType("transport_vehicle"),
       image_url: item.image_url ? String(item.image_url) : Array.isArray(item.media) && item.media[0] ? String(item.media[0]) : undefined,
       view_url: "/transport",
-      _score: scoreListing([item.title, item.location, item.provider_name, item.vehicle_type], queryTerms),
+      _score: scoreListing([item.title, item.location, item.provider_name, item.vehicle_type], queryTerms)
+        + (preferences.wantsTransport ? 1.2 : 0)
+        + (preferences.wantsAirportTransport ? 1.4 : 0)
+        + (preferences.prefersCheap && Number(item.price_per_day || 0) > 0 ? Math.max(0, 2 - Number(item.price_per_day || 0) / 100) : 0),
     })),
   ]
     .filter((item) => item._score > 0)
     .sort((a, b) => b._score - a._score);
 
-  return capRecommendationsByType(scored, 6, 2).map(({ _score, ...item }) => item);
+  const fallbackTransport = (preferences.wantsTransport || preferences.wantsAirportTransport)
+    ? sortTransportFallback(
+        vehicles.map((item) => ({
+          id: String(item.id),
+          item_type: "transport_vehicle",
+          title: String(item.title || "Transport option"),
+          location: item.location ? String(item.location) : undefined,
+          currency: item.currency ? String(item.currency) : "RWF",
+          price: Number(item.price_per_day || 0),
+          rating: Number(item.rating || 0),
+          review_count: Number(item.review_count || 0),
+          property_type: formatRecommendationType("transport_vehicle"),
+          image_url: item.image_url ? String(item.image_url) : Array.isArray(item.media) && item.media[0] ? String(item.media[0]) : undefined,
+          view_url: "/transport",
+        })),
+        preferences,
+      ).slice(0, 2)
+    : [];
+
+  const picked = capRecommendationsByType(scored, 8, 2).map(({ _score, ...item }) => item);
+  const hasTransport = picked.some((item) => item.item_type === "transport_vehicle");
+
+  if (!hasTransport && fallbackTransport.length > 0) {
+    return capRecommendationsByType([...picked, ...fallbackTransport], 8, 2);
+  }
+
+  return picked;
 }
 
 async function generateReply(messages, recommendations = [], extraContext = "") {

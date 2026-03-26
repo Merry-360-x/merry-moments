@@ -211,6 +211,63 @@ export default function SupportCenterLauncher() {
     return "Stay";
   };
 
+  const getRecommendationSectionTitle = (itemType: string) => {
+    switch (itemType) {
+      case "tour":
+        return "Available tours";
+      case "tour_package":
+        return "Available tour packages";
+      case "transport_vehicle":
+        return "Available transport";
+      default:
+        return "Available stays";
+    }
+  };
+
+  const getRecommendationSectionHint = (itemType: string) => {
+    switch (itemType) {
+      case "tour":
+        return "Tours that fit this trip";
+      case "tour_package":
+        return "Packages and event-style experiences for this destination";
+      case "transport_vehicle":
+        return "Transport to add to the same trip";
+      default:
+        return "Places available around the destination you picked";
+    }
+  };
+
+  const groupRecommendations = (recommendations: AiRecommendation[] = []) => {
+    const orderedTypes = ["property", "tour", "tour_package", "transport_vehicle"];
+    const groups = new Map<string, AiRecommendation[]>();
+
+    recommendations.forEach((recommendation) => {
+      const itemType = getRecommendationItemType(recommendation);
+      const current = groups.get(itemType) || [];
+      current.push(recommendation);
+      groups.set(itemType, current);
+    });
+
+    return orderedTypes
+      .map((itemType) => ({
+        itemType,
+        title: getRecommendationSectionTitle(itemType),
+        hint: getRecommendationSectionHint(itemType),
+        items: groups.get(itemType) || [],
+      }))
+      .filter((section) => section.items.length > 0);
+  };
+
+  const getRecommendationBadge = (recommendation: AiRecommendation, itemType: string, index: number, featured = false) => {
+    if (featured && index === 0) return "Recommended now";
+    if (itemType === "transport_vehicle" && index === 0) {
+      return Number(recommendation.price || 0) > 0 ? "Transport pick" : "Add transport";
+    }
+    if (Number(recommendation.rating || 0) > 0 && index === 0) return "Top rated";
+    if (Number(recommendation.price || 0) > 0 && index === 0) return "Best price";
+    return getRecommendationTypeLabel(recommendation);
+  };
+
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("home");
   const [expanded, setExpanded] = useState(true);
@@ -881,7 +938,7 @@ export default function SupportCenterLauncher() {
             image_url: x.image_url ? String(x.image_url) : undefined,
             view_url: x.view_url ? String(x.view_url) : undefined,
           }))
-          .slice(0, 6)
+          .slice(0, 8)
       : [];
     const actions: AiAction[] = Array.isArray(out?.actions)
       ? out.actions
@@ -1309,65 +1366,134 @@ export default function SupportCenterLauncher() {
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                      {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (
-                        <div className="mt-3 space-y-2">
-                          {m.recommendations.map((rec) => (
-                            <div
-                              key={`${idx}-${rec.id}`}
-                              className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
-                            >
-                              {rec.image_url ? (
-                                <img
-                                  src={rec.image_url}
-                                  alt={rec.title}
-                                  className="h-24 w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : null}
-                              <div className="px-3 py-3">
-                                <div className="text-xs font-semibold text-slate-900 line-clamp-1">{rec.title}</div>
-                                <div className="mt-1 text-[11px] text-slate-500 line-clamp-1">
-                                  {rec.location || "Location not specified"}
-                                </div>
-                                <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
-                                  <span className="font-medium text-slate-900">{formatRecommendationPrice(rec.price, rec.currency)}</span>
-                                  <span className="text-slate-500">
-                                    {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
-                                      ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
-                                      : getRecommendationTypeLabel(rec)}
-                                  </span>
-                                </div>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigate(getRecommendationViewUrl(rec));
-                                      setOpen(false);
-                                    }}
-                                    className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
-                                  >
-                                    View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void addRecommendationToTripCart(rec)}
-                                    className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
-                                  >
-                                    Add to Trip Cart
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void addRecommendationToTripCart(rec, true)}
-                                    className="rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-slate-800"
-                                  >
-                                    Checkout
-                                  </button>
+                      {m.role === "assistant" && Array.isArray(m.recommendations) && m.recommendations.length > 0 ? (() => {
+                        const groupedRecommendations = groupRecommendations(m.recommendations);
+                        const featuredRecommendation = m.recommendations[0];
+
+                        return (
+                          <div className="mt-3 space-y-3">
+                            {featuredRecommendation ? (
+                              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 text-white">
+                                {featuredRecommendation.image_url ? (
+                                  <img
+                                    src={featuredRecommendation.image_url}
+                                    alt={featuredRecommendation.title}
+                                    className="h-28 w-full object-cover opacity-90"
+                                    loading="lazy"
+                                  />
+                                ) : null}
+                                <div className="px-3 py-3">
+                                  <div className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/90">
+                                    {getRecommendationBadge(featuredRecommendation, getRecommendationItemType(featuredRecommendation), 0, true)}
+                                  </div>
+                                  <div className="mt-2 text-sm font-semibold text-white">{featuredRecommendation.title}</div>
+                                  <div className="mt-1 text-[11px] text-white/70">{featuredRecommendation.location || "Selected destination"}</div>
+                                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-white/80">
+                                    <span className="font-semibold text-white">{formatRecommendationPrice(featuredRecommendation.price, featuredRecommendation.currency)}</span>
+                                    <span>
+                                      {Number.isFinite(featuredRecommendation.rating as number) && (featuredRecommendation.rating || 0) > 0
+                                        ? `★ ${Number(featuredRecommendation.rating).toFixed(1)} (${featuredRecommendation.review_count || 0})`
+                                        : getRecommendationTypeLabel(featuredRecommendation)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigate(getRecommendationViewUrl(featuredRecommendation));
+                                        setOpen(false);
+                                      }}
+                                      className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white/10"
+                                    >
+                                      View details
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void addRecommendationToTripCart(featuredRecommendation)}
+                                      className="rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-slate-900 hover:bg-white/90"
+                                    >
+                                      Add to Trip Cart
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void addRecommendationToTripCart(featuredRecommendation, true)}
+                                      className="rounded-full bg-emerald-400 px-3 py-1.5 text-[11px] font-medium text-slate-950 hover:bg-emerald-300"
+                                    >
+                                      Book now
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
+                            ) : null}
+
+                            {groupedRecommendations.map((section) => (
+                              <div key={`${idx}-${section.itemType}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-xs font-semibold text-slate-900">{section.title}</div>
+                                    <div className="mt-1 text-[11px] text-slate-500">{section.hint}</div>
+                                  </div>
+                                  <div className="rounded-full bg-white px-2 py-1 text-[10px] font-medium text-slate-500">
+                                    {section.items.length} option{section.items.length > 1 ? "s" : ""}
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                                  {section.items.map((rec, sectionIndex) => (
+                                    <div
+                                      key={`${idx}-${section.itemType}-${rec.id}`}
+                                      className="w-[168px] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                                    >
+                                      {rec.image_url ? (
+                                        <img
+                                          src={rec.image_url}
+                                          alt={rec.title}
+                                          className="h-24 w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      ) : null}
+                                      <div className="px-3 py-3">
+                                        <div className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-700">
+                                          {getRecommendationBadge(rec, section.itemType, sectionIndex)}
+                                        </div>
+                                        <div className="mt-2 text-xs font-semibold text-slate-900 line-clamp-2">{rec.title}</div>
+                                        <div className="mt-1 text-[11px] text-slate-500 line-clamp-2">
+                                          {rec.location || "Location not specified"}
+                                        </div>
+                                        <div className="mt-2 text-[11px] font-semibold text-slate-900">{formatRecommendationPrice(rec.price, rec.currency)}</div>
+                                        <div className="mt-1 text-[10px] text-slate-500">
+                                          {Number.isFinite(rec.rating as number) && (rec.rating || 0) > 0
+                                            ? `★ ${Number(rec.rating).toFixed(1)} (${rec.review_count || 0})`
+                                            : getRecommendationTypeLabel(rec)}
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              navigate(getRecommendationViewUrl(rec));
+                                              setOpen(false);
+                                            }}
+                                            className="rounded-full border border-border px-2.5 py-1.5 text-[10px] font-medium hover:bg-muted"
+                                          >
+                                            View
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => void addRecommendationToTripCart(rec)}
+                                            className="rounded-full bg-primary px-2.5 py-1.5 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                                          >
+                                            Add
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })() : null}
                       {m.role === "assistant" && Array.isArray(m.actions) && m.actions.length > 0 ? (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {m.actions.map((action) => (
