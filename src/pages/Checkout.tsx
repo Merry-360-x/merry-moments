@@ -570,6 +570,8 @@ export default function CheckoutNew() {
       const mode = searchParams.get("mode");
       const propertyId = searchParams.get("propertyId");
       const tourId = searchParams.get("tourId");
+      const transportItemType = searchParams.get("itemType");
+      const transportReferenceId = searchParams.get("referenceId");
       const requireTripCart = searchParams.get("requireTripCart");
       
       // Direct property booking
@@ -601,6 +603,11 @@ export default function CheckoutNew() {
           durationValue > 0 && durationUnit ? { durationValue, durationUnit, durationPrice: safeDurationPrice } : undefined
         );
         return directTour;
+      }
+
+      // Direct transport booking
+      if (mode === "transport" && transportItemType && transportReferenceId) {
+        return fetchDirectTransport(transportItemType, transportReferenceId);
       }
       
       // Otherwise fetch from cart
@@ -761,6 +768,17 @@ export default function CheckoutNew() {
         breakfast_total: breakfastIncluded ? breakfastPricePerNight * nights : 0,
       }
     }];
+  }
+
+  async function fetchDirectTransport(itemType: string, referenceId: string): Promise<CartItem[]> {
+    return enrichCartItems([
+      {
+        id: `direct-${itemType}-${referenceId}`,
+        item_type: itemType,
+        reference_id: referenceId,
+        quantity: 1,
+      },
+    ]);
   }
 
   async function fetchUserCart(): Promise<CartItem[]> {

@@ -421,13 +421,19 @@ const Transport = () => {
 
   const addToCart = async (payload: { item_type: string; reference_id: string }) => {
     const hasExistingCartItems = user ? tripCartCount > 0 : guestCart.length > 0;
-    const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
-    if (!ok) return;
 
     if (!hasExistingCartItems) {
-      navigate("/checkout");
+      const params = new URLSearchParams({
+        mode: "transport",
+        itemType: payload.item_type,
+        referenceId: payload.reference_id,
+      });
+      navigate(`/checkout?${params.toString()}`);
       return;
     }
+
+    const ok = await addCartItem(payload.item_type as any, payload.reference_id, 1);
+    if (!ok) return;
 
     toast({ title: t("common.addedToCart") });
   };
