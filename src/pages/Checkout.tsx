@@ -1566,21 +1566,26 @@ export default function CheckoutNew() {
       }
 
       if (paymentMethod === 'card') {
-        const redirectUrl = `${window.location.origin}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
+        // Flutterwave card payments require USD - convert from RWF
+        const rawUsd = convertAmount(amountInRwf, 'RWF', 'USD', usdRates);
+        if (!rawUsd || rawUsd <= 0) {
+          throw new Error('Unable to convert booking total to USD. Please try again.');
+        }
+        const cardAmountUsd = roundToCurrency(rawUsd, 'USD');
 
         const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create-payment",
+            inline: true,
             checkoutId,
-            amount: roundToCurrency(amountInRwf, 'RWF'),
-            currency: 'RWF',
+            amount: cardAmountUsd,
+            currency: 'USD',
             payerName: formData.fullName,
             payerEmail: formData.email,
             phoneNumber: fullPhone || normalizedPhone,
             description: `Merry360x Booking - ${cartItems.length} item(s)`,
-            redirectUrl,
             metadata: {
               item_count: cartItems.length,
               payment_type: paymentType,
@@ -1589,11 +1594,59 @@ export default function CheckoutNew() {
         });
 
         const cardInitData = await cardInitResponse.json().catch(() => ({}));
-        if (!cardInitResponse.ok || !cardInitData?.redirectUrl) {
+        if (!cardInitResponse.ok || !cardInitData?.txRef) {
           throw new Error(cardInitData?.error || cardInitData?.message || 'Unable to initialize card payment');
         }
 
-        await launchSecureCardCheckout(cardInitData.redirectUrl, checkoutId);
+        await clearCart();
+        localStorage.removeItem("applied_discount");
+        clearCheckoutDraft();
+
+        if (!(window as any).FlutterwaveCheckout) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.flutterwave.com/v3.js';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load payment SDK'));
+            document.head.appendChild(script);
+          });
+        }
+
+        const capturedCheckoutId = checkoutId;
+        const capturedTxRef = cardInitData.txRef;
+
+        (window as any).FlutterwaveCheckout({
+          public_key: import.meta.env.VITE_FLW_PUBLIC_KEY,
+          tx_ref: capturedTxRef,
+          amount: cardAmountUsd,
+          currency: 'USD',
+          payment_options: 'card',
+          customer: {
+            email: formData.email,
+            name: formData.fullName,
+            phone_number: fullPhone || normalizedPhone || undefined,
+          },
+          customizations: {
+            title: 'Merry360x',
+            description: `Booking - ${cartItems.length} item(s)`,
+            logo: `${window.location.origin}/brand/logo.png`,
+          },
+          callback: (data: any) => {
+            if (data.status === 'successful' || data.status === 'completed') {
+              navigate(
+                `/payment-pending?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&tx_ref=${encodeURIComponent(capturedTxRef)}&transaction_id=${encodeURIComponent(String(data.transaction_id || ''))}`
+              );
+            } else {
+              navigate(
+                `/payment-failed?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&reason=${encodeURIComponent(data.status || 'Payment not completed')}`
+              );
+            }
+          },
+          onclose: () => {
+            setIsProcessing(false);
+          },
+        });
+
         setIsProcessing(false);
         return;
       }

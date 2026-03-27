@@ -141,6 +141,7 @@ async function handleCreatePayment(req, res) {
     description,
     redirectUrl,
     metadata,
+    inline, // true = web inline SDK (skip Flutterwave pre-registration)
   } = req.body || {};
 
   if (!checkoutId) {
@@ -170,19 +171,62 @@ async function handleCreatePayment(req, res) {
   }
 
   const txRef = makeTxRef(checkoutId);
+  const isInline = inline === true;
+
+  if (isInline) {
+    // Web inline SDK flow: skip Flutterwave API — the SDK handles it directly.
+    // Just register the txRef and expected charge details so verify-payment can check them.
+    const chargeCurrency = (safeStr(currency, 10) || "USD").toUpperCase();
+    const nextMetadata = {
+      ...(checkout.metadata || {}),
+      payment_provider: "FLUTTERWAVE",
+      flutterwave: {
+        tx_ref: txRef,
+        inline: true,
+        charge_amount: total,
+        charge_currency: chargeCurrency,
+        initialized_at: new Date().toISOString(),
+      },
+      ...(metadata && typeof metadata === "object" ? metadata : {}),
+    };
+    await supabase.from("checkout_requests").update({ metadata: nextMetadata }).eq("id", checkoutId);
+    return json(res, 200, { success: true, provider: "flutterwave", checkoutId, txRef });
+  }
+
+  // Hosted payment flow (Flutter app): call Flutterwave to get a hosted payment link.
+  // Flutterwave card payments require a supported currency — RWF is not supported for cards,
+  // so convert RWF to USD using Flutterwave's own rates endpoint.
+  let chargeAmount = total;
+  let chargeCurrency = (safeStr(currency, 10) || "USD").toUpperCase();
+
+  if (chargeCurrency === "RWF") {
+    try {
+      const rateRes = await fetch(
+        `${FLW_BASE_URL}/rates?from=RWF&to=USD&amount=${total}`,
+        { headers: { Authorization: `Bearer ${FLW_SECRET_KEY}`, "Content-Type": "application/json" } }
+      );
+      const rateData = await rateRes.json().catch(() => ({}));
+      if (rateData?.status === "success" && rateData?.data?.converted_amount > 0) {
+        chargeAmount = Math.round(rateData.data.converted_amount * 100) / 100;
+      } else {
+        chargeAmount = Math.round((total / 1300) * 100) / 100; // fallback ~1300 RWF/USD
+      }
+    } catch {
+      chargeAmount = Math.round((total / 1300) * 100) / 100;
+    }
+    chargeCurrency = "USD";
+  }
 
   const callbackUrl =
     safeStr(redirectUrl, 500) ||
     `${APP_BASE_URL}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
 
-  const [firstName, ...rest] = safeStr(payerName, 80).split(/\s+/).filter(Boolean);
-  const lastName = rest.join(" ") || "Customer";
-
   const payload = {
     tx_ref: txRef,
-    amount: total,
-    currency: safeStr(currency, 10) || "RWF",
+    amount: chargeAmount,
+    currency: chargeCurrency,
     redirect_url: callbackUrl,
+    payment_options: "card",
     customer: {
       email,
       name: safeStr(payerName, 80) || "Customer",
@@ -226,6 +270,8 @@ async function handleCreatePayment(req, res) {
     flutterwave: {
       tx_ref: txRef,
       link: hostedLink,
+      charge_amount: chargeAmount,
+      charge_currency: chargeCurrency,
       initialized_at: new Date().toISOString(),
     },
     ...(metadata && typeof metadata === "object" ? metadata : {}),
@@ -296,15 +342,22 @@ async function handleVerifyPayment(req, res) {
   const mappedStatus = mapFlutterwaveStatus(txData.status);
 
   if (checkoutData) {
-    const expectedAmount = toNumber(checkoutData.total_amount);
     const txAmount = toNumber(txData.amount);
-    const expectedCurrency = String(checkoutData.currency || "RWF").toUpperCase();
     const txCurrency = String(txData.currency || "").toUpperCase();
+
+    // Prefer the charge amount/currency stored at initialization (may differ from display
+    // currency, e.g. RWF display → USD charge for card payments).
+    const storedChargeAmount = toNumber(checkoutData?.metadata?.flutterwave?.charge_amount);
+    const storedChargeCurrency = checkoutData?.metadata?.flutterwave?.charge_currency
+      ? String(checkoutData.metadata.flutterwave.charge_currency).toUpperCase()
+      : null;
+    const expectedAmount = storedChargeAmount ?? toNumber(checkoutData.total_amount);
+    const expectedCurrency = storedChargeCurrency ?? String(checkoutData.currency || "RWF").toUpperCase();
 
     const amountMatches =
       expectedAmount !== null &&
       txAmount !== null &&
-      Math.round(expectedAmount) === Math.round(txAmount);
+      Math.abs(expectedAmount - txAmount) < 1; // allow ±1 unit for rounding
     const currencyMatches = expectedCurrency === txCurrency;
 
     const paymentStatus =
