@@ -45,7 +45,8 @@ import {
   X,
   Users,
   ExternalLink,
-  LockKeyhole
+  LockKeyhole,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTourBillingQuantity, getTourPerPersonUnitPrice, getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
@@ -201,6 +202,27 @@ const BILLING_COUNTRY_OPTIONS = [
   { code: "CG", label: "Congo" },
   { code: "ZA", label: "South Africa" },
 ];
+const FLW_CARD_COUNTRIES = [
+  { code: 'RW', name: 'Rwanda',           flag: '🇷🇼' },
+  { code: 'NG', name: 'Nigeria',          flag: '🇳🇬' },
+  { code: 'KE', name: 'Kenya',            flag: '🇰🇪' },
+  { code: 'GH', name: 'Ghana',            flag: '🇬🇭' },
+  { code: 'UG', name: 'Uganda',           flag: '🇺🇬' },
+  { code: 'TZ', name: 'Tanzania',         flag: '🇹🇿' },
+  { code: 'ZA', name: 'South Africa',     flag: '🇿🇦' },
+  { code: 'ZM', name: 'Zambia',           flag: '🇿🇲' },
+  { code: 'EG', name: 'Egypt',            flag: '🇪🇬' },
+  { code: 'CM', name: 'Cameroon',         flag: '🇨🇲' },
+  { code: 'SN', name: 'Senegal',          flag: '🇸🇳' },
+  { code: 'CI', name: "Côte d'Ivoire",  flag: '🇨🇮' },
+  { code: 'MW', name: 'Malawi',           flag: '🇲🇼' },
+  { code: 'MZ', name: 'Mozambique',       flag: '🇲🇿' },
+  { code: 'ET', name: 'Ethiopia',         flag: '🇪🇹' },
+  { code: 'GB', name: 'United Kingdom',   flag: '🇬🇧' },
+  { code: 'US', name: 'United States',    flag: '🇺🇸' },
+  { code: 'CA', name: 'Canada',           flag: '🇨🇦' },
+  { code: 'OTHER', name: 'Other Country', flag: '🌍' },
+];
 
 export default function CheckoutNew() {
   const { t } = useTranslation();
@@ -269,6 +291,7 @@ export default function CheckoutNew() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
   const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults?.method ?? 'mtn_rwa');
+  const [cardCountry, setCardCountry] = useState<string>(detectedCountry ?? 'RW');
   const mode = searchParams.get("mode");
   const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
   const checkInParam = searchParams.get("checkIn") || "";
@@ -316,6 +339,7 @@ export default function CheckoutNew() {
       if (prev.billingCountry && prev.billingCountry.trim().length > 0) return prev;
       return { ...prev, billingCountry: detected };
     });
+    setCardCountry(detected);
   }, [detectedCountry]);
   
   // Legal acknowledgment
@@ -1578,7 +1602,6 @@ export default function CheckoutNew() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create-payment",
-            inline: true,
             checkoutId,
             amount: cardAmountUsd,
             currency: 'USD',
@@ -1589,12 +1612,13 @@ export default function CheckoutNew() {
             metadata: {
               item_count: cartItems.length,
               payment_type: paymentType,
+              card_country: cardCountry,
             },
           }),
         });
 
         const cardInitData = await cardInitResponse.json().catch(() => ({}));
-        if (!cardInitResponse.ok || !cardInitData?.txRef) {
+        if (!cardInitResponse.ok || !cardInitData?.redirectUrl) {
           throw new Error(cardInitData?.error || cardInitData?.message || 'Unable to initialize card payment');
         }
 
@@ -1602,52 +1626,8 @@ export default function CheckoutNew() {
         localStorage.removeItem("applied_discount");
         clearCheckoutDraft();
 
-        if (!(window as any).FlutterwaveCheckout) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://checkout.flutterwave.com/v3.js';
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load payment SDK'));
-            document.head.appendChild(script);
-          });
-        }
-
-        const capturedCheckoutId = checkoutId;
-        const capturedTxRef = cardInitData.txRef;
-
-        (window as any).FlutterwaveCheckout({
-          public_key: import.meta.env.VITE_FLW_PUBLIC_KEY,
-          tx_ref: capturedTxRef,
-          amount: cardAmountUsd,
-          currency: 'USD',
-          payment_options: 'card',
-          customer: {
-            email: formData.email,
-            name: formData.fullName,
-            phone_number: fullPhone || normalizedPhone || undefined,
-          },
-          customizations: {
-            title: 'Merry360x',
-            description: `Booking - ${cartItems.length} item(s)`,
-            logo: `${window.location.origin}/brand/logo.png`,
-          },
-          callback: (data: any) => {
-            if (data.status === 'successful' || data.status === 'completed') {
-              navigate(
-                `/payment-pending?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&tx_ref=${encodeURIComponent(capturedTxRef)}&transaction_id=${encodeURIComponent(String(data.transaction_id || ''))}`
-              );
-            } else {
-              navigate(
-                `/payment-failed?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&reason=${encodeURIComponent(data.status || 'Payment not completed')}`
-              );
-            }
-          },
-          onclose: () => {
-            setIsProcessing(false);
-          },
-        });
-
-        setIsProcessing(false);
+        // Navigate to Flutterwave hosted checkout (avoids inline SDK loading issues)
+        window.location.href = cardInitData.redirectUrl;
         return;
       }
 
@@ -2155,84 +2135,69 @@ export default function CheckoutNew() {
                     )}
                   </div>}
 
-                  {/* Card checkout redirect info */}
+                  {/* Card checkout — country selector + USD amount */}
                   {paymentMethod === 'card' && (
                     <div className="rounded-xl border border-border bg-card p-4 md:p-5 space-y-4">
-                      <div className="flex items-start gap-3">
-                        <CreditCard className="w-5 h-5 text-foreground mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">Secure Card Checkout</p>
-                          <p className="text-sm text-muted-foreground">No iframe. Card details are entered on Flutterwave only.</p>
+                      {/* Header row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-foreground" />
+                          <p className="text-sm font-semibold text-foreground">Pay with Card</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="border border-border rounded px-1.5 py-0.5 text-xs font-bold text-muted-foreground tracking-wide">VISA</span>
+                          <span className="border border-border rounded px-1.5 py-0.5 text-xs font-bold text-muted-foreground tracking-wide">MC</span>
                         </div>
                       </div>
 
-                      <div className="grid gap-2 sm:grid-cols-3 text-sm">
-                        <div className="rounded-lg border border-border bg-background p-3">1. Confirm Booking</div>
-                        <div className="rounded-lg border border-border bg-background p-3">2. Secure Window</div>
-                        <div className="rounded-lg border border-border bg-background p-3">3. Pay on Flutterwave</div>
+                      {/* USD amount badge */}
+                      {(() => {
+                        const inRwf = displayCurrency === 'RWF'
+                          ? payableAmount
+                          : (convertAmount(payableAmount, displayCurrency, 'RWF', usdRates) ?? 0);
+                        const rawUsd = inRwf ? convertAmount(inRwf, 'RWF', 'USD', usdRates) : null;
+                        const usdAmt = rawUsd ? roundToCurrency(rawUsd, 'USD') : null;
+                        return usdAmt && usdAmt > 0 ? (
+                          <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-2">
+                            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                              You’ll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa & Mastercard accepted worldwide
+                            </p>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {/* Card issuing country selector */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                          Card issuing country
+                          {detectedCountry && (
+                            <span className="text-blue-500 dark:text-blue-400">· auto-detected</span>
+                          )}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {FLW_CARD_COUNTRIES.map((c) => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => setCardCountry(c.code)}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all ${
+                                cardCountry === c.code
+                                  ? 'border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary/30'
+                                  : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                              }`}
+                            >
+                              <span className="text-base leading-none">{c.flag}</span>
+                              <span>{c.name}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
-                      <div className="space-y-1.5 text-xs text-muted-foreground">
-                        <p className="flex items-center gap-2"><LockKeyhole className="w-4 h-4" /> PCI-compliant payment handled by Flutterwave.</p>
-                        <p className="flex items-center gap-2"><ExternalLink className="w-4 h-4" /> Opens in a secure hover window (same tab).</p>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="billingAddress1">Billing Address Line 1</Label>
-                          <Input
-                            id="billingAddress1"
-                            value={formData.billingAddress1}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, billingAddress1: e.target.value }))}
-                            placeholder="Street / House number"
-                            className="mt-1.5"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="billingAddress2">Billing Address Line 2 (Optional)</Label>
-                          <Input
-                            id="billingAddress2"
-                            value={formData.billingAddress2}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, billingAddress2: e.target.value }))}
-                            placeholder="Apartment / Landmark"
-                            className="mt-1.5"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="billingCity">City</Label>
-                          <Input
-                            id="billingCity"
-                            value={formData.billingCity}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, billingCity: e.target.value }))}
-                            placeholder="Kigali"
-                            className="mt-1.5"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="billingPostalCode">Postal Code</Label>
-                          <Input
-                            id="billingPostalCode"
-                            value={formData.billingPostalCode}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, billingPostalCode: e.target.value }))}
-                            placeholder="00000"
-                            className="mt-1.5"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="billingCountry">Billing Country</Label>
-                          <select
-                            id="billingCountry"
-                            value={formData.billingCountry}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, billingCountry: e.target.value }))}
-                            className="mt-1.5 h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          >
-                            {BILLING_COUNTRY_OPTIONS.map((country) => (
-                              <option key={country.code} value={country.code}>
-                                {country.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                      {/* Security note */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <LockKeyhole className="w-3.5 h-3.5 shrink-0" />
+                        <span>PCI-compliant · Card details entered on Flutterwave’s secure platform · Redirects to payment page</span>
                       </div>
                     </div>
                   )}
