@@ -33,13 +33,32 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameController = TextEditingController();
   String? _error;
   bool _busy = false;
+  // Set to true after signInWithGoogle opens the browser; cleared when auth state changes.
+  bool _awaitingOAuthCallback = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_handleSessionChange);
+  }
 
   @override
   void dispose() {
+    widget.session.removeListener(_handleSessionChange);
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  // Called by SessionController.notifyListeners() — handles the async Google
+  // OAuth callback completing after the external browser redirects back.
+  void _handleSessionChange() {
+    if (_awaitingOAuthCallback && widget.session.isAuthenticated && mounted) {
+      _awaitingOAuthCallback = false;
+      setState(() => _busy = false);
+      widget.onAuthenticated?.call();
+    }
   }
 
   Future<void> _submit() async {
@@ -91,6 +110,33 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _error = _friendlyError(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _googleSignIn() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _awaitingOAuthCallback = false;
+    });
+    try {
+      await widget.session.signInWithGoogle();
+      // signInWithOAuth returns immediately after opening the external browser.
+      // Mark that we're waiting for the OAuth redirect deep link.
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _awaitingOAuthCallback = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = _friendlyError(e.toString());
+          _busy = false;
+          _awaitingOAuthCallback = false;
+        });
+      }
     }
   }
 
@@ -309,11 +355,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 children: [
                   _SocialSquareButton(
                     label: 'Google',
-                    onTap: _busy
-                        ? null
-                        : () {
-                            AppSnackBar.info(context, 'Google sign in coming soon.');
-                          },
+                    onTap: (_busy || _awaitingOAuthCallback) ? null : _googleSignIn,
+                    isLoading: _awaitingOAuthCallback,
                     iconUrl: 'https://www.gstatic.com/images/branding/product/1x/googleg_64dp.png',
                     child: const Text(''),
                   ),
@@ -416,12 +459,14 @@ class _SocialSquareButton extends StatelessWidget {
     required this.child,
     this.onTap,
     this.iconUrl,
+    this.isLoading = false,
   });
 
   final String label;
   final Widget child;
   final VoidCallback? onTap;
   final String? iconUrl;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -440,14 +485,20 @@ class _SocialSquareButton extends StatelessWidget {
             border: Border.all(color: const Color(0xFFD7D7DB)),
           ),
           child: Center(
-            child: iconUrl == null
-                ? child
-                : Image.network(
-                    iconUrl!,
-                    width: 22,
-                    height: 22,
-                    fit: BoxFit.contain,
-                  ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF888888)),
+                  )
+                : iconUrl == null
+                    ? child
+                    : Image.network(
+                        iconUrl!,
+                        width: 22,
+                        height: 22,
+                        fit: BoxFit.contain,
+                      ),
           ),
         ),
       ),

@@ -149,6 +149,29 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> signInWithGoogle() async {
+    final client = _supabase;
+    if (client == null) throw Exception('Supabase not configured');
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'com.merry360x.mobile://login-callback/',
+      );
+      // signInWithOAuth opens an external browser and returns immediately.
+      // The session is established when the deep link callback fires and
+      // supabase_flutter's app_links listener calls getSessionFromUrl.
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _supabase?.auth.signOut();
