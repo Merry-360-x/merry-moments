@@ -1271,11 +1271,18 @@ export default function SupportCenterLauncher() {
             <X className="h-5 w-5" />
           </span>
         ) : (
-          <span className="flex h-14 w-14 items-center justify-center rounded-full shadow-[0_18px_36px_rgba(234,89,51,0.38)] animate-support-wave" style={{background: "linear-gradient(135deg, #f77e4e 0%, #e8495a 55%, #d63f6b 100%)"}}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className="h-7 w-7" aria-hidden="true">
-              <path d="M12 3C7.03 3 3 6.69 3 11.2c0 2.4 1.1 4.56 2.87 6.1L5 21l3.9-1.56C9.87 19.8 10.92 20 12 20c4.97 0 9-3.69 9-8.2C21 6.69 16.97 3 12 3z" fill="white"/>
-            </svg>
-          </span>
+          <>
+            {/* Sonar ripple rings */}
+            <span className="absolute h-14 w-14 rounded-full animate-support-ripple" style={{background: "linear-gradient(135deg, #f77e4e, #d63f6b)", pointerEvents: "none"}} />
+            <span className="absolute h-14 w-14 rounded-full animate-support-ripple-2" style={{background: "linear-gradient(135deg, #f77e4e, #d63f6b)", pointerEvents: "none"}} />
+            <span className="absolute h-14 w-14 rounded-full animate-support-ripple-3" style={{background: "linear-gradient(135deg, #f77e4e, #d63f6b)", pointerEvents: "none"}} />
+            {/* Main icon */}
+            <span className="relative flex h-14 w-14 items-center justify-center rounded-full shadow-[0_18px_36px_rgba(234,89,51,0.38)] animate-support-wave" style={{background: "linear-gradient(135deg, #f77e4e 0%, #e8495a 55%, #d63f6b 100%)"}}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className="h-7 w-7" aria-hidden="true">
+                <path d="M12 3C7.03 3 3 6.69 3 11.2c0 2.4 1.1 4.56 2.87 6.1L5 21l3.9-1.56C9.87 19.8 10.92 20 12 20c4.97 0 9-3.69 9-8.2C21 6.69 16.97 3 12 3z" fill="white"/>
+              </svg>
+            </span>
+          </>
         )}
         {!open && unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
