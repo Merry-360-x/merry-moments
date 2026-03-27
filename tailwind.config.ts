@@ -71,6 +71,17 @@ export default {
         "accordion-down": {
           from: { height: "0" },
           to: { height: "var(--radix-accordion-content-height)" },
+          keyframes: {
+            "support-wave": {
+              "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+              "25%": { transform: "translateY(-2px) rotate(-3deg)" },
+              "50%": { transform: "translateY(1px) rotate(3deg)" },
+              "75%": { transform: "translateY(-1px) rotate(-2deg)" },
+            },
+          },
+          animation: {
+            "support-wave": "support-wave 2.2s ease-in-out infinite",
+          },
         },
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },

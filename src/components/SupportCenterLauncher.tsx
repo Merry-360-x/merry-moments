@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronLeft, ChevronDown, ChevronUp, Headset, Sparkles, X, Maximize2, Minimize2, Send, Paperclip, Smile, Reply, User, Image as ImageIcon, FileText, Clock, CheckCircle } from "lucide-react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ChatSparkIcon } from "@hugeicons/core-free-icons";
+import supportIcon from "@/assets/support-icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1271,7 +1272,12 @@ export default function SupportCenterLauncher() {
           </span>
         ) : (
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_36px_rgba(15,23,42,0.22)]">
-            <HugeiconsIcon icon={ChatSparkIcon} className="h-8 w-8" strokeWidth={1.7} />
+            <img
+              src={supportIcon}
+              alt="Support"
+              className="h-8 w-8 animate-support-wave"
+              draggable={false}
+            />
           </span>
         )}
         {!open && unreadCount > 0 && (
