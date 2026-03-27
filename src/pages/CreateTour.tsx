@@ -1163,7 +1163,7 @@ export default function CreateTour() {
               {formData.has_differential_pricing && (
                 <div className="ml-7 mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-sm">🇷🇼 National Citizens</Label>
+                    <Label className="text-sm">National Citizens</Label>
                     <Input
                       type="number"
                       min="0"

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
-import '../utils/app_snackbar.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import '../utils/app_snackbar.dart';
 import 'admin_dashboard_screen.dart';
 import 'affiliates_screen.dart';
 import 'become_host_screen.dart';
+import 'financial_dashboard_screen.dart';
 import 'host_dashboard_screen.dart';
+import 'legal_content_screen.dart';
 import 'my_bookings_screen.dart';
 import 'notifications_screen.dart';
+import 'operations_dashboard_screen.dart';
+import 'profile_details_screen.dart';
+import 'support_dashboard_screen.dart';
 import 'support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,10 +28,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _api = AppDatabase();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _bioController = TextEditingController();
-  bool _profilePrefilled = false;
   int? _loyaltyPoints;
 
   @override
@@ -39,16 +38,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadLoyalty() async {
     if (!widget.session.isAuthenticated) return;
-    final pts = await _api.fetchLoyaltyPoints(userId: widget.session.userId);
-    if (mounted) setState(() => _loyaltyPoints = pts);
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _bioController.dispose();
-    super.dispose();
+    final points = await _api.fetchLoyaltyPoints(userId: widget.session.userId);
+    if (mounted) setState(() => _loyaltyPoints = points);
   }
 
   Future<void> _confirmDeleteAccount() async {
@@ -81,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         AppSnackBar.success(context, 'Your account has been deleted.');
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         AppSnackBar.error(
           context,
@@ -96,16 +87,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final profile = session.payload?.profile;
+    final fullName = (profile?['full_name'] ?? '').toString();
+    final phone = (profile?['phone'] ?? '').toString();
+    final bio = (profile?['bio'] ?? '').toString();
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
     final maxWidth = isWide ? 560.0 : double.infinity;
-
-    if (profile != null && !_profilePrefilled) {
-      _nameController.text = (profile['full_name'] ?? '').toString();
-      _phoneController.text = (profile['phone'] ?? '').toString();
-      _bioController.text = (profile['bio'] ?? '').toString();
-      _profilePrefilled = true;
-    }
 
     return ListView(
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 16),
@@ -116,48 +103,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Profile', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Color(0xFF202025))),
+                const Text(
+                  'Profile',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Color(0xFF202025)),
+                ),
                 const SizedBox(height: 14),
                 if (session.isAuthenticated)
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE7E7EC)),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
-                      ],
+                  InkWell(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ProfileDetailsScreen(session: session)),
                     ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(0xFFF1F1F6),
-                          child: Text(
-                            (_nameController.text.isEmpty ? 'M' : _nameController.text).substring(0, 1).toUpperCase(),
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF2A2A30)),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _nameController.text.isEmpty ? 'Merry360x Member' : _nameController.text,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE7E7EC)),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor: const Color(0xFFF1F1F6),
+                            child: Text(
+                              (fullName.isEmpty ? 'M' : fullName).substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2A2A30),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                session.userEmail ?? 'Show profile',
-                                style: const TextStyle(color: Color(0xFF7B7B86)),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.chevron_right, color: Color(0xFF8A8A95)),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fullName.isEmpty ? 'Merry360x Member' : fullName,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  session.userEmail ?? 'Add your details',
+                                  style: const TextStyle(color: Color(0xFF7B7B86)),
+                                ),
+                                if (phone.isNotEmpty || bio.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    phone.isNotEmpty ? phone : bio,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13, color: AppColors.foggy),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: Color(0xFF8A8A95)),
+                        ],
+                      ),
                     ),
                   )
                 else
@@ -168,99 +178,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: const Color(0xFFE7E7EC)),
                     ),
-                    child: const Text('Log in to start planning your next trip.', style: TextStyle(fontSize: 16)),
+                    child: const Text(
+                      'Log in to start planning your next trip.',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
-                // Loyalty points badge
-                if (session.isAuthenticated && _loyaltyPoints != null) ...[  
+                if (session.isAuthenticated && _loyaltyPoints != null) ...[
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppColors.rausch, Color(0xFFFF8A70)],
-                        begin: Alignment.centerLeft, end: Alignment.centerRight,
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Row(children: [
-                      const Icon(Icons.stars_rounded, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text('$_loyaltyPoints loyalty points',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14))),
-                      const Text('Earn more →', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ]),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '$_loyaltyPoints loyalty points',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        const Text('Earn more →', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    ),
                   ),
                 ],
-
                 const SizedBox(height: 14),
-
-                // Quick Access
-                if (session.isAuthenticated) ...[  
+                if (session.isAuthenticated) ...[
                   _QuickAccessSection(session: session),
                   const SizedBox(height: 14),
                 ],
-
-                // Edit profile
-                if (session.isAuthenticated)
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE7E7EC)),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(labelText: 'Full name'),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _phoneController,
-                          decoration: const InputDecoration(labelText: 'Phone'),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _bioController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(labelText: 'Bio'),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 46,
-                          child: FilledButton(
-                            onPressed: session.isAuthenticated
-                                ? () async {
-                                    await session.upsertProfile(
-                                      fullName: _nameController.text,
-                                      phone: _phoneController.text,
-                                      bio: _bioController.text,
-                                    );
-                                    if (context.mounted) {
-                                      AppSnackBar.success(context, 'Profile saved.');
-                                    }
-                                  }
-                                : null,
-                            child: const Text('Save'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 14),
-
-// ── My Bookings (recent) ──
-                if (session.isAuthenticated) ...[
-                  _BookingsSection(session: session),
-                  const SizedBox(height: 14),
-                ],
-
-                // Support & legal
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -274,22 +232,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text('Support & legal', style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 10),
                       _ProfileRow(
-                        title: 'Help Center',
-                        onTap: () => _openUrl('https://merry360x.com/support'),
+                        title: 'Support inbox',
+                        icon: Icons.headset_mic_outlined,
+                        subtitle: 'Tickets, replies, and direct help',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => SupportScreen(session: session)),
+                        ),
                       ),
                       _ProfileRow(
                         title: 'Privacy Policy',
-                        onTap: () => _openUrl('https://merry360x.com/privacy'),
+                        icon: Icons.privacy_tip_outlined,
+                        subtitle: 'How your data is handled',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LegalContentScreen(
+                              contentType: 'privacy_policy',
+                              fallbackTitle: 'Privacy Policy',
+                              emptyMessage:
+                                  'No privacy policy content has been added yet. Please check back later or contact support@merry360x.com.',
+                            ),
+                          ),
+                        ),
                       ),
                       _ProfileRow(
                         title: 'Terms & Conditions',
-                        onTap: () => _openUrl('https://merry360x.com/terms'),
+                        icon: Icons.gavel_rounded,
+                        subtitle: 'Rules, bookings, and platform terms',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LegalContentScreen(
+                              contentType: 'terms_and_conditions',
+                              fallbackTitle: 'Terms and Conditions',
+                              emptyMessage:
+                                  'No terms and conditions have been added yet. Please check back later or contact support@merry360x.com.',
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-
-                // Sign out & Delete account
                 if (session.isAuthenticated) ...[
                   const SizedBox(height: 14),
                   Container(
@@ -318,12 +303,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Text('Delete Account'),
                           ),
                         ),
-
                       ],
                     ),
                   ),
                 ],
-
                 if (session.error != null) ...[
                   const SizedBox(height: 10),
                   Text(session.error!, style: const TextStyle(color: Colors.red)),
@@ -335,21 +318,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-    }
-  }
 }
 
 class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.title, this.onTap, this.icon});
+  const _ProfileRow({required this.title, this.onTap, this.icon, this.subtitle});
 
   final String title;
   final VoidCallback? onTap;
   final IconData? icon;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -359,12 +336,33 @@ class _ProfileRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 18, color: AppColors.rausch),
-              const SizedBox(width: 8),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F8),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFECECF1)),
+                ),
+                child: Icon(icon, size: 16, color: AppColors.hof),
+              ),
+              const SizedBox(width: 10),
             ],
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 15))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                  ],
+                ],
+              ),
+            ),
             const Icon(Icons.chevron_right, color: Color(0xFF8A8A95), size: 20),
           ],
         ),
@@ -373,19 +371,19 @@ class _ProfileRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Quick Access section — navigates to all new feature screens
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _QuickAccessSection extends StatelessWidget {
   const _QuickAccessSection({required this.session});
+
   final SessionController session;
 
-  void _go(BuildContext context, Widget screen) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  void _go(BuildContext context, Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
 
   @override
   Widget build(BuildContext context) {
+    const gap = 10.0;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -394,191 +392,186 @@ class _QuickAccessSection extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE7E7EC)),
         boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Quick Access', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        const SizedBox(height: 8),
-        _ProfileRow(
-          title: 'My Bookings',
-          icon: Icons.receipt_long_outlined,
-          onTap: () => _go(context, MyBookingsScreen(session: session)),
-        ),
-        _ProfileRow(
-          title: 'Notifications',
-          icon: Icons.notifications_outlined,
-          onTap: () => _go(context, NotificationsScreen(session: session)),
-        ),
-        _ProfileRow(
-          title: 'Contact Support',
-          icon: Icons.support_agent_outlined,
-          onTap: () => _go(context, SupportScreen(session: session)),
-        ),
-        _ProfileRow(
-          title: 'Affiliate Portal',
-          icon: Icons.share_outlined,
-          onTap: () => _go(context, AffiliatesScreen(session: session)),
-        ),
-        if (!session.isHost)
-          _ProfileRow(
-            title: 'Become a Host',
-            icon: Icons.home_work_outlined,
-            onTap: () => _go(context, BecomeHostScreen(session: session)),
-          ),
-        if (session.isHost)
-          _ProfileRow(
-            title: 'Host Dashboard',
-            icon: Icons.dashboard_outlined,
-            onTap: () => _go(context, HostDashboardScreen(session: session)),
-          ),
-        if (session.isAdmin || session.isStaff)
-          _ProfileRow(
-            title: 'Admin Dashboard',
-            icon: Icons.admin_panel_settings_outlined,
-            onTap: () => _go(context, AdminDashboardScreen(session: session)),
-          ),
-      ]),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 520;
+          final columns = isWide ? 3 : 2;
+          final tileWidth = (constraints.maxWidth - (gap * (columns - 1))) / columns;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Quick Access', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              const SizedBox(height: 4),
+              const Text(
+                'Manage the parts of your account you use most.',
+                style: TextStyle(fontSize: 12, color: AppColors.foggy),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  _QuickAccessTile(
+                    width: tileWidth,
+                    title: 'My Bookings',
+                    subtitle: 'Manage reservations',
+                    icon: Icons.luggage_rounded,
+                    accentColor: const Color(0xFF2E7D32),
+                    onTap: () => _go(context, MyBookingsScreen(session: session)),
+                  ),
+                  _QuickAccessTile(
+                    width: tileWidth,
+                    title: 'Notifications',
+                    subtitle: 'Updates and alerts',
+                    icon: Icons.notifications_active_outlined,
+                    accentColor: const Color(0xFF1565C0),
+                    onTap: () => _go(context, NotificationsScreen(session: session)),
+                  ),
+                  _QuickAccessTile(
+                    width: tileWidth,
+                    title: 'Affiliate Portal',
+                    subtitle: 'Partnership tools',
+                    icon: Icons.handshake_outlined,
+                    accentColor: const Color(0xFF8E24AA),
+                    onTap: () => _go(context, AffiliatesScreen(session: session)),
+                  ),
+                  if (!session.isHost)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Become a Host',
+                      subtitle: 'Start listing spaces',
+                      icon: Icons.storefront_outlined,
+                      accentColor: const Color(0xFFEF6C00),
+                      onTap: () => _go(context, BecomeHostScreen(session: session)),
+                    ),
+                  if (session.isHost)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Host Dashboard',
+                      subtitle: 'Listings and income',
+                      icon: Icons.grid_view_rounded,
+                      accentColor: const Color(0xFF00897B),
+                      onTap: () => _go(context, HostDashboardScreen(session: session)),
+                    ),
+                  if (session.canAccessAdminDashboard)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Admin Dashboard',
+                      subtitle: 'Platform controls',
+                      icon: Icons.shield_outlined,
+                      accentColor: const Color(0xFF6D4C41),
+                      onTap: () => _go(context, AdminDashboardScreen(session: session)),
+                    ),
+                  if (session.canAccessOperationsDashboard)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Operations Dashboard',
+                      subtitle: 'Approvals and publishing',
+                      icon: Icons.route_outlined,
+                      accentColor: const Color(0xFF7C3AED),
+                      onTap: () => _go(context, OperationsDashboardScreen(session: session)),
+                    ),
+                  if (session.canAccessFinancialDashboard)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Financial Dashboard',
+                      subtitle: 'Revenue and payouts',
+                      icon: Icons.account_balance_wallet_outlined,
+                      accentColor: const Color(0xFF155EEF),
+                      onTap: () => _go(context, FinancialDashboardScreen(session: session)),
+                    ),
+                  if (session.canAccessSupportDashboard)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Support Dashboard',
+                      subtitle: 'Tickets and users',
+                      icon: Icons.support_agent_outlined,
+                      accentColor: const Color(0xFFB26A00),
+                      onTap: () => _go(context, SupportDashboardScreen(session: session)),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Bookings section
-// ─────────────────────────────────────────────────────────────────────────────
+class _QuickAccessTile extends StatelessWidget {
+  const _QuickAccessTile({
+    required this.width,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
+    required this.onTap,
+  });
 
-class _BookingsSection extends StatelessWidget {
-  const _BookingsSection({required this.session});
-
-  final SessionController session;
-
-  Color _statusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return const Color(0xFF2E7D32);
-      case 'cancelled':
-      case 'canceled':
-        return const Color(0xFFE53935);
-      case 'completed':
-        return const Color(0xFF1565C0);
-      default:
-        return const Color(0xFFE65100);
-    }
-  }
-
-  Color _statusBg(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return const Color(0xFFE8F5E9);
-      case 'cancelled':
-      case 'canceled':
-        return const Color(0xFFFFEBEE);
-      case 'completed':
-        return const Color(0xFFE3F2FD);
-      default:
-        return const Color(0xFFFFF3E0);
-    }
-  }
+  final double width;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bookings = session.payload?.bookings ?? const [];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
-        boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('My bookings', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-          const SizedBox(height: 10),
-          if (bookings.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'No bookings yet. Start exploring and reserve a stay, tour, or transport.',
-                style: TextStyle(color: Color(0xFF777780), fontSize: 14),
-              ),
-            )
-          else
-            ...bookings.take(5).map((b) {
-              final title = (b['title'] ?? b['property_id'] ?? 'Booking').toString();
-              final status = (b['status'] ?? 'pending').toString();
-              final checkIn = (b['check_in'] ?? '').toString();
-              final checkOut = (b['check_out'] ?? '').toString();
-              final amount = b['total_amount'];
-              final currency = (b['currency'] ?? 'USD').toString();
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFE8E9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.receipt_long_outlined,
-                          size: 20, color: AppColors.rausch),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 14)),
-                          if (checkIn.isNotEmpty && checkOut.isNotEmpty)
-                            Text('$checkIn → $checkOut',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Color(0xFF717171))),
-                          if (amount != null)
-                            Text('$currency $amount',
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF222222))),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _statusBg(status),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        status[0].toUpperCase() + status.substring(1),
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _statusColor(status)),
-                      ),
-                    ),
-                  ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: width,
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F8FA),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFECECF1)),
+          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F6F8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFECECF1)),
+                  ),
+                  child: Icon(icon, color: AppColors.hof, size: 18),
                 ),
-              );
-            }),
-          if (bookings.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: TextButton(
-                onPressed: null,
-                child: Text(
-                  'View all ${bookings.length} bookings',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Spacer(),
+                const Icon(Icons.arrow_outward_rounded, size: 15, color: Color(0xFF9A9AA1)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.black,
+                height: 1.15,
               ),
             ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.25),
+            ),
+          ],
+        ),
       ),
     );
   }

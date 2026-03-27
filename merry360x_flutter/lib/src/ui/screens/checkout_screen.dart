@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import 'package:merry360x_flutter/src/lib/fees.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +23,6 @@ class _PayMethod {
     required this.id,
     required this.name,
     required this.country,
-    required this.flag,
     required this.countryCode,
     required this.currency,
     required this.color,
@@ -33,7 +33,6 @@ class _PayMethod {
   final String id;
   final String name;
   final String country;
-  final String flag;
   final String countryCode;
   final String currency;
   final Color color;
@@ -43,46 +42,46 @@ class _PayMethod {
 
 const _kPayMethods = <_PayMethod>[
   // Rwanda (+250) — RWF
-  _PayMethod(id: 'MTN_MOMO_RWA', name: 'MTN MoMo', country: 'Rwanda', flag: '🇷🇼', countryCode: '+250', currency: 'RWF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_RWA', name: 'Airtel Money', country: 'Rwanda', flag: '🇷🇼', countryCode: '+250', currency: 'RWF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'MTN_MOMO_RWA', name: 'MTN MoMo', country: 'Rwanda', countryCode: '+250', currency: 'RWF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'AIRTEL_RWA', name: 'Airtel Money', country: 'Rwanda', countryCode: '+250', currency: 'RWF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
   // Kenya (+254) — KES
-  _PayMethod(id: 'MPESA_KEN', name: 'M-Pesa', country: 'Kenya', flag: '🇰🇪', countryCode: '+254', currency: 'KES', color: Color(0xFF4CAF50), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'MPESA_KEN', name: 'M-Pesa', country: 'Kenya', countryCode: '+254', currency: 'KES', color: Color(0xFF4CAF50), asset: 'assets/payment/mtn-momo.png'),
   // Uganda (+256) — UGX
-  _PayMethod(id: 'MTN_MOMO_UGA', name: 'MTN MoMo', country: 'Uganda', flag: '🇺🇬', countryCode: '+256', currency: 'UGX', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_OAPI_UGA', name: 'Airtel Money', country: 'Uganda', flag: '🇺🇬', countryCode: '+256', currency: 'UGX', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'MTN_MOMO_UGA', name: 'MTN MoMo', country: 'Uganda', countryCode: '+256', currency: 'UGX', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'AIRTEL_OAPI_UGA', name: 'Airtel Money', country: 'Uganda', countryCode: '+256', currency: 'UGX', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
   // Zambia (+260) — ZMW
-  _PayMethod(id: 'MTN_MOMO_ZMB', name: 'MTN MoMo', country: 'Zambia', flag: '🇿🇲', countryCode: '+260', currency: 'ZMW', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ZAMTEL_ZMB', name: 'Zamtel', country: 'Zambia', flag: '🇿🇲', countryCode: '+260', currency: 'ZMW', color: Color(0xFF388E3C), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'MTN_MOMO_ZMB', name: 'MTN MoMo', country: 'Zambia', countryCode: '+260', currency: 'ZMW', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'ZAMTEL_ZMB', name: 'Zamtel', country: 'Zambia', countryCode: '+260', currency: 'ZMW', color: Color(0xFF388E3C), asset: 'assets/payment/mtn-momo.png'),
   // Tanzania (+255) — TZS
-  _PayMethod(id: 'VODACOM_TZN', name: 'Vodacom M-Pesa', country: 'Tanzania', flag: '🇹🇿', countryCode: '+255', currency: 'TZS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'TIGO_TZN', name: 'Tigo Pesa', country: 'Tanzania', flag: '🇹🇿', countryCode: '+255', currency: 'TZS', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'AIRTEL_TZN', name: 'Airtel Money', country: 'Tanzania', flag: '🇹🇿', countryCode: '+255', currency: 'TZS', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'VODACOM_TZN', name: 'Vodacom M-Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'TIGO_TZN', name: 'Tigo Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'AIRTEL_TZN', name: 'Airtel Money', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
   // Ghana (+233) — GHS
-  _PayMethod(id: 'MTN_MOMO_GHA', name: 'MTN MoMo', country: 'Ghana', flag: '🇬🇭', countryCode: '+233', currency: 'GHS', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'VODAFONE_GHA', name: 'Vodafone Cash', country: 'Ghana', flag: '🇬🇭', countryCode: '+233', currency: 'GHS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'MTN_MOMO_GHA', name: 'MTN MoMo', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'VODAFONE_GHA', name: 'Vodafone Cash', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
   // DR Congo (+243) — CDF
-  _PayMethod(id: 'VODACOM_MPESA_COD', name: 'Vodacom M-Pesa', country: 'DR Congo', flag: '🇨🇩', countryCode: '+243', currency: 'CDF', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'AIRTEL_COD', name: 'Airtel Money', country: 'DR Congo', flag: '🇨🇩', countryCode: '+243', currency: 'CDF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
-  _PayMethod(id: 'ORANGE_COD', name: 'Orange Money', country: 'DR Congo', flag: '🇨🇩', countryCode: '+243', currency: 'CDF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'VODACOM_MPESA_COD', name: 'Vodacom M-Pesa', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'AIRTEL_COD', name: 'Airtel Money', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'ORANGE_COD', name: 'Orange Money', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
   // Cameroon (+237) — XAF
-  _PayMethod(id: 'MTN_MOMO_CMR', name: 'MTN MoMo', country: 'Cameroon', flag: '🇨🇲', countryCode: '+237', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ORANGE_CMR', name: 'Orange Money', country: 'Cameroon', flag: '🇨🇲', countryCode: '+237', currency: 'XAF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'MTN_MOMO_CMR', name: 'MTN MoMo', country: 'Cameroon', countryCode: '+237', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'ORANGE_CMR', name: 'Orange Money', country: 'Cameroon', countryCode: '+237', currency: 'XAF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
   // Senegal (+221) — XOF
-  _PayMethod(id: 'ORANGE_SEN', name: 'Orange Money', country: 'Senegal', flag: '🇸🇳', countryCode: '+221', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'FREE_SEN', name: 'Free Money', country: 'Senegal', flag: '🇸🇳', countryCode: '+221', currency: 'XOF', color: Color(0xFF00897B), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'ORANGE_SEN', name: 'Orange Money', country: 'Senegal', countryCode: '+221', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'FREE_SEN', name: 'Free Money', country: 'Senegal', countryCode: '+221', currency: 'XOF', color: Color(0xFF00897B), asset: 'assets/payment/mtn-momo.png'),
   // Ivory Coast (+225) — XOF
-  _PayMethod(id: 'MTN_MOMO_CIV', name: 'MTN MoMo', country: 'Ivory Coast', flag: '🇨🇮', countryCode: '+225', currency: 'XOF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ORANGE_CIV', name: 'Orange Money', country: 'Ivory Coast', flag: '🇨🇮', countryCode: '+225', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'MTN_MOMO_CIV', name: 'MTN MoMo', country: 'Ivory Coast', countryCode: '+225', currency: 'XOF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'ORANGE_CIV', name: 'Orange Money', country: 'Ivory Coast', countryCode: '+225', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
   // Mozambique (+258) — MZN
-  _PayMethod(id: 'VODACOM_MOZ', name: 'Vodacom M-Pesa', country: 'Mozambique', flag: '🇲🇿', countryCode: '+258', currency: 'MZN', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'VODACOM_MOZ', name: 'Vodacom M-Pesa', country: 'Mozambique', countryCode: '+258', currency: 'MZN', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
   // Malawi (+265) — MWK
-  _PayMethod(id: 'AIRTEL_MWI', name: 'Airtel Money', country: 'Malawi', flag: '🇲🇼', countryCode: '+265', currency: 'MWK', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
-  _PayMethod(id: 'TNM_MWI', name: 'TNM Mpamba', country: 'Malawi', flag: '🇲🇼', countryCode: '+265', currency: 'MWK', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'AIRTEL_MWI', name: 'Airtel Money', country: 'Malawi', countryCode: '+265', currency: 'MWK', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'TNM_MWI', name: 'TNM Mpamba', country: 'Malawi', countryCode: '+265', currency: 'MWK', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
   // Burundi (+257) — BIF
-  _PayMethod(id: 'ECONET_BDI', name: 'Econet Leo', country: 'Burundi', flag: '🇧🇮', countryCode: '+257', currency: 'BIF', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(id: 'ECONET_BDI', name: 'Econet Leo', country: 'Burundi', countryCode: '+257', currency: 'BIF', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
   // Congo-Brazzaville (+242) — XAF
-  _PayMethod(id: 'MTN_MOMO_COG', name: 'MTN MoMo', country: 'Congo', flag: '🇨🇬', countryCode: '+242', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_COG', name: 'Airtel Money', country: 'Congo', flag: '🇨🇬', countryCode: '+242', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'MTN_MOMO_COG', name: 'MTN MoMo', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'AIRTEL_COG', name: 'Airtel Money', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,6 +146,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double _discountAmount = 0;
   String? _promoMsg;
   bool _promoSuccess = false;
+
+  bool _showPriceDetails = false;
 
   @override
   void initState() {
@@ -311,6 +312,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String get itemType => (item['item_type'] ?? 'property').toString();
   String get _currency => (item['currency'] ?? 'USD').toString();
 
+  String get _serviceType {
+    switch (itemType) {
+      case 'property':
+        return 'accommodation';
+      case 'tour':
+      case 'tour_package':
+        return 'tour';
+      case 'transport':
+        return 'transport';
+      default:
+        return 'accommodation';
+    }
+  }
+
   double get _pricePerUnit {
     switch (itemType) {
       case 'tour':
@@ -339,8 +354,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  double get _serviceFee => _subtotal * 0.05;
-  double get _total => _subtotal + _serviceFee - _discountAmount;
+  BookingFinancials get _financials {
+    final discountedListingSubtotal =
+        (_subtotal - _discountAmount).clamp(0.0, double.infinity).toDouble();
+    return calculateBookingFinancialsFromDiscountedListing(
+      discountedListingSubtotal: discountedListingSubtotal,
+      serviceType: _serviceType,
+    );
+  }
+
+  double get _serviceFee => _financials.guestFee;
+  double get _total => _financials.guestTotal;
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
@@ -356,8 +380,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } else {
       _discountAmount = value;
     }
-    // Clamp: discount can't exceed subtotal + fee
-    final maxDiscount = _subtotal + _serviceFee;
+    // Clamp: discount can't exceed subtotal (fees are computed after discounts on web)
+    final maxDiscount = _subtotal;
     if (_discountAmount > maxDiscount) _discountAmount = maxDiscount;
   }
 
@@ -778,7 +802,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       value: '$_currency ${_subtotal.toStringAsFixed(0)}',
                     ),
                     const SizedBox(height: 10),
-                    _PriceRow(label: 'Service fee (5%)', value: '$_currency ${_serviceFee.toStringAsFixed(0)}'),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _showPriceDetails = !_showPriceDetails),
+                        child: Text(
+                          _showPriceDetails ? 'Hide price details' : 'Show price details',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.rausch,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_showPriceDetails) ...[
+                      const SizedBox(height: 10),
+                      _PriceRow(
+                        label: 'Platform fee (${_financials.guestFeePercent.toStringAsFixed(0)}%)',
+                        value: '$_currency ${_serviceFee.toStringAsFixed(0)}',
+                      ),
+                    ],
                     if (_discountAmount > 0) ...[
                       const SizedBox(height: 10),
                       Row(
@@ -940,13 +984,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF0F2),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFD0D8)),
+            border: Border.all(color: const Color(0xFFE8E8E8)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.lock_outline, size: 18, color: AppColors.rausch),
+              const Icon(Icons.lock_outline, size: 18, color: AppColors.foggy),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -963,10 +1007,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── 3-tab payment selector ──
         Container(
           decoration: BoxDecoration(
-            color: AppColors.linnen,
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E8E8)),
           ),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(6),
           child: Row(
             children: [
               if (_showMobileMoney)
@@ -997,7 +1042,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     final country = regionMethods.first.country;
-    final flag = regionMethods.first.flag;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,7 +1051,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            '$flag  $country',
+            country,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.hof),
           ),
         ),
@@ -1039,7 +1083,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             prefixIcon: _selectedMethod != null
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    child: Text(_selectedMethod!.flag, style: const TextStyle(fontSize: 18)),
+                    child: Text(_selectedMethod!.countryCode, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                   )
                 : const Icon(Icons.phone_outlined),
             hintText: '${_selectedMethod?.countryCode ?? ''} XXXX XXXX',
@@ -1063,41 +1107,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Info panel
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F4FF),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFD0DCFF)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Secure Card Checkout', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              const SizedBox(height: 8),
-              Row(children: [
-                _cardStepDot('1'),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('Confirm your details below', style: TextStyle(fontSize: 13, color: AppColors.hof))),
-              ]),
-              const SizedBox(height: 6),
-              Row(children: [
-                _cardStepDot('2'),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('You\'ll be redirected to a secure payment page', style: TextStyle(fontSize: 13, color: AppColors.hof))),
-              ]),
-              const SizedBox(height: 6),
-              Row(children: [
-                _cardStepDot('3'),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('Complete payment with Visa, Mastercard, or AmEx', style: TextStyle(fontSize: 13, color: AppColors.hof))),
-              ]),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
+        const SizedBox(height: 4),
 
         // Card logos
         Row(children: [
@@ -1137,13 +1147,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
           ),
           items: const [
-            DropdownMenuItem(value: 'RW', child: Text('🇷🇼 Rwanda')),
-            DropdownMenuItem(value: 'KE', child: Text('🇰🇪 Kenya')),
-            DropdownMenuItem(value: 'UG', child: Text('🇺🇬 Uganda')),
-            DropdownMenuItem(value: 'ZM', child: Text('🇿🇲 Zambia')),
-            DropdownMenuItem(value: 'TZ', child: Text('🇹🇿 Tanzania')),
-            DropdownMenuItem(value: 'BI', child: Text('🇧🇮 Burundi')),
-            DropdownMenuItem(value: 'ZA', child: Text('🇿🇦 South Africa')),
+            DropdownMenuItem(value: 'RW', child: Text('Rwanda')),
+            DropdownMenuItem(value: 'KE', child: Text('Kenya')),
+            DropdownMenuItem(value: 'UG', child: Text('Uganda')),
+            DropdownMenuItem(value: 'ZM', child: Text('Zambia')),
+            DropdownMenuItem(value: 'TZ', child: Text('Tanzania')),
+            DropdownMenuItem(value: 'BI', child: Text('Burundi')),
+            DropdownMenuItem(value: 'ZA', child: Text('South Africa')),
           ],
           onChanged: (v) { if (v != null) setState(() => _billingCountry = v); },
         ),
@@ -1160,42 +1170,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF8E1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFE082)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('How bank transfer works', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              SizedBox(height: 10),
-              Text(
-                '1. Your booking will be created with a pending status\n'
-                '2. Our team will reach out with bank details\n'
-                '3. Once payment is confirmed, your booking is activated',
-                style: TextStyle(fontSize: 13, color: AppColors.hof, height: 1.6),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.linnen,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E8E8)),
           ),
-          child: Row(
-            children: const [
-              Icon(Icons.schedule, size: 18, color: AppColors.foggy),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 18, color: AppColors.foggy),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Processing time: 1-2 business days after payment is received.',
+                  'Bank transfer: we\'ll send you the bank details after you place the booking. Processing time is typically 1–2 business days after payment is received.',
                   style: TextStyle(fontSize: 13, color: AppColors.hof, height: 1.4),
                 ),
               ),
@@ -1206,21 +1194,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 16),
         _securityNote('Your booking will be held for 48 hours pending payment confirmation.'),
       ],
-    );
-  }
-
-  Widget _cardStepDot(String num) {
-    return Container(
-      width: 22, height: 22,
-      decoration: const BoxDecoration(color: Color(0xFF3B5BDB), shape: BoxShape.circle),
-      child: Center(child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
-    );
-  }
-
-  Widget _cardLogo(String asset, {double width = 32}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: Image.asset(asset, width: width, height: 24, fit: BoxFit.contain),
     );
   }
 
@@ -1300,14 +1273,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _cardBadge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
     );
   }
 
@@ -1572,17 +1537,14 @@ class _InfoTile extends StatelessWidget {
 }
 
 class _PriceRow extends StatelessWidget {
-  const _PriceRow({required this.label, required this.value, this.bold = false});
+  const _PriceRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool bold;
 
   @override
   Widget build(BuildContext context) {
-    final style = bold
-        ? const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)
-        : const TextStyle(fontSize: 14, color: AppColors.hof);
+    const style = TextStyle(fontSize: 14, color: AppColors.hof);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [Text(label, style: style), Text(value, style: style)],
@@ -1650,15 +1612,13 @@ class _MethodChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? method.color.withValues(alpha: 0.08) : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? method.color : const Color(0xFFE8E8E8),
-            width: selected ? 2 : 1,
+            color: selected ? AppColors.black : const Color(0xFFE8E8E8),
+            width: 1,
           ),
-          boxShadow: selected
-              ? [BoxShadow(color: method.color.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
+          boxShadow: null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1688,7 +1648,7 @@ class _MethodChip extends StatelessWidget {
             ),
             if (selected) ...[
               const SizedBox(width: 6),
-              const Icon(Icons.check_circle, size: 16, color: Color(0xFF4CAF50)),
+              const Icon(Icons.check, size: 18, color: AppColors.black),
             ],
           ],
         ),
@@ -1714,11 +1674,9 @@ class _PayTabButton extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
+            color: selected ? const Color(0xFFF7F7F8) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: selected
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4, offset: const Offset(0, 1))]
-                : null,
+            boxShadow: null,
           ),
           child: Column(
             children: [
@@ -1727,8 +1685,7 @@ class _PayTabButton extends StatelessWidget {
                 width: 26,
                 height: 26,
                 fit: BoxFit.contain,
-                color: selected ? null : AppColors.foggy,
-                colorBlendMode: selected ? null : BlendMode.saturation,
+                color: null,
               ),
               const SizedBox(height: 4),
               Text(

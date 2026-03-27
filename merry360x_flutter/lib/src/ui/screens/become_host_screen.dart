@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../widgets/return_button.dart';
 
 import '../../services/app_database.dart';
 import '../../services/local_draft_store.dart';
@@ -156,6 +157,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        leading: const ReturnButton(color: AppColors.black, fallbackRoute: '/'),
         title: const Text('Become a Host',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
       ),

@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
-
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
-import 'stories_screen.dart';
 import 'tours_screen.dart';
 import 'transport_screen.dart';
 
@@ -162,7 +160,7 @@ class ExploreScreen extends StatelessWidget {
             ),
           ),
           SizedBox(height: isTablet ? 14 : 10),
-          _CategoryChips(isTablet: isTablet),
+          _CategoryChips(isTablet: isTablet, session: session),
           SizedBox(height: isTablet ? 16 : 12),
 
           // ── Content ──
@@ -527,9 +525,10 @@ class ListingCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════
 
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({required this.isTablet});
+  const _CategoryChips({required this.isTablet, required this.session});
 
   final bool isTablet;
+  final SessionController session;
 
   @override
   Widget build(BuildContext context) {
@@ -542,18 +541,43 @@ class _CategoryChips extends StatelessWidget {
         separatorBuilder: (context, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final active = index == 0;
-          return Container(
-            padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 12, vertical: isTablet ? 11 : 8),
-            decoration: BoxDecoration(
-              color: active ? const Color(0xFFFFE8E9) : const Color(0xFFF0F0F3),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              chips[index],
-              style: TextStyle(
-                fontSize: isTablet ? 16 : 12,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                color: active ? AppColors.rausch : const Color(0xFF565660),
+          return GestureDetector(
+            onTap: () {
+              if (index == 0) return;
+              if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ToursScreen(session: session)),
+                );
+                return;
+              }
+              if (index == 2) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => TransportScreen(session: session)),
+                );
+                return;
+              }
+              if (index == 3) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const _EventsScreen()),
+                );
+              }
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 12, vertical: isTablet ? 11 : 8),
+              decoration: BoxDecoration(
+                color: active ? const Color(0xFFFFE8E9) : const Color(0xFFF0F0F3),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                chips[index],
+                style: TextStyle(
+                  fontSize: isTablet ? 16 : 12,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? AppColors.rausch : const Color(0xFF565660),
+                ),
               ),
             ),
           );
@@ -563,6 +587,30 @@ class _CategoryChips extends StatelessWidget {
   }
 }
 
+class _EventsScreen extends StatelessWidget {
+  const _EventsScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: const BackButton(color: AppColors.black),
+        title: const Text(
+          'Events',
+          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+        centerTitle: false,
+      ),
+      body: const Center(
+        child: Text('Events coming soon', style: TextStyle(color: AppColors.foggy)),
+      ),
+    );
+  }
+}
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 

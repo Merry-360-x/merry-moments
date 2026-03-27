@@ -413,19 +413,19 @@ const Navbar = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 max-h-80 overflow-y-auto">
-                <DropdownMenuItem onClick={() => setCurrency("RWF")}><span className="mr-2">🇷🇼</span> (FRw) RWF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("USD")}><span className="mr-2">🇺🇸</span> ($) USD</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("EUR")}><span className="mr-2">🇪🇺</span> (€) EUR</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("GBP")}><span className="mr-2">🇬🇧</span> (£) GBP</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("RWF")}> (FRw) RWF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("USD")}> ($) USD</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("EUR")}> (€) EUR</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("GBP")}> (£) GBP</DropdownMenuItem>
                 <div className="border-t my-1" />
-                <DropdownMenuItem onClick={() => setCurrency("TZS" as any)}><span className="mr-2">🇹🇿</span> (TSh) TZS</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("KES" as any)}><span className="mr-2">🇰🇪</span> (KSh) KES</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("UGX" as any)}><span className="mr-2">🇺🇬</span> (USh) UGX</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("ZMW" as any)}><span className="mr-2">🇿🇲</span> (ZK) ZMW</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("BIF" as any)}><span className="mr-2">🇧🇮</span> (FBu) BIF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrency("ZAR" as any)}><span className="mr-2">🇿🇦</span> (R) ZAR</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("TZS" as any)}> (TSh) TZS</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("KES" as any)}> (KSh) KES</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("UGX" as any)}> (USh) UGX</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("ZMW" as any)}> (ZK) ZMW</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("BIF" as any)}> (FBu) BIF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("ZAR" as any)}> (R) ZAR</DropdownMenuItem>
                 <div className="border-t my-1" />
-                <DropdownMenuItem onClick={() => setCurrency("CNY")}><span className="mr-2">🇨🇳</span> (¥) CNY</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrency("CNY")}> (¥) CNY</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -602,17 +602,17 @@ const Navbar = () => {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="center" className="w-40 max-h-72 overflow-y-auto">
-                      <DropdownMenuItem onClick={() => setCurrency("RWF")}>🇷🇼 RWF</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("USD")}>🇺🇸 USD</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("EUR")}>🇪🇺 EUR</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("GBP")}>🇬🇧 GBP</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("RWF")}>RWF</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("USD")}>USD</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("EUR")}>EUR</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("GBP")}>GBP</DropdownMenuItem>
                       <div className="border-t my-1" />
-                      <DropdownMenuItem onClick={() => setCurrency("TZS" as any)}>🇹🇿 TZS</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("KES" as any)}>🇰🇪 KES</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("UGX" as any)}>🇺🇬 UGX</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("ZMW" as any)}>🇿🇲 ZMW</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("BIF" as any)}>🇧🇮 BIF</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("ZAR" as any)}>🇿🇦 ZAR</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("TZS" as any)}>TZS</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("KES" as any)}>KES</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("UGX" as any)}>UGX</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("ZMW" as any)}>ZMW</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("BIF" as any)}>BIF</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCurrency("ZAR" as any)}>ZAR</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>

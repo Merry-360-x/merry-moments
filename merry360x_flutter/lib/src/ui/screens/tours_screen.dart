@@ -38,8 +38,40 @@ class _ToursScreenState extends State<ToursScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final t = await _api.fetchTours(category: _category == 'all' ? null : _category);
-    if (mounted) setState(() { _tours = t; _loading = false; });
+    final results = await Future.wait([
+      _api.fetchTours(category: _category == 'all' ? null : _category),
+      _api.fetchTourPackages(),
+    ]);
+    final merged = <Map<String, dynamic>>[...results[0], ...results[1]];
+    merged.sort((a, b) {
+      final ad = a['created_at']?.toString() ?? '';
+      final bd = b['created_at']?.toString() ?? '';
+      return bd.compareTo(ad);
+    });
+
+    String norm(dynamic v) => (v ?? '').toString().trim().toLowerCase();
+    final selected = norm(_category);
+
+    // Apply category filter across both sources. Some rows may use `categories`
+    // (array) while others use `category` (string).
+    final filtered = selected == 'all'
+        ? merged
+        : merged.where((i) {
+            final cat = norm(i['category']);
+            if (cat == selected) return true;
+            final cats = i['categories'];
+            if (cats is List) {
+              return cats.map(norm).contains(selected);
+            }
+            return false;
+          }).toList();
+
+    if (mounted) {
+      setState(() {
+        _tours = filtered;
+        _loading = false;
+      });
+    }
   }
 
   @override

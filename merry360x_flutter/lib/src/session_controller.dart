@@ -25,6 +25,14 @@ class SessionController extends ChangeNotifier {
   bool get isHost => payload?.roles.contains('host') == true;
   bool get isAdmin => payload?.roles.contains('admin') == true;
   bool get isStaff => payload?.roles.contains('staff') == true;
+  bool get isOperationsStaff => payload?.roles.contains('operations_staff') == true;
+  bool get isFinancialStaff => payload?.roles.contains('financial_staff') == true;
+  bool get isCustomerSupport => payload?.roles.contains('customer_support') == true;
+
+  bool get canAccessAdminDashboard => isAdmin || isStaff;
+  bool get canAccessOperationsDashboard => isAdmin || isOperationsStaff;
+  bool get canAccessFinancialDashboard => isAdmin || isFinancialStaff;
+  bool get canAccessSupportDashboard => isAdmin || isCustomerSupport;
 
   String get userId => _userId;
   String? get accessToken => _supabase?.auth.currentSession?.accessToken;

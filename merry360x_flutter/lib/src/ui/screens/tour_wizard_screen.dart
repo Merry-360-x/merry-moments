@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../widgets/host_creation_scaffold.dart';
 
 const _kRed = AppColors.rausch;
 
@@ -23,190 +24,87 @@ class TourWizardScreen extends StatefulWidget {
     required this.api,
     required this.userId,
     this.existing,
+    this.seedTitle,
   });
 
   final AppDatabase api;
   final String userId;
   final Map<String, dynamic>? existing;
+  final String? seedTitle;
 
   @override
   State<TourWizardScreen> createState() => _TourWizardScreenState();
 }
 
 class _TourWizardScreenState extends State<TourWizardScreen> {
-  int _step = 1;
-  static const _totalSteps = 4;
-  static const _stepTitles = ['Basic Info', 'Pricing', 'Media', 'Review'];
-
-  bool _saving = false;
-  bool _uploading = false;
-
-  // ── Step 1: Basic Info ──
-  final _titleCtrl = TextEditingController();
-  final _locCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
-  final _activitiesCtrl = TextEditingController();
-  int _durationDays = 1;
-  int _maxParticipants = 10;
-  List<String> _categories = [];
-
-  // ── Step 2: Pricing ──
-  String _pricingModel = 'per_person';
-  String _currency = 'RWF';
-  final _priceCtrl = TextEditingController();
-  bool _hasDifferentialPricing = false;
-  final _citizenPriceCtrl = TextEditingController();
-  final _eaPriceCtrl = TextEditingController();
-  final _foreignPriceCtrl = TextEditingController();
-
-  // ── Step 3: Media ──
-  List<String> _existingUrls = [];
-  final List<XFile> _newFiles = [];
+  final _formKey = GlobalKey<FormState>();
   final _picker = ImagePicker();
+
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _locCtrl;
+  late final TextEditingController _descCtrl;
+  late final TextEditingController _activitiesCtrl;
+  late final TextEditingController _priceCtrl;
+  late final TextEditingController _citizenPriceCtrl;
+  late final TextEditingController _eaPriceCtrl;
+  late final TextEditingController _foreignPriceCtrl;
+
+  int _step = 1;
+  int _durationDays = 1;
+  int _maxParticipants = 1;
+  String _currency = _kCurrencies.first;
+  String _pricingModel = _kPricingModels.first;
+  bool _hasDifferentialPricing = false;
+  final Set<String> _categories = <String>{};
+  final List<String> _existingUrls = <String>[];
+  final List<XFile> _newFiles = <XFile>[];
+  bool _submitting = false;
+  String? _error;
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
-    final e = widget.existing;
-    if (e != null) {
-      _titleCtrl.text = e['title'] ?? '';
-      _locCtrl.text = e['location'] ?? '';
-      _descCtrl.text = e['description'] ?? '';
-      _activitiesCtrl.text = e['optional_activities'] ?? '';
-      _durationDays = (e['duration_days'] as num?)?.toInt() ?? 1;
-      _maxParticipants = (e['max_participants'] as num?)?.toInt() ?? 10;
-      _categories = List<String>.from(e['categories'] as List? ?? []);
-      _pricingModel = e['pricing_model'] ?? 'per_person';
-      _currency = e['currency'] ?? 'RWF';
-      _priceCtrl.text = e['price_per_person'] != null ? e['price_per_person'].toString() : '';
-      _hasDifferentialPricing = e['has_differential_pricing'] == true;
-      _citizenPriceCtrl.text = e['price_for_citizens'] != null ? e['price_for_citizens'].toString() : '';
-      _eaPriceCtrl.text = e['price_for_east_africans'] != null ? e['price_for_east_africans'].toString() : '';
-      _foreignPriceCtrl.text = e['price_for_foreigners'] != null ? e['price_for_foreigners'].toString() : '';
-      _existingUrls = List<String>.from(e['images'] as List? ?? []);
+    final ex = widget.existing;
+    final seed = (widget.seedTitle?.trim().isNotEmpty ?? false) ? widget.seedTitle!.trim() : null;
+    _titleCtrl = TextEditingController(text: ex?['title']?.toString() ?? (seed ?? ''));
+    _locCtrl = TextEditingController(text: ex?['location']?.toString() ?? '');
+    _descCtrl = TextEditingController(text: ex?['description']?.toString() ?? '');
+    _activitiesCtrl = TextEditingController(text: ex?['activities']?.toString() ?? '');
+    _priceCtrl = TextEditingController(text: (ex?['price'] ?? ex?['base_price'])?.toString() ?? '');
+    _citizenPriceCtrl = TextEditingController(text: ex?['citizens_price']?.toString() ?? '');
+    _eaPriceCtrl = TextEditingController(text: ex?['east_african_price']?.toString() ?? '');
+    _foreignPriceCtrl = TextEditingController(text: ex?['foreigners_price']?.toString() ?? '');
+
+    _durationDays = (ex?['duration_days'] as int?) ?? (ex?['duration'] as int?) ?? 1;
+    _maxParticipants = (ex?['max_participants'] as int?) ?? (ex?['max_guests'] as int?) ?? 1;
+    _currency = (ex?['currency']?.toString() ?? _currency);
+    _pricingModel = (ex?['pricing_model']?.toString() ?? _pricingModel);
+
+    final cats = ex?['categories'];
+    if (cats is List) {
+      _categories.addAll(cats.map((e) => e.toString()));
+    } else if (cats is String && cats.trim().isNotEmpty) {
+      _categories.addAll(cats.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+    }
+
+    final images = ex?['images'] ?? ex?['gallery_urls'] ?? ex?['image_urls'];
+    if (images is List) {
+      _existingUrls.addAll(images.map((e) => e.toString()));
     }
   }
 
   @override
   void dispose() {
-    _titleCtrl.dispose(); _locCtrl.dispose(); _descCtrl.dispose(); _activitiesCtrl.dispose();
-    _priceCtrl.dispose(); _citizenPriceCtrl.dispose(); _eaPriceCtrl.dispose(); _foreignPriceCtrl.dispose();
+    _titleCtrl.dispose();
+    _locCtrl.dispose();
+    _descCtrl.dispose();
+    _activitiesCtrl.dispose();
+    _priceCtrl.dispose();
+    _citizenPriceCtrl.dispose();
+    _eaPriceCtrl.dispose();
+    _foreignPriceCtrl.dispose();
     super.dispose();
-  }
-
-  bool get _canProceed {
-    switch (_step) {
-      case 1: return _titleCtrl.text.trim().length >= 3 && _locCtrl.text.trim().isNotEmpty;
-      case 2: return double.tryParse(_priceCtrl.text.trim()) != null;
-      case 3: return true;
-      default: return true;
-    }
-  }
-
-  void _goBack() {
-    if (_step > 1) {
-      setState(() => _step--);
-    } else {
-      Navigator.pop(context);
-    }
-  }
-
-  void _goNext() {
-    if (_canProceed && _step < _totalSteps) setState(() => _step++);
-  }
-
-  Future<void> _submit() async {
-    setState(() { _saving = true; _uploading = true; });
-    final newUrls = await CloudinaryService.uploadImages(
-      _newFiles.map((f) => f.path).toList(),
-      folder: 'tours',
-    );
-    final allImages = [..._existingUrls, ...newUrls];
-    setState(() => _uploading = false);
-
-    final fields = <String, dynamic>{
-      'title': _titleCtrl.text.trim(),
-      'location': _locCtrl.text.trim(),
-      'description': _descCtrl.text.trim(),
-      'optional_activities': _activitiesCtrl.text.trim(),
-      'duration_days': _durationDays,
-      'max_participants': _maxParticipants,
-      'categories': _categories,
-      'pricing_model': _pricingModel,
-      'currency': _currency,
-      'price_per_person': double.tryParse(_priceCtrl.text.trim()) ?? 0,
-      'has_differential_pricing': _hasDifferentialPricing,
-      if (_hasDifferentialPricing) ...{
-        'price_for_citizens': double.tryParse(_citizenPriceCtrl.text.trim()),
-        'price_for_east_africans': double.tryParse(_eaPriceCtrl.text.trim()),
-        'price_for_foreigners': double.tryParse(_foreignPriceCtrl.text.trim()),
-      },
-      if (allImages.isNotEmpty) 'images': allImages,
-      if (allImages.isNotEmpty) 'main_image': allImages.first,
-    };
-
-    final e = widget.existing;
-    if (e != null) {
-      await widget.api.updateTour(id: e['id'], updates: fields);
-    } else {
-      await widget.api.createTour(userId: widget.userId, fields: fields);
-    }
-
-    setState(() => _saving = false);
-    if (mounted) Navigator.pop(context, true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(children: [
-              GestureDetector(
-                onTap: _goBack,
-                child: Row(children: [
-                  const Icon(Icons.chevron_left, size: 22, color: Colors.black54),
-                  Text(_step > 1 ? 'Back' : 'Cancel',
-                      style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                ]),
-              ),
-              Expanded(
-                child: Column(children: [
-                  Text(widget.existing == null ? 'Create a Tour' : 'Edit Tour',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                  Text('Step $_step of $_totalSteps: ${_stepTitles[_step - 1]}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                ]),
-              ),
-              const SizedBox(width: 60),
-            ]),
-          ),
-          LinearProgressIndicator(
-            value: _step / _totalSteps,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(_kRed),
-            minHeight: 3,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: _buildStep(),
-            ),
-          ),
-          _TourBottomNav(
-            step: _step,
-            totalSteps: _totalSteps,
-            canProceed: _canProceed,
-            saving: _saving,
-            onNext: _goNext,
-            onSubmit: _submit,
-          ),
-        ]),
-      ),
-    );
   }
 
   Widget _buildStep() {
@@ -245,8 +143,8 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
       children: _kTourCategories.map((c) => FilterChip(
         label: Text(c, style: const TextStyle(fontSize: 12)),
         selected: _categories.contains(c),
-        selectedColor: _kRed.withValues(alpha: 0.15),
-        checkmarkColor: _kRed,
+        selectedColor: Colors.black.withValues(alpha: 0.06),
+        checkmarkColor: Colors.black87,
         onSelected: (sel) => setState(() {
           if (sel) {
             _categories.add(c);
@@ -317,7 +215,8 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
         icon: const Icon(Icons.photo_library_outlined),
         label: const Text('Gallery'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       )),
@@ -328,7 +227,8 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
           if (img != null) setState(() => _newFiles.add(img));
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
         ),
         child: const Icon(Icons.camera_alt_outlined),
@@ -421,6 +321,133 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
       const Center(child: Text('Uploading photos…', style: TextStyle(fontSize: 13, color: Colors.black54))),
     ],
   ]);
+
+  bool get _canProceed {
+    if (_submitting) return false;
+    switch (_step) {
+      case 1:
+        return _titleCtrl.text.trim().isNotEmpty &&
+            _locCtrl.text.trim().isNotEmpty &&
+            _descCtrl.text.trim().isNotEmpty;
+      case 2:
+        return double.tryParse(_priceCtrl.text.trim()) != null;
+      case 3:
+        return (_existingUrls.length + _newFiles.length) > 0;
+      case 4:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      final uploadedUrls = <String>[];
+      if (_newFiles.isNotEmpty) {
+        setState(() => _uploading = true);
+        for (final f in _newFiles) {
+          final url = await CloudinaryService.uploadImage(
+            f.path,
+            folder: 'tours',
+          );
+          uploadedUrls.add(url);
+        }
+      }
+
+      final allImages = [..._existingUrls, ...uploadedUrls];
+      final fields = <String, dynamic>{
+        'title': _titleCtrl.text.trim(),
+        'location': _locCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'activities': _activitiesCtrl.text.trim(),
+        'duration_days': _durationDays,
+        'max_participants': _maxParticipants,
+        'categories': _categories.toList(),
+        'pricing_model': _pricingModel,
+        'currency': _currency,
+        'price': double.tryParse(_priceCtrl.text.trim()),
+        'images': allImages,
+        'citizens_price': _hasDifferentialPricing ? double.tryParse(_citizenPriceCtrl.text.trim()) : null,
+        'east_african_price': _hasDifferentialPricing ? double.tryParse(_eaPriceCtrl.text.trim()) : null,
+        'foreigners_price': _hasDifferentialPricing ? double.tryParse(_foreignPriceCtrl.text.trim()) : null,
+      };
+
+      final ex = widget.existing;
+      if (ex != null && (ex['id'] != null)) {
+        await widget.api.updateTour(id: ex['id'].toString(), updates: fields);
+      } else {
+        await widget.api.createTour(userId: widget.userId, fields: fields);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _uploading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const stepTitles = ['Basic Info', 'Pricing', 'Media', 'Review'];
+    return HostCreationScaffold(
+      title: widget.existing == null ? 'Create Tour' : 'Edit Tour',
+      subtitle: 'Step-by-step',
+      step: _step,
+      totalSteps: stepTitles.length,
+      stepTitle: stepTitles[_step - 1],
+      onBack: () {
+        if (_step > 1) {
+          setState(() => _step -= 1);
+        } else {
+          Navigator.of(context).maybePop();
+        }
+      },
+      bottomNav: _TourBottomNav(
+        step: _step,
+        totalSteps: stepTitles.length,
+        canProceed: _canProceed,
+        saving: _submitting,
+        onNext: () => setState(() => _step = (_step + 1).clamp(1, stepTitles.length)),
+        onSubmit: _submit,
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_error != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  border: Border.all(color: Colors.red.shade200),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+              ),
+              const SizedBox(height: 12),
+            ],
+            _buildStep(),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Tour-specific sub-widgets ──────────────────────────────────────────────

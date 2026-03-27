@@ -55,7 +55,7 @@ export default function SecureCardHandoff() {
             <ShieldCheck className="w-5 h-5 text-foreground" />
             <div>
               <h1 className="text-sm md:text-base font-semibold text-foreground">Secure Card Window</h1>
-              <p className="text-xs text-muted-foreground">Powered by Pesapal</p>
+              <p className="text-xs text-muted-foreground">Powered by Flutterwave</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleBackToCheckout}>Back</Button>
@@ -72,7 +72,7 @@ export default function SecureCardHandoff() {
           <>
             <div className="px-4 pt-3 pb-2 md:px-5 text-xs text-muted-foreground flex items-center gap-3">
               <span className="flex items-center gap-1.5"><LockKeyhole className="w-3.5 h-3.5" /> No iframe styling from our side</span>
-              <span className="flex items-center gap-1.5"><ExternalLink className="w-3.5 h-3.5" /> Card data stays on Pesapal</span>
+              <span className="flex items-center gap-1.5"><ExternalLink className="w-3.5 h-3.5" /> Card data stays on Flutterwave</span>
             </div>
 
             <div className="relative bg-muted/20">
@@ -82,7 +82,7 @@ export default function SecureCardHandoff() {
                 </div>
               ) : null}
               <iframe
-                title="Pesapal Secure Checkout"
+                title="Flutterwave Secure Checkout"
                 src={handoffState?.redirectUrl}
                 className="w-full h-[78vh] min-h-[560px] bg-background"
                 onLoad={() => setFrameLoaded(true)}
@@ -91,7 +91,7 @@ export default function SecureCardHandoff() {
 
             <div className="px-4 py-3 md:px-5 border-t border-border flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
-                If this window stays blank, open Pesapal directly.
+                If this window stays blank, open Flutterwave directly.
               </p>
               <div className="flex gap-2">
                 <Button

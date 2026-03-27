@@ -26,7 +26,15 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _load() async {
-    if (!widget.session.isAuthenticated) return;
+    if (!widget.session.isAuthenticated) {
+      if (mounted) {
+        setState(() {
+          _tickets = [];
+          _loading = false;
+        });
+      }
+      return;
+    }
     setState(() => _loading = true);
     final allTickets = widget.session.isAdmin || widget.session.isStaff;
     final t = await _api.fetchSupportTickets(userId: widget.session.userId, allTickets: allTickets);
@@ -48,16 +56,46 @@ class _SupportScreenState extends State<SupportScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showNewTicketSheet,
+        onPressed: widget.session.isAuthenticated ? _showNewTicketSheet : null,
         backgroundColor: AppColors.rausch,
         icon: const Icon(Icons.add),
-        label: const Text('New Ticket'),
+        label: Text(widget.session.isAuthenticated ? 'New Ticket' : 'Sign in for tickets'),
       ),
       body: _body(),
     );
   }
 
   Widget _body() {
+    if (!widget.session.isAuthenticated) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE7E7EC)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('Support', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black)),
+                SizedBox(height: 8),
+                Text(
+                  'Sign in to track tickets and continue support conversations from the app.',
+                  style: TextStyle(fontSize: 14, color: AppColors.foggy, height: 1.5),
+                ),
+                SizedBox(height: 16),
+                _SupportContactRow(icon: Icons.email_outlined, title: 'Email', value: 'support@merry360x.com'),
+                SizedBox(height: 12),
+                _SupportContactRow(icon: Icons.call_outlined, title: 'Phone', value: '+250 796 214 719'),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     if (_tickets.isEmpty) {
       return Center(
@@ -92,6 +130,40 @@ class _SupportScreenState extends State<SupportScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _NewTicketSheet(session: widget.session, onCreated: _load),
+    );
+  }
+}
+
+class _SupportContactRow extends StatelessWidget {
+  const _SupportContactRow({required this.icon, required this.title, required this.value});
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F7),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.black, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.black)),
+          ],
+        ),
+      ],
     );
   }
 }

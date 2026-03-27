@@ -679,7 +679,7 @@ export default function TourDetails() {
                   <div className="space-y-2">
                     {(tour as any)?.price_for_citizens && (
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">🇷🇼 {t("tourDetails.nationalCitizens", "National Citizens")}</span>
+                        <span className="text-muted-foreground">{t("tourDetails.nationalCitizens", "National Citizens")}</span>
                         <span className="font-semibold text-primary">
                           {displayMoney(Number((tour as any).price_for_citizens), String(normalizedCurrency ?? "RWF"))}
                         </span>

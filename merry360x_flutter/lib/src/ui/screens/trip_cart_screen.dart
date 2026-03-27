@@ -6,6 +6,7 @@ import '../../app.dart';
 import '../utils/app_snackbar.dart';
 
 import '../../services/app_database.dart';
+import 'package:merry360x_flutter/src/lib/fees.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -333,13 +334,21 @@ class _TotalBarState extends State<_TotalBar> {
   bool _promoSuccess = false;
   Map<String, dynamic>? _appliedData;
 
-  @override
-  void dispose() {
-    _promoCtrl.dispose();
-    super.dispose();
+  bool _showPriceDetails = false;
+
+  String _serviceTypeForItemType(String itemType) {
+    switch (itemType) {
+      case 'tour':
+      case 'tour_package':
+        return 'tour';
+      case 'transport':
+        return 'transport';
+      default:
+        return 'accommodation';
+    }
   }
 
-  Map<String, double> _computeTotals() {
+  Map<String, double> _computeBaseTotals() {
     final totals = <String, double>{};
     for (final item in widget.items) {
       final type = (item['item_type'] ?? 'property').toString();
@@ -356,7 +365,80 @@ class _TotalBarState extends State<_TotalBar> {
           price = double.tryParse('${item['price_per_night'] ?? 0}') ?? 0;
       }
       final currency = (item['currency'] ?? 'USD').toString();
-      totals[currency] = (totals[currency] ?? 0) + price * qty;
+      totals[currency] = (totals[currency] ?? 0) + (price * qty);
+    }
+    return totals;
+  }
+
+  Map<String, double> _computeServiceFees({required Map<String, double> baseTotals}) {
+    final fees = <String, double>{};
+
+    // Apply promo discount to the first currency only (matches existing promo validation behavior)
+    final firstCurrency = baseTotals.keys.isNotEmpty ? baseTotals.keys.first : null;
+    for (final item in widget.items) {
+      final type = (item['item_type'] ?? 'property').toString();
+      final qty = int.tryParse('${item['quantity'] ?? 1}') ?? 1;
+      double price;
+      switch (type) {
+        case 'tour':
+          price = double.tryParse('${item['price_per_person'] ?? 0}') ?? 0;
+        case 'tour_package':
+          price = double.tryParse('${item['price_per_adult'] ?? 0}') ?? 0;
+        case 'transport':
+          price = double.tryParse('${item['price_per_day'] ?? 0}') ?? 0;
+        default:
+          price = double.tryParse('${item['price_per_night'] ?? 0}') ?? 0;
+      }
+      final currency = (item['currency'] ?? 'USD').toString();
+      final base = (price * qty).clamp(0.0, double.infinity).toDouble();
+      final discountedBase = (firstCurrency != null && currency == firstCurrency)
+          ? (base - _discount).clamp(0.0, double.infinity).toDouble()
+          : base;
+
+      final financials = calculateBookingFinancialsFromDiscountedListing(
+        discountedListingSubtotal: discountedBase,
+        serviceType: _serviceTypeForItemType(type),
+      );
+      fees[currency] = (fees[currency] ?? 0) + financials.guestFee;
+    }
+
+    return fees;
+  }
+
+  @override
+  void dispose() {
+    _promoCtrl.dispose();
+    super.dispose();
+  }
+
+  Map<String, double> _computeTotals() {
+    // Guest totals (base minus promo discount, then service fee applied per item type)
+    final totals = <String, double>{};
+    for (final item in widget.items) {
+      final type = (item['item_type'] ?? 'property').toString();
+      final qty = int.tryParse('${item['quantity'] ?? 1}') ?? 1;
+      double price;
+      switch (type) {
+        case 'tour':
+          price = double.tryParse('${item['price_per_person'] ?? 0}') ?? 0;
+        case 'tour_package':
+          price = double.tryParse('${item['price_per_adult'] ?? 0}') ?? 0;
+        case 'transport':
+          price = double.tryParse('${item['price_per_day'] ?? 0}') ?? 0;
+        default:
+          price = double.tryParse('${item['price_per_night'] ?? 0}') ?? 0;
+      }
+      final currency = (item['currency'] ?? 'USD').toString();
+      final base = (price * qty).clamp(0.0, double.infinity).toDouble();
+      // Apply promo discount to the first currency only (same behavior as current promo validation)
+      final discountedBase = (currency == (totals.keys.isNotEmpty ? totals.keys.first : currency))
+          ? (base - _discount).clamp(0.0, double.infinity).toDouble()
+          : base;
+      final financials = calculateBookingFinancialsFromDiscountedListing(
+        discountedListingSubtotal: discountedBase,
+        serviceType: _serviceTypeForItemType(type),
+      );
+      totals[currency] = (totals[currency] ?? 0) + financials.guestTotal;
     }
     return totals;
   }
@@ -417,6 +499,8 @@ class _TotalBarState extends State<_TotalBar> {
 
   @override
   Widget build(BuildContext context) {
+    final baseTotals = _computeBaseTotals();
+    final serviceFees = _computeServiceFees(baseTotals: baseTotals);
     final totals = _computeTotals();
     return Container(
       padding: const EdgeInsets.all(14),
@@ -499,21 +583,68 @@ class _TotalBarState extends State<_TotalBar> {
           const SizedBox(height: 12),
           const Text('Estimated total', style: TextStyle(fontSize: 13, color: AppColors.foggy)),
           const SizedBox(height: 6),
-          ...totals.entries.map((e) {
-            if (_discount > 0) {
-              final discounted = e.value - _discount;
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${e.key} ${e.value.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 15, decoration: TextDecoration.lineThrough, color: AppColors.hackberry)),
-                Text('${e.key} ${discounted.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF4CAF50))),
-              ]);
-            }
-            return Text('${e.key} ${e.value.toStringAsFixed(0)}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700));
-          }),
-          const SizedBox(height: 4),
-          const Text('Excluding service fees', style: TextStyle(fontSize: 11, color: AppColors.hackberry)),
+          if (baseTotals.isNotEmpty) ...[
+            ...baseTotals.entries.map((e) {
+              final fee = (serviceFees[e.key] ?? 0);
+              final total = (totals[e.key] ?? e.value);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                        Text('${e.key} ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _showPriceDetails = !_showPriceDetails),
+                        child: Text(
+                          _showPriceDetails ? 'Hide price details' : 'Show price details',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch),
+                        ),
+                      ),
+                    ),
+                    if (_showPriceDetails) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Base', style: TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                          Text('${e.key} ${e.value.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Platform fees', style: TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                          Text('${e.key} ${fee.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                        ],
+                      ),
+                      if (_discount > 0) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Promo discount', style: TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
+                            Text('- ${e.key} ${_discount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+          ],
+          const Text('Platform fees may apply', style: TextStyle(fontSize: 11, color: AppColors.hackberry)),
         ],
       ),
     );

@@ -78,7 +78,6 @@ interface PaymentMethodInfo {
   provider: string;
   countryCode: string;
   country: string;
-  flag: string;
   currency: string;
   color: string;
   textColor: string;
@@ -86,69 +85,69 @@ interface PaymentMethodInfo {
 
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
-  { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'airtel_rwa', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+250', country: 'Rwanda', flag: '🇷🇼', currency: 'RWF', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_rwa', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+250', country: 'Rwanda', currency: 'RWF', color: 'bg-red-500', textColor: 'text-white' },
   
   // Kenya (+254) - KES — MPESA_KEN only
-  { id: 'mpesa_ken', name: 'M-Pesa', shortName: 'M-Pesa', provider: 'MPESA', countryCode: '+254', country: 'Kenya', flag: '🇰🇪', currency: 'KES', color: 'bg-green-500', textColor: 'text-white' },
+  { id: 'mpesa_ken', name: 'M-Pesa', shortName: 'M-Pesa', provider: 'MPESA', countryCode: '+254', country: 'Kenya', currency: 'KES', color: 'bg-green-500', textColor: 'text-white' },
   
   // Uganda (+256) - UGX — MTN_MOMO_UGA, AIRTEL_OAPI_UGA
-  { id: 'mtn_uga', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'airtel_uga', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+256', country: 'Uganda', flag: '🇺🇬', currency: 'UGX', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'mtn_uga', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+256', country: 'Uganda', currency: 'UGX', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_uga', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+256', country: 'Uganda', currency: 'UGX', color: 'bg-red-500', textColor: 'text-white' },
   
   // Zambia (+260) - ZMW — MTN_MOMO_ZMB, ZAMTEL_ZMB
-  { id: 'mtn_zmb', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'zamtel_zmb', name: 'Zamtel Money', shortName: 'Zamtel', provider: 'ZAMTEL', countryCode: '+260', country: 'Zambia', flag: '🇿🇲', currency: 'ZMW', color: 'bg-green-600', textColor: 'text-white' },
+  { id: 'mtn_zmb', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+260', country: 'Zambia', currency: 'ZMW', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'zamtel_zmb', name: 'Zamtel Money', shortName: 'Zamtel', provider: 'ZAMTEL', countryCode: '+260', country: 'Zambia', currency: 'ZMW', color: 'bg-green-600', textColor: 'text-white' },
 
   // Tanzania (+255) - TZS — VODACOM_TZN, TIGO_TZN, AIRTEL_TZN
-  { id: 'vodacom_tzn', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-600', textColor: 'text-white' },
-  { id: 'tigo_tzn', name: 'Tigo Pesa', shortName: 'Tigo', provider: 'TIGO', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-blue-600', textColor: 'text-white' },
-  { id: 'airtel_tzn', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+255', country: 'Tanzania', flag: '🇹🇿', currency: 'TZS', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'vodacom_tzn', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+255', country: 'Tanzania', currency: 'TZS', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'tigo_tzn', name: 'Tigo Pesa', shortName: 'Tigo', provider: 'TIGO', countryCode: '+255', country: 'Tanzania', currency: 'TZS', color: 'bg-blue-600', textColor: 'text-white' },
+  { id: 'airtel_tzn', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+255', country: 'Tanzania', currency: 'TZS', color: 'bg-red-500', textColor: 'text-white' },
 
   // Ghana (+233) - GHS — MTN_MOMO_GHA, VODAFONE_GHA
-  { id: 'mtn_gha', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+233', country: 'Ghana', flag: '🇬🇭', currency: 'GHS', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'vodafone_gha', name: 'Vodafone Cash', shortName: 'Vodafone', provider: 'VODAFONE', countryCode: '+233', country: 'Ghana', flag: '🇬🇭', currency: 'GHS', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'mtn_gha', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+233', country: 'Ghana', currency: 'GHS', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'vodafone_gha', name: 'Vodafone Cash', shortName: 'Vodafone', provider: 'VODAFONE', countryCode: '+233', country: 'Ghana', currency: 'GHS', color: 'bg-red-600', textColor: 'text-white' },
 
   // DRC (+243) - CDF — VODACOM_MPESA_COD, AIRTEL_COD, ORANGE_COD
-  { id: 'vodacom_cod', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-red-600', textColor: 'text-white' },
-  { id: 'airtel_cod', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-red-500', textColor: 'text-white' },
-  { id: 'orange_cod', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+243', country: 'DR Congo', flag: '🇨🇩', currency: 'CDF', color: 'bg-orange-500', textColor: 'text-white' },
+  { id: 'vodacom_cod', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+243', country: 'DR Congo', currency: 'CDF', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'airtel_cod', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+243', country: 'DR Congo', currency: 'CDF', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'orange_cod', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+243', country: 'DR Congo', currency: 'CDF', color: 'bg-orange-500', textColor: 'text-white' },
 
   // Cameroon (+237) - XAF — MTN_MOMO_CMR, ORANGE_CMR
-  { id: 'mtn_cmr', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+237', country: 'Cameroon', flag: '🇨🇲', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'orange_cmr', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+237', country: 'Cameroon', flag: '🇨🇲', currency: 'XAF', color: 'bg-orange-500', textColor: 'text-white' },
+  { id: 'mtn_cmr', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+237', country: 'Cameroon', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'orange_cmr', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+237', country: 'Cameroon', currency: 'XAF', color: 'bg-orange-500', textColor: 'text-white' },
 
   // Senegal (+221) - XOF — ORANGE_SEN, FREE_SEN
-  { id: 'orange_sen', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+221', country: 'Senegal', flag: '🇸🇳', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
-  { id: 'free_sen', name: 'Free Money', shortName: 'Free', provider: 'FREE', countryCode: '+221', country: 'Senegal', flag: '🇸🇳', currency: 'XOF', color: 'bg-teal-500', textColor: 'text-white' },
+  { id: 'orange_sen', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+221', country: 'Senegal', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
+  { id: 'free_sen', name: 'Free Money', shortName: 'Free', provider: 'FREE', countryCode: '+221', country: 'Senegal', currency: 'XOF', color: 'bg-teal-500', textColor: 'text-white' },
 
   // Ivory Coast (+225) - XOF — MTN_MOMO_CIV, ORANGE_CIV
-  { id: 'mtn_civ', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+225', country: 'Ivory Coast', flag: '🇨🇮', currency: 'XOF', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'orange_civ', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+225', country: 'Ivory Coast', flag: '🇨🇮', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
+  { id: 'mtn_civ', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+225', country: 'Ivory Coast', currency: 'XOF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'orange_civ', name: 'Orange Money', shortName: 'Orange', provider: 'ORANGE', countryCode: '+225', country: 'Ivory Coast', currency: 'XOF', color: 'bg-orange-500', textColor: 'text-white' },
 
   // Mozambique (+258) - MZN — VODACOM_MOZ, MPESA_MOZ
-  { id: 'vodacom_moz', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+258', country: 'Mozambique', flag: '🇲🇿', currency: 'MZN', color: 'bg-red-600', textColor: 'text-white' },
+  { id: 'vodacom_moz', name: 'Vodacom M-Pesa', shortName: 'M-Pesa', provider: 'VODACOM', countryCode: '+258', country: 'Mozambique', currency: 'MZN', color: 'bg-red-600', textColor: 'text-white' },
 
   // Malawi (+265) - MWK — AIRTEL_MWI, TNM_MWI
-  { id: 'airtel_mwi', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+265', country: 'Malawi', flag: '🇲🇼', currency: 'MWK', color: 'bg-red-500', textColor: 'text-white' },
-  { id: 'tnm_mwi', name: 'TNM Mpamba', shortName: 'TNM', provider: 'TNM', countryCode: '+265', country: 'Malawi', flag: '🇲🇼', currency: 'MWK', color: 'bg-blue-500', textColor: 'text-white' },
+  { id: 'airtel_mwi', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+265', country: 'Malawi', currency: 'MWK', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'tnm_mwi', name: 'TNM Mpamba', shortName: 'TNM', provider: 'TNM', countryCode: '+265', country: 'Malawi', currency: 'MWK', color: 'bg-blue-500', textColor: 'text-white' },
 
   // Burundi (+257) - BIF — ECONET_BDI
-  { id: 'econet_bdi', name: 'Econet Leo', shortName: 'Econet', provider: 'ECONET', countryCode: '+257', country: 'Burundi', flag: '🇧🇮', currency: 'BIF', color: 'bg-blue-700', textColor: 'text-white' },
+  { id: 'econet_bdi', name: 'Econet Leo', shortName: 'Econet', provider: 'ECONET', countryCode: '+257', country: 'Burundi', currency: 'BIF', color: 'bg-blue-700', textColor: 'text-white' },
 
   // Congo-Brazzaville (+242) - XAF — MTN_MOMO_COG, AIRTEL_COG
-  { id: 'mtn_cog', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+242', country: 'Congo', flag: '🇨🇬', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
-  { id: 'airtel_cog', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+242', country: 'Congo', flag: '🇨🇬', currency: 'XAF', color: 'bg-red-500', textColor: 'text-white' },
+  { id: 'mtn_cog', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+242', country: 'Congo', currency: 'XAF', color: 'bg-yellow-400', textColor: 'text-black' },
+  { id: 'airtel_cog', name: 'Airtel Money', shortName: 'Airtel', provider: 'AIRTEL', countryCode: '+242', country: 'Congo', currency: 'XAF', color: 'bg-red-500', textColor: 'text-white' },
 ];
 
 // Group methods by country
 const METHODS_BY_COUNTRY = PAWAPAY_METHODS.reduce((acc, method) => {
   if (!acc[method.country]) {
-    acc[method.country] = { flag: method.flag, countryCode: method.countryCode, currency: method.currency, methods: [] };
+    acc[method.country] = { countryCode: method.countryCode, currency: method.currency, methods: [] };
   }
   acc[method.country].methods.push(method);
   return acc;
-}, {} as Record<string, { flag: string; countryCode: string; currency: string; methods: PaymentMethodInfo[] }>);
+}, {} as Record<string, { countryCode: string; currency: string; methods: PaymentMethodInfo[] }>);
 
 // Country code to country name mapping for detection
 const COUNTRY_BY_CODE: Record<string, string> = {
@@ -1440,7 +1439,7 @@ export default function CheckoutNew() {
           total_participants: hasGroupBooking ? tourParticipants : 1,
           group_total: hasGroupBooking ? total : null,
           payment_provider: (() => {
-            if (paymentMethod === 'card') return 'PESAPAL';
+            if (paymentMethod === 'card') return 'FLUTTERWAVE';
             if (paymentMethod === 'bank') return 'BANK_TRANSFER';
             const methodInfo = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
             return methodInfo?.provider || paymentMethod.toUpperCase();
@@ -1567,9 +1566,9 @@ export default function CheckoutNew() {
       }
 
       if (paymentMethod === 'card') {
-        const redirectUrl = `${window.location.origin}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=pesapal`;
+        const redirectUrl = `${window.location.origin}/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
 
-        const cardInitResponse = await fetch("/api/pesapal", {
+        const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1580,7 +1579,6 @@ export default function CheckoutNew() {
             payerName: formData.fullName,
             payerEmail: formData.email,
             phoneNumber: fullPhone || normalizedPhone,
-            billingAddress,
             description: `Merry360x Booking - ${cartItems.length} item(s)`,
             redirectUrl,
             metadata: {
@@ -2032,7 +2030,7 @@ export default function CheckoutNew() {
 
                   {/* Payment Methods by Country */}
                   {isMobileMoneyMethod && <div className="space-y-4">
-                    {visibleMobileMoneyCountries.map(([country, { flag, countryCode: cc, currency, methods }]) => {
+                    {visibleMobileMoneyCountries.map(([country, { countryCode: cc, currency, methods }]) => {
                       const selectedMethod = PAWAPAY_METHODS.find(m => m.id === paymentMethod);
                       const isCountrySelected = selectedMethod?.country === country;
                       const convertedTotal = currency === displayCurrency 
@@ -2050,7 +2048,6 @@ export default function CheckoutNew() {
                             isCountrySelected ? "bg-primary/5" : "bg-muted/30"
                           )}>
                             <div className="flex items-center gap-2">
-                              <span className="text-xl">{flag}</span>
                               <div>
                                 <span className="font-medium">{country}</span>
                                 <span className="text-xs text-muted-foreground ml-2">({cc})</span>
@@ -2112,18 +2109,18 @@ export default function CheckoutNew() {
                         <CreditCard className="w-5 h-5 text-foreground mt-0.5" />
                         <div>
                           <p className="text-sm font-semibold text-foreground">Secure Card Checkout</p>
-                          <p className="text-sm text-muted-foreground">No iframe. Card details are entered on Pesapal only.</p>
+                          <p className="text-sm text-muted-foreground">No iframe. Card details are entered on Flutterwave only.</p>
                         </div>
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-3 text-sm">
                         <div className="rounded-lg border border-border bg-background p-3">1. Confirm Booking</div>
                         <div className="rounded-lg border border-border bg-background p-3">2. Secure Window</div>
-                        <div className="rounded-lg border border-border bg-background p-3">3. Pay on Pesapal</div>
+                        <div className="rounded-lg border border-border bg-background p-3">3. Pay on Flutterwave</div>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-muted-foreground">
-                        <p className="flex items-center gap-2"><LockKeyhole className="w-4 h-4" /> PCI-compliant payment handled by Pesapal.</p>
+                        <p className="flex items-center gap-2"><LockKeyhole className="w-4 h-4" /> PCI-compliant payment handled by Flutterwave.</p>
                         <p className="flex items-center gap-2"><ExternalLink className="w-4 h-4" /> Opens in a secure hover window (same tab).</p>
                       </div>
 
@@ -2194,7 +2191,7 @@ export default function CheckoutNew() {
                         <Label htmlFor="phone">{t("checkout.payment.phoneNumber")}</Label>
                         <div className="flex gap-2 mt-1.5">
                           <div className="h-11 px-3 rounded-lg border bg-muted/50 flex items-center text-sm">
-                            {PAWAPAY_METHODS.find(m => m.id === paymentMethod)?.flag} {countryCode}
+                            {countryCode}
                           </div>
                           <div className="relative flex-1">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -2316,7 +2313,6 @@ export default function CheckoutNew() {
                             <p className="text-sm">
                               {isMobileMoney && selectedMethodInfo && (
                                 <span className="flex items-center gap-2">
-                                  <span className="text-lg">{selectedMethodInfo.flag}</span>
                                   {selectedMethodInfo.name}
                                 </span>
                               )}
@@ -2355,7 +2351,7 @@ export default function CheckoutNew() {
                           </p>
                           <p className="text-muted-foreground">
                             {paymentMethod === 'card'
-                              ? <>After clicking "Pay", a secure hover window opens in this tab for Pesapal card checkout (no iframe styling controls from our side).</>
+                              ? <>After clicking "Pay", a secure window opens in this tab for Flutterwave card checkout (no iframe styling controls from our side).</>
                               : <>After clicking "Pay", our payment team will call you at <span className="font-medium text-foreground">{formData.email}</span> to complete your bank transfer.</>}
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">Need help: +250 796 214 719</p>

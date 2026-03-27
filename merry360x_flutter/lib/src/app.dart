@@ -26,12 +26,22 @@ class Merry360xMobileApp extends StatefulWidget {
 
 class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
   late final SessionController _session;
+  bool _showSplash = true;
 
   @override
   void initState() {
     super.initState();
     _session = SessionController();
-    _session.refresh();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.wait<void>([
+      _session.refresh(),
+      Future<void>.delayed(const Duration(milliseconds: 1600)),
+    ]);
+    if (!mounted) return;
+    setState(() => _showSplash = false);
   }
 
   @override
@@ -42,12 +52,6 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppColors.white,
-    ));
-
     return AnimatedBuilder(
       animation: _session,
       builder: (context, _) {
@@ -166,9 +170,42 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
               ),
             ),
           ),
-          home: MainShell(session: _session),
+          home: _showSplash ? const _SplashScreen() : MainShell(session: _session),
         );
       },
+    );
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = MediaQuery.platformBrightnessOf(context);
+    final isDark = brightness == Brightness.dark;
+    final backgroundColor = isDark ? Colors.black : Colors.white;
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: backgroundColor,
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+    ));
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: Image.asset(
+            'assets/brand/logo.png',
+            width: 132,
+            height: 132,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
     );
   }
 }

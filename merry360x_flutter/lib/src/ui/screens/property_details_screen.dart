@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../../services/app_database.dart';
+import 'package:merry360x_flutter/src/lib/fees.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -40,6 +41,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   final AppDatabase _api = AppDatabase();
 
   Map<String, dynamic>? _full;
+  List<Map<String, dynamic>> _recommendedProperties = [];
   List<Map<String, dynamic>> _recommendedTours = [];
   List<Map<String, dynamic>> _recommendedTourPackages = [];
   List<Map<String, dynamic>> _recommendedTransport = [];
@@ -101,30 +103,117 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
     try {
       final results = await Future.wait([
-        _api.fetchTours(query: query, limit: 8),
-        _api.fetchTourPackages(query: query, limit: 8),
-        _api.fetchTransportListings(query: query, limit: 8),
+        _api.fetchProperties(query: query, limit: 16),
+        _api.fetchTours(query: query, limit: 16),
+        _api.fetchTourPackages(query: query, limit: 16),
+        _api.fetchTransportListings(query: query, limit: 16),
       ]);
 
       List<Map<String, dynamic>> sanitize(List<Map<String, dynamic>> items) {
-        return items.where((candidate) {
+        final filtered = items.where((candidate) {
           final candidateId = (candidate['id'] ?? '').toString();
           final candidateType = (candidate['item_type'] ?? '').toString();
           if (candidateId.isEmpty) return true;
           return candidateId != currentId || candidateType != currentType;
-        }).take(6).toList();
+        }).toList();
+
+        filtered.sort((a, b) {
+          final aRating = ((a['rating'] ?? a['average_rating']) as num?)?.toDouble() ?? 0;
+          final bRating = ((b['rating'] ?? b['average_rating']) as num?)?.toDouble() ?? 0;
+          final aReviews = ((a['review_count'] ?? 0) as num?)?.toInt() ?? 0;
+          final bReviews = ((b['review_count'] ?? 0) as num?)?.toInt() ?? 0;
+          final ratingCompare = bRating.compareTo(aRating);
+          if (ratingCompare != 0) return ratingCompare;
+          return bReviews.compareTo(aReviews);
+        });
+
+        return filtered.take(7).toList();
       }
+
+      Future<List<Map<String, dynamic>>> topUpRecommendations(
+        List<Map<String, dynamic>> items,
+        Future<List<Map<String, dynamic>>> Function() loader,
+      ) async {
+        final primary = sanitize(items);
+        if (primary.length >= 7 || query.isEmpty) {
+          return primary;
+        }
+
+        final fallback = sanitize(await loader());
+        final merged = <Map<String, dynamic>>[];
+        final seen = <String>{};
+
+        void appendAll(List<Map<String, dynamic>> candidates) {
+          for (final candidate in candidates) {
+            final id = (candidate['id'] ?? '').toString();
+            final type = (candidate['item_type'] ?? '').toString();
+            final key = '$type:$id';
+            if (!seen.add(key)) continue;
+            merged.add(candidate);
+            if (merged.length >= 7) return;
+          }
+        }
+
+        appendAll(primary);
+        if (merged.length < 7) {
+          appendAll(fallback);
+        }
+
+        return merged;
+      }
+
+      final recommendedTours = await topUpRecommendations(
+        results[1],
+        () => _api.fetchTours(limit: 16),
+      );
+      final recommendedTourPackages = await topUpRecommendations(
+        results[2],
+        () => _api.fetchTourPackages(limit: 16),
+      );
+      final recommendedTransport = await topUpRecommendations(
+        results[3],
+        () => _api.fetchTransportListings(limit: 16),
+      );
+      final recommendedProperties = await topUpRecommendations(
+        results[0],
+        () => _api.fetchProperties(limit: 16),
+      );
 
       if (!mounted) return;
       setState(() {
-        _recommendedTours = sanitize(results[0]);
-        _recommendedTourPackages = sanitize(results[1]);
-        _recommendedTransport = sanitize(results[2]);
+        _recommendedProperties = recommendedProperties;
+        _recommendedTours = recommendedTours;
+        _recommendedTourPackages = recommendedTourPackages;
+        _recommendedTransport = recommendedTransport;
         _loadingRecommendations = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingRecommendations = false);
+    }
+  }
+
+  List<({String title, List<Map<String, dynamic>> items})> get _recommendationSections {
+    switch (itemType) {
+      case 'tour':
+      case 'tour_package':
+        return [
+          if (_recommendedProperties.isNotEmpty) (title: 'Properties', items: _recommendedProperties),
+          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
+          if (_recommendedTransport.isNotEmpty) (title: 'Transport', items: _recommendedTransport),
+        ];
+      case 'transport':
+        return [
+          if (_recommendedProperties.isNotEmpty) (title: 'Properties', items: _recommendedProperties),
+          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
+          if (_recommendedTourPackages.isNotEmpty) (title: 'Tour packages', items: _recommendedTourPackages),
+        ];
+      default:
+        return [
+          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
+          if (_recommendedTourPackages.isNotEmpty) (title: 'Tour packages', items: _recommendedTourPackages),
+          if (_recommendedTransport.isNotEmpty) (title: 'Transport', items: _recommendedTransport),
+        ];
     }
   }
 
@@ -203,7 +292,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   }
 
   bool get _hasRecommendations =>
-      _recommendedTours.isNotEmpty || _recommendedTourPackages.isNotEmpty || _recommendedTransport.isNotEmpty;
+      _recommendedProperties.isNotEmpty ||
+      _recommendedTours.isNotEmpty ||
+      _recommendedTourPackages.isNotEmpty ||
+      _recommendedTransport.isNotEmpty;
 
   Future<void> _pickDates() async {
     final now = DateTime.now();
@@ -311,6 +403,15 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     );
   }
 
+  Future<void> _openGallery(List<String> images, int initialIndex) async {
+    if (images.isEmpty) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _FullscreenGallery(images: images, initialIndex: initialIndex),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final images = _allImages;
@@ -377,9 +478,12 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 if (_loading)
                   Container(color: const Color(0xFFF0F0F3))
                 else
-                  _GalleryView(
-                    images: images,
-                    onPageChanged: (i) => setState(() => _currentImage = i),
+                  GestureDetector(
+                    onTap: () => _openGallery(images, _currentImage),
+                    child: _GalleryView(
+                      images: images,
+                      onPageChanged: (i) => setState(() => _currentImage = i),
+                    ),
                   ),
                 // Top bar: back, like, share
                 Positioned(
@@ -515,28 +619,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       child: Center(child: CircularProgressIndicator(color: AppColors.rausch)),
                     )
                   else ...[
-                    if (_recommendedTours.isNotEmpty)
+                    for (final section in _recommendationSections)
                       _RecommendationRail(
-                        title: 'Tours',
-                        items: _recommendedTours,
-                        session: widget.session,
-                        initialCheckIn: _checkIn,
-                        initialCheckOut: _checkOut,
-                        initialGuests: _guests,
-                      ),
-                    if (_recommendedTourPackages.isNotEmpty)
-                      _RecommendationRail(
-                        title: 'Tour packages',
-                        items: _recommendedTourPackages,
-                        session: widget.session,
-                        initialCheckIn: _checkIn,
-                        initialCheckOut: _checkOut,
-                        initialGuests: _guests,
-                      ),
-                    if (_recommendedTransport.isNotEmpty)
-                      _RecommendationRail(
-                        title: 'Transport',
-                        items: _recommendedTransport,
+                        title: section.title,
+                        items: section.items,
                         session: widget.session,
                         initialCheckIn: _checkIn,
                         initialCheckOut: _checkOut,
@@ -718,6 +804,198 @@ class _DotIndicator extends StatelessWidget {
   }
 }
 
+class _FullscreenGallery extends StatefulWidget {
+  const _FullscreenGallery({required this.images, required this.initialIndex});
+
+  final List<String> images;
+  final int initialIndex;
+
+  @override
+  State<_FullscreenGallery> createState() => _FullscreenGalleryState();
+}
+
+class _FullscreenGalleryState extends State<_FullscreenGallery> {
+  late final PageController _pageController;
+  final ScrollController _thumbScrollController = ScrollController();
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, widget.images.length - 1);
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _thumbScrollController.dispose();
+    super.dispose();
+  }
+
+  void _goToIndex(int index) {
+    if (index < 0 || index >= widget.images.length) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _handlePageChanged(int index) {
+    setState(() => _currentIndex = index);
+
+    if (!_thumbScrollController.hasClients) return;
+    final target = (index * 76.0) - 120.0;
+    final clamped = target.clamp(
+      0.0,
+      _thumbScrollController.position.maxScrollExtent,
+    );
+    _thumbScrollController.animateTo(
+      clamped,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Stack(
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                itemCount: widget.images.length,
+                onPageChanged: _handlePageChanged,
+                itemBuilder: (context, index) {
+                  return InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Center(
+                      child: Image.network(
+                        widget.images[index],
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              Positioned.fill(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => _goToIndex(_currentIndex - 1),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => _goToIndex(_currentIndex + 1),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0x66000000),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0x66000000),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1} / ${widget.images.length}',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.images.length > 1)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.of(context).padding.bottom + 18,
+              child: SizedBox(
+                height: 70,
+                child: ListView.separated(
+                  controller: _thumbScrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.images.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final selected = index == _currentIndex;
+                    return GestureDetector(
+                      onTap: () => _goToIndex(index),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 68,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected ? Colors.white : Colors.white24,
+                            width: selected ? 2 : 1,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              widget.images[index],
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                color: const Color(0xFF1F1F1F),
+                                child: const Icon(Icons.image_outlined, color: Colors.white38),
+                              ),
+                            ),
+                            if (!selected)
+                              Container(color: const Color(0x33000000)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RecommendationRail extends StatelessWidget {
   const _RecommendationRail({
     required this.title,
@@ -743,7 +1021,7 @@ class _RecommendationRail extends StatelessWidget {
         Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)),
         const SizedBox(height: 10),
         SizedBox(
-          height: 224,
+          height: 246,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -782,8 +1060,7 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
-    final subtitle = _subtitle(item);
+    final title = _cardTitle(item);
     final imageUrl = resolveListingImageUrl(item) ?? '';
     final rating = (item['rating'] ?? item['average_rating'])?.toString();
 
@@ -800,62 +1077,120 @@ class _RecommendationCard extends StatelessWidget {
         ),
       ),
       child: SizedBox(
-        width: 220,
+        width: 174,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               child: SizedBox(
-                height: 138,
+                height: 150,
                 width: double.infinity,
-                child: imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFFF0F0F3),
-                          child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8E8E98)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: const Color(0xFFF0F0F3),
+                              child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8E8E98)),
+                            ),
+                          )
+                        : Container(
+                            color: const Color(0xFFF0F0F3),
+                            child: const Icon(Icons.image_outlined, color: Color(0xFF8E8E98)),
+                          ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
+                          ],
                         ),
-                      )
-                    : Container(
-                        color: const Color(0xFFF0F0F3),
-                        child: const Icon(Icons.image_outlined, color: Color(0xFF8E8E98)),
+                        child: const Text(
+                          'Guest favorite',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
+                        ),
                       ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (!session.isAuthenticated) {
+                            AppSnackBar.info(context, 'Sign in to save to trip cart');
+                            return;
+                          }
+                          final metadata = <String, dynamic>{
+                            if (initialCheckIn != null) 'check_in': initialCheckIn!.toIso8601String().split('T').first,
+                            if (initialCheckOut != null) 'check_out': initialCheckOut!.toIso8601String().split('T').first,
+                            'guests': initialGuests,
+                          };
+                          try {
+                            await session.addListingToTripCart(item, metadata: metadata);
+                            if (!context.mounted) return;
+                            AppSnackBar.success(context, 'Added to trip cart ✓');
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            AppSnackBar.error(context, 'Could not add: $e');
+                          }
+                        },
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: const BoxDecoration(
+                            color: Color(0x66000000),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.favorite_border, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            _TypeBadge(type: (item['item_type'] ?? 'property').toString()),
             const SizedBox(height: 8),
             Text(
               title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: AppColors.foggy),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF222222)),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _priceLabel(item),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${_priceMain(item)} ${_priceSuffix(item)}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF717171)),
+                        ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
                   ),
                 ),
                 if (rating != null && rating != 'null') ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.star, size: 14, color: AppColors.black),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.star, size: 14, color: Color(0xFF222222)),
                   const SizedBox(width: 3),
-                  Text(rating, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text(
+                    rating,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF222222)),
+                  ),
                 ],
               ],
             ),
@@ -865,21 +1200,26 @@ class _RecommendationCard extends StatelessWidget {
     );
   }
 
-  static String _subtitle(Map<String, dynamic> item) {
+  static String _cardTitle(Map<String, dynamic> item) {
     final type = (item['item_type'] ?? 'property').toString();
+    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
     switch (type) {
       case 'tour':
-        return (item['location'] ?? item['category'] ?? 'Tour experience').toString();
+        final location = (item['location'] ?? item['category'] ?? '').toString().trim();
+        return location.isEmpty ? title : '$title in $location';
       case 'tour_package':
-        return (item['location'] ?? item['city'] ?? 'Tour package').toString();
+        final location = (item['location'] ?? item['city'] ?? '').toString().trim();
+        return location.isEmpty ? title : '$title in $location';
       case 'transport':
-        return (item['vehicle_type'] ?? item['provider_name'] ?? 'Transport').toString();
+        final vehicle = (item['vehicle_type'] ?? item['provider_name'] ?? '').toString().trim();
+        return vehicle.isEmpty ? title : '$title, $vehicle';
       default:
-        return (item['location'] ?? item['property_type'] ?? 'Stay').toString();
+        final location = (item['location'] ?? item['city'] ?? '').toString().trim();
+        return location.isEmpty ? title : '$title in $location';
     }
   }
 
-  static String _priceLabel(Map<String, dynamic> item) {
+  static String _priceMain(Map<String, dynamic> item) {
     final currency = (item['currency'] ?? 'USD').toString();
     final type = (item['item_type'] ?? 'property').toString();
     final amount = switch (type) {
@@ -888,13 +1228,17 @@ class _RecommendationCard extends StatelessWidget {
       'transport' => item['price_per_day'] ?? 0,
       _ => item['price_per_night'] ?? 0,
     };
-    final unit = switch (type) {
+    final parsed = double.tryParse('$amount') ?? 0;
+    return '$currency ${parsed.toStringAsFixed(0)}';
+  }
+
+  static String _priceSuffix(Map<String, dynamic> item) {
+    final type = (item['item_type'] ?? 'property').toString();
+    return switch (type) {
       'tour' || 'tour_package' => '/ person',
       'transport' => '/ day',
       _ => '/ night',
     };
-    final parsed = double.tryParse('$amount') ?? 0;
-    return '$currency ${parsed.toStringAsFixed(0)} $unit';
   }
 }
 
@@ -1138,8 +1482,25 @@ class _PriceSummaryCard extends StatelessWidget {
   final double subtotal;
   final String itemType;
 
-  double get _serviceFee => subtotal * 0.05;
-  double get _total => subtotal + _serviceFee;
+  String get _serviceType {
+    switch (itemType) {
+      case 'tour':
+      case 'tour_package':
+        return 'tour';
+      case 'transport':
+        return 'transport';
+      default:
+        return 'accommodation';
+    }
+  }
+
+  BookingFinancials get _financials => calculateBookingFinancialsFromDiscountedListing(
+        discountedListingSubtotal: subtotal.clamp(0.0, double.infinity).toDouble(),
+        serviceType: _serviceType,
+      );
+
+  double get _serviceFee => _financials.guestFee;
+  double get _total => _financials.guestTotal;
 
   @override
   Widget build(BuildContext context) {
@@ -1166,8 +1527,12 @@ class _PriceSummaryCard extends StatelessWidget {
           const Text('Price breakdown', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 10),
           _Row(label: unitDesc, value: '$currency ${subtotal.toStringAsFixed(0)}'),
-          const SizedBox(height: 6),
-          _Row(label: 'Service fee (5%)', value: '$currency ${_serviceFee.toStringAsFixed(0)}'),
+          const SizedBox(height: 8),
+          _PriceDetailsToggle(
+            percentLabel: _financials.guestFeePercent.toStringAsFixed(0),
+            currency: currency,
+            fee: _serviceFee,
+          ),
           const Divider(height: 18),
           _Row(
             label: 'Total',
@@ -1176,6 +1541,48 @@ class _PriceSummaryCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PriceDetailsToggle extends StatefulWidget {
+  const _PriceDetailsToggle({
+    required this.percentLabel,
+    required this.currency,
+    required this.fee,
+  });
+
+  final String percentLabel;
+  final String currency;
+  final double fee;
+
+  @override
+  State<_PriceDetailsToggle> createState() => _PriceDetailsToggleState();
+}
+
+class _PriceDetailsToggleState extends State<_PriceDetailsToggle> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _open = !_open),
+          child: Text(
+            _open ? 'Hide price details' : 'Show price details',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rausch),
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 6),
+          _Row(
+            label: 'Platform fee (${widget.percentLabel}%)',
+            value: '${widget.currency} ${widget.fee.toStringAsFixed(0)}',
+          ),
+        ],
+      ],
     );
   }
 }

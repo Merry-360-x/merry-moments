@@ -1627,7 +1627,7 @@ Some components are non-refundable once booked, including but not limited to:
               {formData.has_differential_pricing && (
                 <div className="ml-7 mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-sm">🇷🇼 National Citizens</Label>
+                    <Label className="text-sm">National Citizens</Label>
                     <Input
                       type="number"
                       min="0"

@@ -86,7 +86,7 @@ class AppDatabase {
         _sb
             .from('tours')
             .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, created_at')
-            .eq('is_published', true)
+        .or('is_published.eq.true,is_published.is.null')
             .order('created_at', ascending: false)
             .limit(10),
       ),
@@ -102,7 +102,7 @@ class AppDatabase {
         _sb
             .from('transport_vehicles')
             .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
-            .eq('is_published', true)
+            .or('is_published.eq.true,is_published.is.null')
             .order('created_at', ascending: false)
             .limit(10),
       ),
@@ -324,8 +324,16 @@ class AppDatabase {
             return {
               ...data,
               'item_type': 'tour_package',
-              'location': data['city'],
-              'images': data['gallery_images'] ?? [data['cover_image']],
+              'source': 'tour_packages',
+              'location': [data['city'], data['country']]
+                  .where((v) => (v ?? '').toString().isNotEmpty)
+                  .join(', '),
+              'price_per_person': data['price_per_person'] ?? data['price_per_adult'],
+              'is_published': data['is_published'] ?? data['status'] == 'approved',
+              'images': [
+                if ((data['cover_image'] ?? '').toString().isNotEmpty) data['cover_image'],
+                ...((data['gallery_images'] as List?) ?? const []),
+              ],
               'main_image': data['cover_image'],
             };
           }
@@ -427,7 +435,7 @@ class AppDatabase {
         var req2 = _sb
             .from('tours')
             .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days')
-            .eq('is_published', true);
+            .or('is_published.eq.true,is_published.is.null');
         if (q.isNotEmpty) req2 = req2.or('title.ilike.%$q%,location.ilike.%$q%');
         final data = await req2.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
@@ -438,7 +446,7 @@ class AppDatabase {
         var req3 = _sb
             .from('transport_vehicles')
             .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media')
-            .eq('is_published', true);
+            .or('is_published.eq.true,is_published.is.null');
         if (q.isNotEmpty) req3 = req3.ilike('title', '%$q%');
         final data = await req3.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
@@ -451,18 +459,47 @@ class AppDatabase {
 
   // ── Tours ──
 
+  Future<List<Map<String, dynamic>>> fetchProperties({String? query, int limit = 50}) async {
+    try {
+      var req = _sb
+          .from('properties')
+          .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image, created_at')
+          .eq('is_published', true);
+      final q = query?.trim().toLowerCase();
+      if (q != null && q.isNotEmpty) {
+        req = req.or('title.ilike.%$q%,location.ilike.%$q%,property_type.ilike.%$q%');
+      }
+      final data = await req.order('created_at', ascending: false).limit(limit);
+      return (data as List).cast<Map<String, dynamic>>().map(_normalizeProperty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchTours({String? category, String? query, int limit = 50}) async {
     try {
       var req = _sb
           .from('tours')
-          .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, max_group_size')
-          .eq('is_published', true);
+          // NOTE: keep this aligned with the actual DB schema. Some environments
+          // don't have `main_image` on `tours`.
+          .select('id, title, location, price_per_person, currency, images, rating, review_count, category, duration_days, max_group_size, created_at')
+            .or('is_published.eq.true,is_published.is.null');
       if (category != null && category != 'all') req = req.eq('category', category);
       final q = query?.trim().toLowerCase();
       if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,location.ilike.%$q%,category.ilike.%$q%');
       final data = await req.order('created_at', ascending: false).limit(limit);
+      assert(() {
+        // ignore: avoid_print
+        print('[fetchTours] rows=${(data as List).length} category=$category query=$query');
+        return true;
+      }());
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeTour).toList();
-    } catch (_) {
+    } catch (error) {
+      assert(() {
+        // ignore: avoid_print
+        print('[fetchTours] error=$error');
+        return true;
+      }());
       return [];
     }
   }
@@ -471,13 +508,25 @@ class AppDatabase {
     try {
       var req = _sb
           .from('tour_packages')
-          .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, created_at')
+          // NOTE: keep this aligned with the actual DB schema. Some environments
+          // don't have `difficulty` on `tour_packages`.
+          .select('id, title, city, country, category, duration, max_guests, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, non_refundable_items, pricing_tiers, created_at')
           .eq('status', 'approved');
       final q = query?.trim().toLowerCase();
-      if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,city.ilike.%$q%,country.ilike.%$q%');
+      if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,city.ilike.%$q%,country.ilike.%$q%,category.ilike.%$q%');
       final data = await req.order('created_at', ascending: false).limit(limit);
+      assert(() {
+        // ignore: avoid_print
+        print('[fetchTourPackages] rows=${(data as List).length} query=$query');
+        return true;
+      }());
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeTourPackage).toList();
-    } catch (_) {
+    } catch (error) {
+      assert(() {
+        // ignore: avoid_print
+        print('[fetchTourPackages] error=$error');
+        return true;
+      }());
       return [];
     }
   }
@@ -489,7 +538,7 @@ class AppDatabase {
       var req = _sb
           .from('transport_vehicles')
           .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
-          .eq('is_published', true);
+          .or('is_published.eq.true,is_published.is.null');
       if (category != null && category != 'all') req = req.eq('vehicle_type', category);
       final q = query?.trim().toLowerCase();
       if (q != null && q.isNotEmpty) req = req.or('title.ilike.%$q%,provider_name.ilike.%$q%,vehicle_type.ilike.%$q%');
@@ -1446,6 +1495,25 @@ class AppDatabase {
     await _sb.from('tours').delete().eq('id', id);
   }
 
+  Future<String?> createTourPackage({
+    required String userId,
+    required Map<String, dynamic> fields,
+  }) async {
+    final row = <String, dynamic>{
+      'host_id': userId,
+      'user_id': userId,
+      'created_by': userId,
+      'status': 'pending',
+      ...fields,
+    };
+    final result = await _sb.from('tour_packages').insert(row).select('id').single();
+    return (result as Map?)?.get('id')?.toString();
+  }
+
+  Future<void> updateTourPackage({required String id, required Map<String, dynamic> updates}) async {
+    await _sb.from('tour_packages').update(updates).eq('id', id);
+  }
+
   // ════════════════════════════════════════════════
   // HOST — Transport CRUD
   // ════════════════════════════════════════════════
@@ -1482,6 +1550,50 @@ class AppDatabase {
   Future<void> deleteHostTourListing({required String id, String source = 'tours'}) async {
     final table = source == 'tour_packages' ? 'tour_packages' : 'tours';
     await _sb.from(table).delete().eq('id', id);
+  }
+
+  // ── Transport routes / Airport transfer pricing ──
+
+  Future<List<Map<String, dynamic>>> fetchTransportRoutes() async {
+    final data = await _sb
+        .from('transport_routes')
+        .select('id, from_location, to_location, distance_km, base_price, currency')
+        .order('from_location', ascending: true)
+        .order('to_location', ascending: true);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, num>> fetchAirportTransferPricing({required String vehicleId}) async {
+    final data = await _sb
+        .from('airport_transfer_pricing')
+        .select('route_id, price')
+        .eq('vehicle_id', vehicleId);
+
+    final map = <String, num>{};
+    for (final r in (data as List)) {
+      final row = (r as Map);
+      final rid = row['route_id']?.toString();
+      final price = row['price'];
+      if (rid != null && price is num) map[rid] = price;
+    }
+    return map;
+  }
+
+  Future<void> upsertAirportTransferPricing({
+    required String vehicleId,
+    required Map<String, num> pricingByRouteId,
+  }) async {
+    await _sb.from('airport_transfer_pricing').delete().eq('vehicle_id', vehicleId);
+    if (pricingByRouteId.isEmpty) return;
+
+    final rows = pricingByRouteId.entries
+        .map((e) => {
+              'vehicle_id': vehicleId,
+              'route_id': e.key,
+              'price': e.value,
+            })
+        .toList();
+    await _sb.from('airport_transfer_pricing').insert(rows);
   }
 
   Future<String?> createTransport({

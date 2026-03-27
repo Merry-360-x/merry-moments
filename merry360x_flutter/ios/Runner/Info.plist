@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Merry360x needs camera access to take photos for your listings.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Merry360x needs access to save photos to your library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Merry360x needs access to your photo library to upload listing images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -66,11 +72,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Merry360x needs access to your photo library to upload listing images.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Merry360x needs camera access to take photos for your listings.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Merry360x needs access to save photos to your library.</string>
 </dict>
 </plist>

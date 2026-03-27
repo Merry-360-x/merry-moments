@@ -7,12 +7,15 @@ import '../../app.dart';
 import '../../config.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
+import 'my_bookings_screen.dart';
+import 'property_details_screen.dart';
 import 'trip_cart_screen.dart';
 
 class AiScreen extends StatefulWidget {
-  const AiScreen({super.key, required this.session});
+  const AiScreen({super.key, required this.session, this.onBack});
 
   final SessionController session;
+  final VoidCallback? onBack;
 
   @override
   State<AiScreen> createState() => _AiScreenState();
@@ -23,11 +26,14 @@ class _AiScreenState extends State<AiScreen> {
   final _feedbackController = TextEditingController();
   final _scrollController = ScrollController();
   final List<_ChatMsg> _messages = [];
+  final Map<int, GlobalKey> _assistantMessageKeys = {};
   final String _sessionId = 'mobile_${DateTime.now().millisecondsSinceEpoch}';
   bool _busy = false;
   bool _consentedToAi = false;
   bool _ratingBusy = false;
   String? _conversationFeedback;
+
+  int? _pendingScrollToAssistantIndex;
 
   @override
   void dispose() {
@@ -54,28 +60,11 @@ class _AiScreenState extends State<AiScreen> {
     _scrollToBottom();
 
     try {
-      final recentMessages = _messages.length <= 6
-          ? List<_ChatMsg>.from(_messages)
-          : _messages.sublist(_messages.length - 6);
-      final history = recentMessages
-          .map((message) {
-            final compact = message.content.trim();
-            return {
-              'role': message.role,
-              'content': compact.length > 260 ? compact.substring(0, 260) : compact,
-            };
-          })
-          .toList();
-      final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      final accessToken = widget.session.accessToken;
-      if (accessToken != null && accessToken.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $accessToken';
-      }
+      final history = _buildHistory();
 
       final response = await http.post(
-        uri,
-        headers: headers,
+        _aiUri,
+        headers: _aiHeaders(),
         body: jsonEncode({
           'messages': history,
           'userId': widget.session.userId.isEmpty ? null : widget.session.userId,
@@ -87,6 +76,7 @@ class _AiScreenState extends State<AiScreen> {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final parsed = _parseAiResponse(jsonDecode(response.body) as Map<String, dynamic>);
         if (parsed.reply.isNotEmpty) {
+          final targetIndex = _messages.length;
           setState(() {
             _messages.add(_ChatMsg(
               role: 'assistant',
@@ -94,27 +84,59 @@ class _AiScreenState extends State<AiScreen> {
               recommendations: parsed.recommendations,
               actions: parsed.actions,
             ));
+            _pendingScrollToAssistantIndex = targetIndex;
           });
+          _scrollToPendingAssistantMessage();
         }
       } else {
+        final targetIndex = _messages.length;
         setState(() {
           _messages.add(const _ChatMsg(
             role: 'assistant',
             content: 'Sorry, I could not process that request right now. Please try again.',
           ));
+          _pendingScrollToAssistantIndex = targetIndex;
         });
+        _scrollToPendingAssistantMessage();
       }
     } catch (_) {
+      final targetIndex = _messages.length;
       setState(() {
         _messages.add(const _ChatMsg(
           role: 'assistant',
           content: 'Network error. Please check your connection and try again.',
         ));
+        _pendingScrollToAssistantIndex = targetIndex;
       });
+      _scrollToPendingAssistantMessage();
     } finally {
       if (mounted) setState(() => _busy = false);
-      _scrollToBottom();
+      // Avoid snapping to the very end of long answers.
     }
+  }
+
+  List<Map<String, String>> _buildHistory() {
+    final recentMessages =
+        _messages.length <= 6 ? List<_ChatMsg>.from(_messages) : _messages.sublist(_messages.length - 6);
+
+    return recentMessages.map((message) {
+      final compact = message.content.trim();
+      return {
+        'role': message.role,
+        'content': compact.length > 260 ? compact.substring(0, 260) : compact,
+      };
+    }).toList();
+  }
+
+  Uri get _aiUri => Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
+
+  Map<String, String> _aiHeaders() {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    final accessToken = widget.session.accessToken;
+    if (accessToken != null && accessToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+    return headers;
   }
 
   _ParsedAiResponse _parseAiResponse(Map<String, dynamic> json) {
@@ -123,6 +145,7 @@ class _AiScreenState extends State<AiScreen> {
         .map((item) => _AiRecommendation(
               id: (item['id'] ?? '').toString(),
               title: (item['title'] ?? 'Untitled').toString(),
+              itemType: (item['item_type'] ?? 'property').toString(),
               location: item['location']?.toString(),
               currency: item['currency']?.toString(),
               price: (item['price'] as num?)?.toDouble(),
@@ -134,7 +157,12 @@ class _AiScreenState extends State<AiScreen> {
         .take(3)
         .toList();
 
-    final actions = ((json['actions'] as List?) ?? const [])
+    final rawActions = [
+      ...((json['actions'] as List?) ?? const []),
+      ...((json['uiActions'] as List?) ?? const []),
+    ];
+
+    final actions = rawActions
         .whereType<Map>()
         .map((item) => _AiAction(
               type: (item['type'] ?? '').toString(),
@@ -156,6 +184,36 @@ class _AiScreenState extends State<AiScreen> {
     );
   }
 
+  Map<String, dynamic> _recommendationToListingMap(_AiRecommendation recommendation) {
+    return <String, dynamic>{
+      'id': recommendation.id,
+      'title': recommendation.title,
+      'item_type': recommendation.itemType,
+      'location': recommendation.location,
+      'currency': recommendation.currency,
+      'price': recommendation.price,
+      'rating': recommendation.rating,
+      'review_count': recommendation.reviewCount,
+      'images': recommendation.imageUrl != null && recommendation.imageUrl!.isNotEmpty
+          ? [recommendation.imageUrl]
+          : const <String>[],
+      'image_url': recommendation.imageUrl,
+    };
+  }
+
+  Future<void> _openRecommendationDetails(_AiRecommendation recommendation) async {
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PropertyDetailsScreen(
+          item: _recommendationToListingMap(recommendation),
+          session: widget.session,
+        ),
+      ),
+    );
+  }
+
   Future<void> _addRecommendationToTripCart(_AiRecommendation recommendation, {bool goToCheckout = false}) async {
     if (_busy || recommendation.id.isEmpty) return;
     if (!widget.session.isAuthenticated) {
@@ -171,7 +229,7 @@ class _AiScreenState extends State<AiScreen> {
       await widget.session.addListingToTripCart({
         'id': recommendation.id,
         'title': recommendation.title,
-        'item_type': 'property',
+        'item_type': recommendation.itemType,
         'images': recommendation.imageUrl != null ? [recommendation.imageUrl] : const [],
         'location': recommendation.location,
       });
@@ -196,10 +254,19 @@ class _AiScreenState extends State<AiScreen> {
     }
   }
 
-  Map<String, dynamic>? _resolveCheckoutItem() {
+  Map<String, dynamic>? _resolveCheckoutItem({String? preferredReferenceId, String? preferredItemType}) {
     final cartItems = widget.session.payload?.tripCart ?? const <Map<String, dynamic>>[];
     if (cartItems.isEmpty) return null;
-    final first = cartItems.first;
+    final first = cartItems.cast<Map<String, dynamic>>().firstWhere(
+      (item) {
+        final ref = (item['property_id'] ?? item['tour_id'] ?? item['transport_id'] ?? item['reference_id'] ?? '').toString();
+        final type = (item['item_type'] ?? 'property').toString();
+        final refMatches = preferredReferenceId == null || preferredReferenceId.isEmpty || ref == preferredReferenceId;
+        final typeMatches = preferredItemType == null || preferredItemType.isEmpty || type == preferredItemType;
+        return refMatches && typeMatches;
+      },
+      orElse: () => cartItems.first,
+    );
     final listings = widget.session.payload?.homeListings ?? const <Map<String, dynamic>>[];
     final ref = (first['property_id'] ?? first['tour_id'] ?? first['transport_id'] ?? first['reference_id'] ?? '').toString();
     final type = (first['item_type'] ?? 'property').toString();
@@ -207,10 +274,83 @@ class _AiScreenState extends State<AiScreen> {
       (listing) => listing['id']?.toString() == ref && listing['item_type']?.toString() == type,
       orElse: () => <String, dynamic>{},
     );
-    return <String, dynamic>{...matched, ...first};
+    return <String, dynamic>{...matched, ...first, 'id': ref, 'item_type': type};
+  }
+
+  Future<void> _executeServerAction(_AiAction action) async {
+    final response = await http.post(
+      _aiUri,
+      headers: _aiHeaders(),
+      body: jsonEncode({
+        'action': action.type,
+        'messages': _buildHistory(),
+        'referenceId': action.referenceId,
+        'itemType': action.itemType,
+        'bookingId': action.bookingId,
+        'orderId': action.orderId,
+        'userId': widget.session.userId.isEmpty ? null : widget.session.userId,
+        'sessionId': _sessionId,
+        'channel': 'mobile',
+      }),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('server_action_failed');
+    }
+
+    final parsed = _parseAiResponse(jsonDecode(response.body) as Map<String, dynamic>);
+    if (parsed.reply.isNotEmpty) {
+      setState(() {
+        _messages.add(_ChatMsg(
+          role: 'assistant',
+          content: parsed.reply,
+          recommendations: parsed.recommendations,
+          actions: parsed.actions,
+        ));
+      });
+      _scrollToBottom();
+    }
+    await widget.session.refresh();
   }
 
   Future<void> _runAction(_AiAction action) async {
+    if (_busy) return;
+
+    // If actions are shown inside a dialog/bottom sheet, close it first so
+    // navigation uses the root navigator and doesn't feel "stuck".
+    if (mounted) {
+      final navigator = Navigator.of(context, rootNavigator: true);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+
+    if (action.type == 'get_trip_cart') {
+      await _runAction(const _AiAction(type: 'open_url', label: 'Open Trip Cart', url: '/trip-cart'));
+      return;
+    }
+
+    if (action.type == 'get_bookings') {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => MyBookingsScreen(session: widget.session)),
+      );
+      return;
+    }
+
+    if (action.type == 'add_to_trip_cart' && action.referenceId != null && action.referenceId!.isNotEmpty) {
+      await widget.session.addListingToTripCart({
+        'id': action.referenceId,
+        'item_type': action.itemType ?? 'property',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved to your Trip Cart.')),
+      );
+      return;
+    }
+
     if (action.type == 'open_url' && action.url == '/trip-cart') {
       if (!mounted) return;
       await Navigator.push(
@@ -220,8 +360,32 @@ class _AiScreenState extends State<AiScreen> {
       return;
     }
 
+    if (action.type == 'open_url' && ((action.url?.contains('/bookings') ?? false) || (action.url?.contains('/my-bookings') ?? false))) {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => MyBookingsScreen(session: widget.session)),
+      );
+      return;
+    }
+
+    if (action.type == 'go_to_checkout') {
+      await _runAction(_AiAction(
+        type: 'open_url',
+        label: action.label,
+        url: '/checkout?mode=cart',
+        referenceId: action.referenceId,
+        itemType: action.itemType,
+        variant: action.variant,
+      ));
+      return;
+    }
+
     if (action.type == 'open_url' && (action.url?.startsWith('/checkout') ?? false)) {
-      final checkoutItem = _resolveCheckoutItem();
+      final checkoutItem = _resolveCheckoutItem(
+        preferredReferenceId: action.referenceId,
+        preferredItemType: action.itemType,
+      );
       if (checkoutItem == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,6 +404,40 @@ class _AiScreenState extends State<AiScreen> {
           ),
         ),
       );
+      return;
+    }
+
+    if (action.type == 'request_refund') {
+      setState(() => _busy = true);
+      try {
+        await _executeServerAction(action);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not submit the refund request right now.')),
+        );
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+
+      return;
+    }
+
+    // Fallback: some server-driven actions aren't mapped to native routes.
+    // Try executing them server-side; if that fails, surface a gentle message.
+    if (action.type.isNotEmpty) {
+      setState(() => _busy = true);
+      try {
+        await _executeServerAction(action);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action not available yet: ${action.label}')),
+        );
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
     }
   }
 
@@ -247,15 +445,9 @@ class _AiScreenState extends State<AiScreen> {
     if (_ratingBusy || _conversationFeedback != null) return;
     setState(() => _ratingBusy = true);
     try {
-      final uri = Uri.parse('${AppConfig.apiBaseUrl.replaceAll('/api', '')}/api/ai-trip-advisor');
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      final accessToken = widget.session.accessToken;
-      if (accessToken != null && accessToken.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $accessToken';
-      }
       final response = await http.post(
-        uri,
-        headers: headers,
+        _aiUri,
+        headers: _aiHeaders(),
         body: jsonEncode({
           'action': 'rate_conversation',
           'feedbackType': feedbackType,
@@ -322,19 +514,57 @@ class _AiScreenState extends State<AiScreen> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('AI Consent'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        title: const Text(
+          'AI Consent',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.black,
+          ),
+        ),
         content: const Text(
-          'Your prompt text will be sent to our AI provider to generate responses. '
-          'Do not include sensitive personal data.',
+          'Your prompt will be sent to our AI provider to generate responses. Avoid sharing sensitive personal data.',
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.55,
+            color: AppColors.hof,
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('I Agree'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    side: const BorderSide(color: Color(0xFFE7E7E7)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    foregroundColor: AppColors.black,
+                  ),
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppColors.black,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('I Agree'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -353,133 +583,199 @@ class _AiScreenState extends State<AiScreen> {
     });
   }
 
+  void _scrollToPendingAssistantMessage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetIndex = _pendingScrollToAssistantIndex;
+      if (targetIndex == null) return;
+      if (!_scrollController.hasClients) return;
+
+      final key = _assistantMessageKeys[targetIndex];
+      final ctx = key?.currentContext;
+      if (ctx == null) {
+        // If the widget isn't built yet, try again next frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToPendingAssistantMessage());
+        return;
+      }
+
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox) return;
+
+      final listBox = context.findRenderObject();
+      if (listBox is! RenderBox) return;
+
+      final offsetInGlobal = box.localToGlobal(Offset.zero);
+      final listInGlobal = listBox.localToGlobal(Offset.zero);
+      final delta = offsetInGlobal.dy - listInGlobal.dy;
+
+      final current = _scrollController.offset;
+      final target = (current + delta - 8).clamp(
+        _scrollController.position.minScrollExtent,
+        _scrollController.position.maxScrollExtent,
+      );
+
+      _pendingScrollToAssistantIndex = null;
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth > 600;
-    final maxContentWidth = isWide ? 720.0 : double.infinity;
+    // On iPad, centering a narrow column can make the chat feel "missing" and
+    // can end up visually hidden depending on safe-area/insets. Use full width.
+    final maxContentWidth = double.infinity;
 
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFF5F2), Color(0xFFFFFFFF)],
-        ),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 0),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxContentWidth),
-                child: Row(
-                  children: [
-                    const Text('Merry', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.black)),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'AI concierge for planning, trip cart, and checkout',
-                        style: TextStyle(fontSize: 12, color: AppColors.foggy),
-                      ),
-                    ),
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.94, end: 1),
-                      duration: const Duration(milliseconds: 1800),
-                      curve: Curves.easeInOut,
-                      builder: (context, value, child) => Transform.scale(scale: value, child: child),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFFFF5A5F), Color(0xFFFF9F43)]),
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x30FF5A5F), blurRadius: 16, offset: Offset(0, 8)),
-                          ],
-                        ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                      ),
-                    ),
-                  ],
-                ),
+    return ColoredBox(
+      color: Colors.white,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildHeader(maxContentWidth, isWide),
+            const SizedBox(height: 6),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _messages.isEmpty
+                    ? _buildWelcome(maxContentWidth, isWide)
+                    : _buildChat(maxContentWidth, isWide),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Expanded(
-            child: _messages.isEmpty ? _buildWelcome(maxContentWidth, isWide) : _buildChat(maxContentWidth, isWide),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(isWide ? 24 : 12, 8, isWide ? 24 : 12, 8),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxContentWidth),
+            _buildComposer(maxContentWidth, isWide),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(double maxContentWidth, bool isWide) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isWide ? 28 : 16, 8, isWide ? 28 : 16, 0),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxContentWidth),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+              Container(
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(top: 1, right: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.linnen,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.black),
+                ),
+              ),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 6),
-                      child: Text(
-                        _consentedToAi
-                            ? 'AI consent granted. Merry can help with planning, cart, and checkout.'
-                            : 'Before first use, you will be asked to consent to AI processing.',
-                        style: const TextStyle(fontSize: 11, color: AppColors.foggy),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFEBEBEB)),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              decoration: const InputDecoration(
-                                hintText: 'Ask Merry about apartments, tours, airport pickup...',
-                                hintStyle: TextStyle(color: AppColors.foggy, fontSize: 14),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                              ),
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: _send,
-                              enabled: !_busy,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => _send(_controller.text),
-                            child: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: _busy ? AppColors.hackberry : AppColors.rausch,
-                              child: _busy
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : const Icon(Icons.arrow_upward, color: Colors.white, size: 18),
-                            ),
-                          ),
-                        ],
-                      ),
+                    Text('Merry', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black, letterSpacing: -0.5)),
+                    SizedBox(height: 2),
+                    Text(
+                      'AI concierge for stays, tours, transport, and checkout.',
+                      style: TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.25),
                     ),
                   ],
                 ),
               ),
-            ),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.linnen,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.auto_awesome, color: AppColors.black, size: 18),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComposer(double maxContentWidth, bool isWide) {
+    final consentCopy = _consentedToAi
+        ? 'AI consent granted.'
+        : 'Before first use, you will be asked to consent to AI processing.';
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isWide ? 28 : 12, 8, isWide ? 28 : 12, 8),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxContentWidth),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE7E7E7)),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
+                  child: Text(
+                    consentCopy,
+                    style: const TextStyle(fontSize: 11, color: AppColors.foggy, height: 1.35),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: const InputDecoration(
+                          hintText: 'Ask Merry anything...',
+                          hintStyle: TextStyle(color: AppColors.foggy, fontSize: 14),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: _send,
+                        enabled: !_busy,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _send(_controller.text),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _busy ? const Color(0xFFBDBDBD) : AppColors.rausch,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: _busy
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.north_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildWelcome(double maxWidth, bool isWide) {
     return SingleChildScrollView(
+      key: const ValueKey('welcome'),
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 8, isWide ? 24 : 16, 16),
       child: Center(
         child: ConstrainedBox(
@@ -488,46 +784,73 @@ class _AiScreenState extends State<AiScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Merry can help you plan, save items to Trip Cart, and guide you into checkout.',
-                style: TextStyle(color: AppColors.foggy, fontSize: 13),
+                'Ask for a stay, a tour, airport pickup, your trip cart, or checkout help.',
+                style: TextStyle(fontSize: 14, color: AppColors.hof, height: 1.5),
               ),
-              const SizedBox(height: 14),
-              const Text('Try asking:', style: TextStyle(fontSize: 13, color: AppColors.foggy, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _PromptChip(label: 'Cheapest stay in Kigali', onTap: () => _send('Cheapest stay in Kigali')),
-                  _PromptChip(label: 'Family-friendly stays', onTap: () => _send('Family-friendly stays')),
-                  _PromptChip(label: '2-day Rwanda tour plan', onTap: () => _send('2-day Rwanda tour plan')),
-                  _PromptChip(label: 'Apartment with airport pickup', onTap: () => _send('I need an apartment with airport pickup')),
-                ],
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFEBEBEB)),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
-                  ],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFEAEAEA)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Hi! I am Merry, your travel assistant.',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    const Text(
+                      'What can I help with?',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'I help you move faster from discovery to booking. Ask for a stay, tour, airport pickup, trip cart status, or checkout help.',
-                      style: TextStyle(color: Color(0xFF71717A)),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Start fast with one of these options.',
+                      style: TextStyle(fontSize: 12, color: AppColors.foggy),
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 1.65,
+                      children: [
+                        _StarterCard(
+                          title: 'Plan a trip',
+                          subtitle: 'Answer a few questions and get a trip plan',
+                          onTap: () => _send('Plan a trip for me.'),
+                        ),
+                        _StarterCard(
+                          title: 'What is Merry360X?',
+                          subtitle: 'Learn what Merry can help you book',
+                          onTap: () => _send('What is Merry360X and what can you help me book?'),
+                        ),
+                        _StarterCard(
+                          title: 'Find the cheapest',
+                          subtitle: 'Start with lower-budget options',
+                          onTap: () => _send('Find the cheapest trip options you can recommend for me.'),
+                        ),
+                        _StarterCard(
+                          title: 'Ask about Merry360X',
+                          subtitle: 'Ask anything related to Merry360X freely',
+                          onTap: () => _send('Tell me about Merry360X and how to use it.'),
+                        ),
+                      ],
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.linnen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Merry gives recommendations, opens native details, and can route you into trip cart, bookings, and checkout.',
+                  style: TextStyle(fontSize: 13, color: AppColors.hof, height: 1.5),
                 ),
               ),
             ],
@@ -541,6 +864,7 @@ class _AiScreenState extends State<AiScreen> {
     final shouldAskForRating = _conversationFeedback == null && _messages.any((message) => message.role == 'assistant');
 
     return ListView.builder(
+      key: const ValueKey('chat'),
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 8, isWide ? 24 : 16, 8),
       itemCount: _messages.length + (_busy ? 1 : 0) + (shouldAskForRating || _conversationFeedback != null ? 1 : 0),
@@ -557,9 +881,8 @@ class _AiScreenState extends State<AiScreen> {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                    color: AppColors.linnen,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFEBEBEB)),
                 ),
                 child: _conversationFeedback != null
                     ? Row(
@@ -579,20 +902,27 @@ class _AiScreenState extends State<AiScreen> {
                           const SizedBox(height: 6),
                           const Text('Choose thumbs up or down, then add an optional note.', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
                           const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _ratingBusy ? null : () => _openFeedbackDialog('up'),
-                                icon: const Text('👍'),
-                                label: const Text('Helpful'),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                onPressed: _ratingBusy ? null : () => _openFeedbackDialog('down'),
-                                icon: const Text('👎'),
-                                label: const Text('Needs work'),
-                              ),
-                            ],
+                          SizedBox(
+                            width: double.infinity,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _ratingBusy ? null : () => _openFeedbackDialog('up'),
+                                    icon: const Text('👍'),
+                                    label: const Text('Helpful'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _ratingBusy ? null : () => _openFeedbackDialog('down'),
+                                    icon: const Text('👎'),
+                                    label: const Text('Needs work'),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -603,49 +933,79 @@ class _AiScreenState extends State<AiScreen> {
 
         final message = _messages[index];
         final isUser = message.role == 'user';
+
+        final assistantKey = !isUser
+            ? (_assistantMessageKeys[index] ??= GlobalKey())
+            : null;
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Align(
-              alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                constraints: BoxConstraints(maxWidth: maxWidth * 0.84),
-                decoration: BoxDecoration(
-                  color: isUser ? AppColors.black : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: isUser ? null : Border.all(color: const Color(0xFFEBEBEB)),
-                  boxShadow: const [BoxShadow(color: Color(0x0E000000), blurRadius: 12, offset: Offset(0, 4))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      message.content,
-                      style: TextStyle(color: isUser ? Colors.white : AppColors.black, fontSize: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    key: assistantKey,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    constraints: BoxConstraints(maxWidth: maxWidth * 0.84),
+                    decoration: BoxDecoration(
+                      color: isUser ? AppColors.black : AppColors.linnen,
+                      borderRadius: BorderRadius.circular(22),
+                      border: isUser ? null : Border.all(color: const Color(0xFFE9E9E9)),
                     ),
-                    if (!isUser && message.recommendations.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      ...message.recommendations.map((recommendation) => _RecommendationCard(
-                            recommendation: recommendation,
-                            onAdd: () => _addRecommendationToTripCart(recommendation),
-                            onCheckout: () => _addRecommendationToTripCart(recommendation, goToCheckout: true),
-                          )),
-                    ],
-                    if (!isUser && message.actions.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: message.actions
-                            .map((action) => _ActionChip(action: action, onTap: () => _runAction(action)))
-                            .toList(),
-                      ),
-                    ],
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isUser) ...[
+                          Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE3E3E3)),
+                                ),
+                                child: const Icon(Icons.auto_awesome, size: 12, color: AppColors.black),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('Merry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.black)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        Text(
+                          message.content,
+                          style: TextStyle(color: isUser ? Colors.white : AppColors.black, fontSize: 14, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                if (!isUser && message.recommendations.isNotEmpty) ...[
+                  ...message.recommendations.map((recommendation) => _RecommendationCard(
+                        recommendation: recommendation,
+                        onOpen: () => _openRecommendationDetails(recommendation),
+                        onAdd: () => _addRecommendationToTripCart(recommendation),
+                        onCheckout: () => _addRecommendationToTripCart(recommendation, goToCheckout: true),
+                      )),
+                ],
+                if (!isUser && message.actions.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  ...message.actions.map(
+                    (action) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: _ActionChip(action: action, onTap: () => _runAction(action)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         );
@@ -667,6 +1027,7 @@ class _AiRecommendation {
   const _AiRecommendation({
     required this.id,
     required this.title,
+    required this.itemType,
     this.location,
     this.currency,
     this.price,
@@ -677,6 +1038,7 @@ class _AiRecommendation {
 
   final String id;
   final String title;
+  final String itemType;
   final String? location;
   final String? currency;
   final double? price;
@@ -729,9 +1091,8 @@ class _ThinkingCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFEBEBEB)),
+            color: AppColors.linnen,
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
@@ -739,10 +1100,11 @@ class _ThinkingCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFFF5A5F), Color(0xFFFF9F43)]),
-                  borderRadius: BorderRadius.circular(18),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE3E3E3)),
                 ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                child: const Icon(Icons.auto_awesome, color: AppColors.black, size: 18),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -759,9 +1121,10 @@ class _ThinkingCard extends StatelessWidget {
 }
 
 class _RecommendationCard extends StatelessWidget {
-  const _RecommendationCard({required this.recommendation, required this.onAdd, required this.onCheckout});
+  const _RecommendationCard({required this.recommendation, required this.onOpen, required this.onAdd, required this.onCheckout});
 
   final _AiRecommendation recommendation;
+  final VoidCallback onOpen;
   final VoidCallback onAdd;
   final VoidCallback onCheckout;
 
@@ -770,62 +1133,107 @@ class _RecommendationCard extends StatelessWidget {
     final price = recommendation.price != null && recommendation.price! > 0
         ? '${recommendation.price!.round()} ${recommendation.currency ?? 'RWF'}'
         : 'Price on request';
+    final typeLabel = switch (recommendation.itemType) {
+      'tour' => 'Tour',
+      'tour_package' => 'Tour package',
+      'transport_vehicle' => 'Transport',
+      _ => 'Stay',
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBFA),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF0E1DD)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFEAEAEA)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (recommendation.imageUrl != null && recommendation.imageUrl!.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(
-                recommendation.imageUrl!,
-                height: 92,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  height: 92,
-                  color: const Color(0xFFF2F2F5),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.image_outlined, color: AppColors.foggy),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(recommendation.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(recommendation.location ?? 'Location not specified', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(child: Text(price, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                    if (recommendation.rating != null && recommendation.rating! > 0)
-                      Text('★ ${recommendation.rating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-                  ],
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: recommendation.imageUrl != null && recommendation.imageUrl!.isNotEmpty
+                      ? Image.network(
+                          recommendation.imageUrl!,
+                          height: 90,
+                          width: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            height: 90,
+                            width: 90,
+                            color: AppColors.linnen,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.image_outlined, color: AppColors.foggy),
+                          ),
+                        )
+                      : Container(
+                          height: 90,
+                          width: 90,
+                          color: AppColors.linnen,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.image_outlined, color: AppColors.foggy),
+                        ),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton(onPressed: onAdd, child: const Text('Add to Trip Cart')),
-                    FilledButton(onPressed: onCheckout, child: const Text('Checkout')),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.linnen,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          typeLabel,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.hof),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        recommendation.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.black),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        recommendation.location ?? 'Location not specified',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: Text(price, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13))),
+                          if (recommendation.rating != null && recommendation.rating! > 0)
+                            Text('★ ${recommendation.rating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: OutlinedButton(onPressed: onOpen, child: const Text('Details'))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: onAdd, child: const Text('Add to Cart'))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: FilledButton(onPressed: onCheckout, child: const Text('Checkout'))),
+          ],
+        ),
       ),
     );
   }
@@ -840,29 +1248,70 @@ class _ActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return action.variant == 'primary'
-        ? FilledButton(onPressed: onTap, child: Text(action.label))
-        : OutlinedButton(onPressed: onTap, child: Text(action.label));
+        ? FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.black,
+              foregroundColor: Colors.white,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: onTap,
+            child: Text(action.label),
+          )
+        : OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              minimumSize: const Size.fromHeight(50),
+              side: const BorderSide(color: Color(0xFFE4E4E4)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: onTap,
+            child: Text(action.label),
+          );
   }
 }
 
-class _PromptChip extends StatelessWidget {
-  const _PromptChip({required this.label, this.onTap});
+class _StarterCard extends StatelessWidget {
+  const _StarterCard({required this.title, required this.subtitle, this.onTap});
 
-  final String label;
+  final String title;
+  final String subtitle;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE4E4E9)),
+          color: AppColors.linnen,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEAEAEA)),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black, height: 1.2),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AppColors.foggy, height: 1.3),
+            ),
+          ],
+        ),
       ),
     );
   }

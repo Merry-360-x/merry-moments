@@ -9,16 +9,15 @@ export interface Currency {
   code: string;
   name: string;
   symbol: string;
-  flag: string;
 }
 
 // Main display currencies - used for listing prices
 export const DISPLAY_CURRENCIES: Currency[] = [
-  { code: "RWF", name: "Rwandan Franc", symbol: "FRw", flag: "🇷🇼" },
-  { code: "USD", name: "US Dollar", symbol: "$", flag: "🇺🇸" },
-  { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺" },
-  { code: "GBP", name: "British Pound", symbol: "£", flag: "🇬🇧" },
-  { code: "CNY", name: "Chinese Yuan", symbol: "¥", flag: "🇨🇳" },
+  { code: "RWF", name: "Rwandan Franc", symbol: "FRw" },
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
 ];
 
 // Currency select options for forms
@@ -32,24 +31,24 @@ export const CURRENCY_OPTIONS = DISPLAY_CURRENCIES.map(c => ({
 // This includes regional currencies for easier payment
 export const PAYMENT_CURRENCIES: Currency[] = [
   // Primary currencies
-  { code: "RWF", name: "Rwandan Franc", symbol: "FRw", flag: "🇷🇼" },
-  { code: "USD", name: "US Dollar", symbol: "$", flag: "🇺🇸" },
-  { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺" },
-  { code: "GBP", name: "British Pound", symbol: "£", flag: "🇬🇧" },
-  { code: "CNY", name: "Chinese Yuan", symbol: "¥", flag: "🇨🇳" },
+  { code: "RWF", name: "Rwandan Franc", symbol: "FRw" },
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
   // East African currencies (for regional travelers)
-  { code: "KES", name: "Kenyan Shilling", symbol: "KSh", flag: "🇰🇪" },
-  { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh", flag: "🇹🇿" },
-  { code: "UGX", name: "Ugandan Shilling", symbol: "USh", flag: "🇺🇬" },
-  { code: "BIF", name: "Burundian Franc", symbol: "FBu", flag: "🇧🇮" },
+  { code: "KES", name: "Kenyan Shilling", symbol: "KSh" },
+  { code: "TZS", name: "Tanzanian Shilling", symbol: "TSh" },
+  { code: "UGX", name: "Ugandan Shilling", symbol: "USh" },
+  { code: "BIF", name: "Burundian Franc", symbol: "FBu" },
   // Other popular currencies for international travelers
-  { code: "ZAR", name: "South African Rand", symbol: "R", flag: "🇿🇦" },
-  { code: "CAD", name: "Canadian Dollar", symbol: "$", flag: "🇨🇦" },
-  { code: "AUD", name: "Australian Dollar", symbol: "$", flag: "🇦🇺" },
-  { code: "CHF", name: "Swiss Franc", symbol: "Fr", flag: "🇨🇭" },
-  { code: "JPY", name: "Japanese Yen", symbol: "¥", flag: "🇯🇵" },
-  { code: "INR", name: "Indian Rupee", symbol: "₹", flag: "🇮🇳" },
-  { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "🇦🇪" },
+  { code: "ZAR", name: "South African Rand", symbol: "R" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "$" },
+  { code: "AUD", name: "Australian Dollar", symbol: "$" },
+  { code: "CHF", name: "Swiss Franc", symbol: "Fr" },
+  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "INR", name: "Indian Rupee", symbol: "₹" },
+  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
 ];
 
 // Get currency by code

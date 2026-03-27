@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'dart:async';
 import 'dart:io';
 
@@ -12,7 +14,14 @@ import '../../services/app_database.dart';
 import '../../services/local_draft_store.dart';
 import '../../session_controller.dart';
 import '../../app.dart';
+import '../widgets/return_button.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
+import 'tour_package_wizard_screen.dart';
+import 'host_quick_create_screen.dart';
+import 'vehicle_wizard_screen.dart';
+import 'airport_transfer_wizard_screen.dart';
+import 'property_wizard_screen.dart';
+import 'tour_wizard_screen.dart';
 
 const _kRed = AppColors.rausch;
 
@@ -212,6 +221,7 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
         backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        leading: const ReturnButton(color: AppColors.black, fallbackRoute: '/'),
         title: const Text('Host Dashboard',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: AppColors.black)),
         actions: [
@@ -328,6 +338,20 @@ class _PropertiesTab extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
 
+  Future<void> _openWizard(BuildContext context, {Map<String, dynamic>? existing}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PropertyWizardScreen(
+          api: api,
+          userId: userId,
+          existing: existing,
+        ),
+      ),
+    );
+    if (result == true) onRefresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -343,7 +367,7 @@ class _PropertiesTab extends StatelessWidget {
                   await api.updateListingStatus(id: items[i]['id'], type: 'property', published: pub);
                   onRefresh();
                 },
-                onEdit: () => _showPropertySheet(ctx, api, userId, onRefresh, existing: items[i]),
+                onEdit: () => _openWizard(ctx, existing: items[i]),
                 onDelete: () async { await api.deleteProperty(id: items[i]['id']); onRefresh(); },
               ),
             ),
@@ -352,7 +376,7 @@ class _PropertiesTab extends StatelessWidget {
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Property'),
-        onPressed: () => _showPropertySheet(context, api, userId, onRefresh),
+        onPressed: () => _openWizard(context),
       ),
     );
   }
@@ -538,8 +562,23 @@ void _showPropertySheet(BuildContext ctx, AppDatabase api, String userId, VoidCa
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(existing == null ? 'Add Property' : 'Edit Property',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          Row(children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => Navigator.of(sheetCtx).maybePop(),
+              icon: const Icon(Icons.close, color: AppColors.black),
+              tooltip: 'Close',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                existing == null ? 'Add Property' : 'Edit Property',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+            ),
+          ]),
           if (draftRestored && existing == null) ...[
             const SizedBox(height: 12),
             _DraftNotice(
@@ -877,9 +916,17 @@ class _ToursTab extends StatelessWidget {
                   );
                   onRefresh();
                 },
-                onEdit: (items[i]['source'] ?? 'tours') == 'tour_packages'
-                    ? null
-                    : () => _showTourSheet(ctx, api, userId, onRefresh, existing: items[i]),
+                onEdit: () async {
+                  final isPkg = (items[i]['source'] ?? 'tours') == 'tour_packages';
+                  final changed = await Navigator.of(ctx).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => isPkg
+                          ? TourPackageWizardScreen(api: api, userId: userId, existing: items[i])
+                          : TourWizardScreen(api: api, userId: userId, existing: items[i]),
+                    ),
+                  );
+                  if (changed == true) onRefresh();
+                },
                 onDelete: () async {
                   await api.deleteHostTourListing(
                     id: items[i]['id'],
@@ -891,8 +938,15 @@ class _ToursTab extends StatelessWidget {
             ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.rausch, foregroundColor: AppColors.white,
-        icon: const Icon(Icons.add), label: const Text('Add Tour'),
-        onPressed: () => _showTourSheet(context, api, userId, onRefresh),
+        icon: const Icon(Icons.add), label: const Text('Create'),
+        onPressed: () async {
+          final changed = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => HostQuickCreateScreen(api: api, userId: userId),
+            ),
+          );
+          if (changed == true) onRefresh();
+        },
       ),
     );
   }
@@ -1028,8 +1082,23 @@ void _showTourSheet(BuildContext ctx, AppDatabase api, String userId, VoidCallba
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(existing == null ? 'Add Tour' : 'Edit Tour',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          Row(children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => Navigator.of(sheetCtx).maybePop(),
+              icon: const Icon(Icons.close, color: AppColors.black),
+              tooltip: 'Close',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                existing == null ? 'Add Tour' : 'Edit Tour',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+            ),
+          ]),
           if (draftRestored && existing == null) ...[
             const SizedBox(height: 12),
             _DraftNotice(
@@ -1229,6 +1298,25 @@ class _TransportTab extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final VoidCallback onRefresh;
 
+  bool _isAirportTransfer(Map<String, dynamic> item) {
+    final vType = (item['vehicle_type'] ?? item['car_type'] ?? '').toString().toLowerCase();
+    final title = (item['title'] ?? '').toString().toLowerCase();
+    return vType.contains('airport') || title.contains('airport');
+  }
+
+  Future<void> _edit(BuildContext context, Map<String, dynamic> item) async {
+    final isTransfer = _isAirportTransfer(item);
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => isTransfer
+            ? AirportTransferWizardScreen(api: api, userId: userId, existingVehicle: item)
+            : VehicleWizardScreen(api: api, userId: userId, existing: item),
+      ),
+    );
+    if (result == true) onRefresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1241,7 +1329,7 @@ class _TransportTab extends StatelessWidget {
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i], priceLabel: 'per day', priceField: 'price_per_day',
                 onToggle: (pub) async { await api.updateTransport(id: items[i]['id'], updates: {'is_published': pub}); onRefresh(); },
-                onEdit: () => _showTransportSheet(ctx, api, userId, onRefresh, existing: items[i]),
+                onEdit: () => _edit(ctx, items[i]),
                 onDelete: () async { await api.deleteTransport(id: items[i]['id']); onRefresh(); },
               ),
             ),
@@ -1391,8 +1479,23 @@ void _showTransportSheet(BuildContext ctx, AppDatabase api, String userId, VoidC
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(existing == null ? 'Add Vehicle' : 'Edit Vehicle',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          Row(children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: () => Navigator.of(sheetCtx).maybePop(),
+              icon: const Icon(Icons.close, color: AppColors.black),
+              tooltip: 'Close',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                existing == null ? 'Add Vehicle' : 'Edit Vehicle',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+            ),
+          ]),
           if (draftRestored && existing == null) ...[
             const SizedBox(height: 12),
             _DraftNotice(
@@ -2665,7 +2768,6 @@ class _StatCard extends StatelessWidget {
           decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, color: color, size: 20),
         ),
-        const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: AppColors.black)),
           const SizedBox(height: 2),
@@ -2904,14 +3006,14 @@ class _ImagePickerRow extends StatelessWidget {
                 onRemove: () => onRemoveNew(e.key),
                 badge: const Icon(Icons.upload_outlined, size: 12, color: Colors.white),
                 child: Image.file(File(e.value.path), fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.image_outlined, color: Colors.grey))),
+                    errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200, child: const Icon(Icons.image_outlined, color: Colors.grey))),
               )),
             ],
           ),
         ),
       if (totalHasImages) const SizedBox(height: 8),
       // Add buttons
-      Row(children: [
+      Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
         OutlinedButton.icon(
           onPressed: onAddFromGallery,
           icon: const Icon(Icons.photo_library_outlined, size: 18),
@@ -2922,7 +3024,6 @@ class _ImagePickerRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
         ),
-        const SizedBox(width: 8),
         OutlinedButton.icon(
           onPressed: onAddFromCamera,
           icon: const Icon(Icons.camera_alt_outlined, size: 18),
@@ -2933,13 +3034,11 @@ class _ImagePickerRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
         ),
-        if (totalHasImages) ...[
-          const SizedBox(width: 8),
+        if (totalHasImages)
           Text(
             '${existingUrls.length + newFiles.length} photo${existingUrls.length + newFiles.length == 1 ? '' : 's'}',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
-        ],
       ]),
     ]);
   }

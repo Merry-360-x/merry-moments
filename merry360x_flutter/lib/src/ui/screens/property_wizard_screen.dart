@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../widgets/host_creation_scaffold.dart';
 
 // ─────────────────────────────────────────────────
 // Property Creation / Edit Wizard (5 steps)
@@ -54,11 +55,13 @@ class PropertyWizardScreen extends StatefulWidget {
     required this.api,
     required this.userId,
     this.existing,
+    this.seedTitle,
   });
 
   final AppDatabase api;
   final String userId;
   final Map<String, dynamic>? existing;
+  final String? seedTitle;
 
   @override
   State<PropertyWizardScreen> createState() => _PropertyWizardScreenState();
@@ -71,6 +74,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
 
   bool _saving = false;
   bool _uploading = false;
+  String? _error;
 
   // ── Step 1: Basic Info ──
   final _titleCtrl = TextEditingController();
@@ -133,6 +137,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       _smokingAllowed = e['smoking_allowed'] == true;
       _existingUrls = List<String>.from(e['images'] as List? ?? []);
       _amenities = List<String>.from(e['amenities'] as List? ?? []);
+    } else if (widget.seedTitle?.trim().isNotEmpty ?? false) {
+      _titleCtrl.text = widget.seedTitle!.trim();
     }
   }
 
@@ -167,15 +173,22 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   }
 
   Future<void> _submit() async {
-    setState(() { _saving = true; _uploading = true; });
-    final newUrls = await CloudinaryService.uploadImages(
-      _newFiles.map((f) => f.path).toList(),
-      folder: 'properties',
-    );
-    final allImages = [..._existingUrls, ...newUrls];
-    setState(() => _uploading = false);
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _uploading = true;
+      _error = null;
+    });
+    try {
+      final newUrls = await CloudinaryService.uploadImages(
+        _newFiles.map((f) => f.path).toList(),
+        folder: 'properties',
+      );
+      final allImages = [..._existingUrls, ...newUrls];
+      if (!mounted) return;
+      setState(() => _uploading = false);
 
-    final fields = <String, dynamic>{
+      final fields = <String, dynamic>{
       'title': _titleCtrl.text.trim(),
       'location': _locCtrl.text.trim(),
       'address': _addressCtrl.text.trim(),
@@ -205,72 +218,80 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         'breakfast_price_per_night': double.tryParse(_bfPriceCtrl.text.trim()),
       if (allImages.isNotEmpty) 'images': allImages,
       if (allImages.isNotEmpty) 'main_image': allImages.first,
-    };
+      };
 
-    final e = widget.existing;
-    if (e != null) {
-      await widget.api.updateProperty(id: e['id'], updates: fields);
-    } else {
-      await widget.api.createProperty(userId: widget.userId, fields: fields);
+      final e = widget.existing;
+      if (e != null) {
+        await widget.api.updateProperty(id: e['id'], updates: fields);
+      } else {
+        await widget.api.createProperty(userId: widget.userId, fields: fields);
+      }
+
+      if (!mounted) return;
+      setState(() => _saving = false);
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _uploading = false;
+        _error = e.toString();
+      });
     }
-
-    setState(() => _saving = false);
-    if (mounted) Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(children: [
-          // ── Header ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(children: [
-              GestureDetector(
-                onTap: _goBack,
-                child: Row(children: [
-                  const Icon(Icons.chevron_left, size: 22, color: Colors.black54),
-                  Text(_step > 1 ? 'Back' : 'Cancel',
-                      style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                ]),
+    final isEditMode = widget.existing != null;
+    return HostCreationScaffold(
+      title: isEditMode ? 'Edit Property' : 'List Your Property',
+      subtitle: isEditMode
+          ? 'Update your property details'
+          : 'Fill in the details to list your property',
+      step: _step,
+      totalSteps: _totalSteps,
+      stepTitle: _stepTitles[_step - 1],
+      onBack: _goBack,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_error != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border.all(color: Colors.red.shade200),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildStep(),
+                ],
               ),
-              Expanded(
-                child: Column(children: [
-                  Text(widget.existing == null ? 'List Your Property' : 'Edit Property',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                  Text('Step $_step of $_totalSteps: ${_stepTitles[_step - 1]}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                ]),
-              ),
-              const SizedBox(width: 60),
-            ]),
-          ),
-          // ── Progress bar ──
-          LinearProgressIndicator(
-            value: _step / _totalSteps,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(_kRed),
-            minHeight: 3,
-          ),
-          // ── Step content ──
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: _buildStep(),
             ),
-          ),
-          // ── Bottom nav ──
-          _BottomNav(
-            step: _step,
-            totalSteps: _totalSteps,
-            canProceed: _canProceed,
-            saving: _saving,
-            onNext: _goNext,
-            onSubmit: _submit,
-          ),
-        ]),
+          );
+        },
+      ),
+      bottomNav: _BottomNav(
+        step: _step,
+        totalSteps: _totalSteps,
+        canProceed: _canProceed,
+        saving: _saving,
+        onNext: _goNext,
+        onSubmit: _submit,
       ),
     );
   }
@@ -444,9 +465,10 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
           if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
         },
         icon: const Icon(Icons.photo_library_outlined),
-        label: const Text('Choose from Gallery'),
+        label: const Text('Gallery (Multiple)'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       )),
@@ -457,7 +479,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
           if (img != null) setState(() => _newFiles.add(img));
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
         ),
         child: const Icon(Icons.camera_alt_outlined),
@@ -470,7 +493,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.values[1]),
+          border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(16),
           color: Colors.grey.shade50,
         ),

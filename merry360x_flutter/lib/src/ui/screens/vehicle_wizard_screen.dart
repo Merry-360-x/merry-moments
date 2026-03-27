@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../widgets/host_creation_scaffold.dart';
 
 const _kRed = AppColors.rausch;
 
@@ -38,11 +39,13 @@ class VehicleWizardScreen extends StatefulWidget {
     required this.api,
     required this.userId,
     this.existing,
+    this.seedTitle,
   });
 
   final AppDatabase api;
   final String userId;
   final Map<String, dynamic>? existing;
+  final String? seedTitle;
 
   @override
   State<VehicleWizardScreen> createState() => _VehicleWizardScreenState();
@@ -50,11 +53,12 @@ class VehicleWizardScreen extends StatefulWidget {
 
 class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   int _step = 1;
-  static const _totalSteps = 4;
-  static const _stepTitles = ['Basics', 'Media', 'Pricing', 'Review'];
+  static const _totalSteps = 5;
+  static const _stepTitles = ['Vehicle', 'Pricing', 'Photos', 'Documents', 'Review'];
 
   bool _saving = false;
   bool _uploading = false;
+  String? _error;
 
   // ── Step 1: Basics ──
   String _carBrand = 'Toyota';
@@ -74,6 +78,12 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   List<String> _existingUrls = [];
   final List<XFile> _newFiles = [];
   final _picker = ImagePicker();
+
+  // ── Step 4: Documents ──
+  String? _insuranceDocUrl;
+  String? _registrationDocUrl;
+  String? _roadworthinessDocUrl;
+  String? _ownerIdDocUrl;
 
   // ── Step 3: Pricing ──
   final _dailyPriceCtrl = TextEditingController();
@@ -108,6 +118,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       _weeklyPriceCtrl.text = e['weekly_price'] != null ? e['weekly_price'].toString() : '';
       _monthlyPriceCtrl.text = e['monthly_price'] != null ? e['monthly_price'].toString() : '';
       _currency = e['currency'] ?? 'RWF';
+    } else if (widget.seedTitle?.trim().isNotEmpty ?? false) {
+      _carModelCtrl.text = widget.seedTitle!.trim();
     }
   }
 
@@ -121,8 +133,13 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   bool get _canProceed {
     switch (_step) {
       case 1: return _carModelCtrl.text.trim().isNotEmpty;
-      case 2: return true;
-      case 3: return double.tryParse(_dailyPriceCtrl.text.trim()) != null;
+      case 2: return double.tryParse(_dailyPriceCtrl.text.trim()) != null;
+      case 3: return true;
+      case 4:
+        return _insuranceDocUrl != null &&
+            _registrationDocUrl != null &&
+            _roadworthinessDocUrl != null &&
+            _ownerIdDocUrl != null;
       default: return true;
     }
   }
@@ -139,110 +156,249 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
     if (_canProceed && _step < _totalSteps) setState(() => _step++);
   }
 
-  Future<void> _submit() async {
-    setState(() { _saving = true; _uploading = true; });
-    final newUrls = await CloudinaryService.uploadImages(
-      _newFiles.map((f) => f.path).toList(),
-      folder: 'transport',
-    );
-    final allImages = [..._existingUrls, ...newUrls];
-    setState(() => _uploading = false);
+  Future<void> _pickDoc({
+    required String label,
+    required void Function(String url) onUploaded,
+  }) async {
+    final file = await _picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
 
-    final fields = <String, dynamic>{
-      'car_brand': _carBrand,
-      'car_model': _carModelCtrl.text.trim(),
-      'car_year': _carYear,
-      'car_type': _carType,
-      'transmission': _transmission,
-      'fuel_type': _fuelType,
-      'drive_train': _driveTrain,
-      'seats': _seats,
-      'driver_included': _driverIncluded,
-      'provider_name': _providerCtrl.text.trim(),
-      'description': _descCtrl.text.trim(),
-      'key_features': _keyFeatures,
-      'daily_price': double.tryParse(_dailyPriceCtrl.text.trim()) ?? 0,
-      if (_weeklyPriceCtrl.text.trim().isNotEmpty)
-        'weekly_price': double.tryParse(_weeklyPriceCtrl.text.trim()),
-      if (_monthlyPriceCtrl.text.trim().isNotEmpty)
-        'monthly_price': double.tryParse(_monthlyPriceCtrl.text.trim()),
-      'currency': _currency,
-      if (allImages.isNotEmpty) 'images': allImages,
-      if (allImages.isNotEmpty) 'main_image': allImages.first,
-    };
-
-    final e = widget.existing;
-    if (e != null) {
-      await widget.api.updateTransport(id: e['id'], updates: fields);
-    } else {
-      await widget.api.createTransport(userId: widget.userId, fields: fields);
+    setState(() { _uploading = true; });
+    try {
+      final urls = await CloudinaryService.uploadImages(
+        [file.path],
+        folder: 'transport-documents',
+      );
+      if (urls.isNotEmpty) {
+        onUploaded(urls.first);
+      }
+    } finally {
+      if (mounted) setState(() { _uploading = false; });
     }
+  }
 
-    setState(() => _saving = false);
-    if (mounted) Navigator.pop(context, true);
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      final uploadedUrls = <String>[];
+      if (_newFiles.isNotEmpty) {
+        setState(() => _uploading = true);
+        final newUrls = await CloudinaryService.uploadImages(
+          _newFiles.map((f) => f.path).toList(),
+          folder: 'transport',
+        );
+        uploadedUrls.addAll(newUrls);
+      }
+
+      final allImages = [..._existingUrls, ...uploadedUrls];
+      setState(() => _uploading = false);
+
+      final fields = <String, dynamic>{
+        'car_brand': _carBrand,
+        'car_model': _carModelCtrl.text.trim(),
+        'car_year': _carYear,
+        'car_type': _carType,
+        'transmission': _transmission,
+        'fuel_type': _fuelType,
+        'drive_train': _driveTrain,
+        'seats': _seats,
+        'driver_included': _driverIncluded,
+        'provider_name': _providerCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'key_features': _keyFeatures,
+        'daily_price': double.tryParse(_dailyPriceCtrl.text.trim()) ?? 0,
+        if (_weeklyPriceCtrl.text.trim().isNotEmpty)
+          'weekly_price': double.tryParse(_weeklyPriceCtrl.text.trim()),
+        if (_monthlyPriceCtrl.text.trim().isNotEmpty)
+          'monthly_price': double.tryParse(_monthlyPriceCtrl.text.trim()),
+        'currency': _currency,
+        if (_insuranceDocUrl != null) 'insurance_document_url': _insuranceDocUrl,
+        if (_registrationDocUrl != null) 'registration_document_url': _registrationDocUrl,
+        if (_roadworthinessDocUrl != null) 'roadworthiness_certificate_url': _roadworthinessDocUrl,
+        if (_ownerIdDocUrl != null) 'owner_identification_url': _ownerIdDocUrl,
+        if (allImages.isNotEmpty) 'images': allImages,
+        if (allImages.isNotEmpty) 'main_image': allImages.first,
+      };
+
+      final e = widget.existing;
+      if (e != null) {
+        await widget.api.updateTransport(id: e['id'], updates: fields);
+      } else {
+        await widget.api.createTransport(userId: widget.userId, fields: fields);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _uploading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(children: [
-              GestureDetector(
-                onTap: _goBack,
-                child: Row(children: [
-                  const Icon(Icons.chevron_left, size: 22, color: Colors.black54),
-                  Text(_step > 1 ? 'Back' : 'Cancel',
-                      style: const TextStyle(fontSize: 14, color: Colors.black54)),
-                ]),
+    final isEditMode = widget.existing != null;
+    return HostCreationScaffold(
+      title: isEditMode ? 'Edit Transport' : 'Create Transport',
+      subtitle: isEditMode
+          ? 'Update your vehicle details'
+          : 'Fill in the details to create your transport listing',
+      step: _step,
+      totalSteps: _totalSteps,
+      stepTitle: _stepTitles[_step - 1],
+      onBack: _goBack,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_error != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  border: Border.all(color: Colors.red.shade200),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
               ),
-              Expanded(
-                child: Column(children: [
-                  Text(widget.existing == null ? 'List Your Vehicle' : 'Edit Vehicle',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                  Text('Step $_step of $_totalSteps: ${_stepTitles[_step - 1]}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                ]),
-              ),
-              const SizedBox(width: 60),
-            ]),
-          ),
-          LinearProgressIndicator(
-            value: _step / _totalSteps,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(_kRed),
-            minHeight: 3,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: _buildStep(),
-            ),
-          ),
-          _VehicleBottomNav(
-            step: _step,
-            totalSteps: _totalSteps,
-            canProceed: _canProceed,
-            saving: _saving,
-            onNext: _goNext,
-            onSubmit: _submit,
-          ),
-        ]),
+              const SizedBox(height: 12),
+            ],
+            _buildStep(),
+          ],
+        ),
+      ),
+      bottomNav: _VehicleBottomNav(
+        step: _step,
+        totalSteps: _totalSteps,
+        canProceed: _canProceed,
+        saving: _saving,
+        onNext: _goNext,
+        onSubmit: _submit,
       ),
     );
   }
 
   Widget _buildStep() {
     switch (_step) {
-      case 1: return _buildStep1();
-      case 2: return _buildStep2();
-      case 3: return _buildStep3();
-      case 4: return _buildStep4();
-      default: return const SizedBox();
+      case 1:
+        return _buildStepVehicle();
+      case 2:
+        return _buildStepPricing();
+      case 3:
+        return _buildStepPhotos();
+      case 4:
+        return _buildStepDocuments();
+      case 5:
+        return _buildStepReview();
+      default:
+        return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildStepVehicle() => _buildStep1();
+  Widget _buildStepPhotos() => _buildStep2();
+  Widget _buildStepPricing() => _buildStep3();
+  Widget _buildStepReview() => _buildStep4();
+
+  Widget _buildStepDocuments() {
+    Widget docRow({
+      required String label,
+      required String? url,
+      required VoidCallback onPick,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+            Text(
+              url == null ? 'Missing' : 'Added',
+              style: TextStyle(
+                fontSize: 12,
+                color: url == null ? Colors.redAccent : Colors.green,
+              ),
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton(
+              onPressed: _uploading ? null : onPick,
+              child: Text(url == null ? 'Upload' : 'Replace'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Documents',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Upload required legal documents.',
+          style: TextStyle(fontSize: 12, color: Colors.black45),
+        ),
+        const SizedBox(height: 16),
+        docRow(
+          label: 'Insurance document',
+          url: _insuranceDocUrl,
+          onPick: () => _pickDoc(
+            label: 'Insurance document',
+            onUploaded: (u) => setState(() => _insuranceDocUrl = u),
+          ),
+        ),
+        docRow(
+          label: 'Registration document',
+          url: _registrationDocUrl,
+          onPick: () => _pickDoc(
+            label: 'Registration document',
+            onUploaded: (u) => setState(() => _registrationDocUrl = u),
+          ),
+        ),
+        docRow(
+          label: 'Roadworthiness certificate',
+          url: _roadworthinessDocUrl,
+          onPick: () => _pickDoc(
+            label: 'Roadworthiness certificate',
+            onUploaded: (u) => setState(() => _roadworthinessDocUrl = u),
+          ),
+        ),
+        docRow(
+          label: 'Owner identification',
+          url: _ownerIdDocUrl,
+          onPick: () => _pickDoc(
+            label: 'Owner identification',
+            onUploaded: (u) => setState(() => _ownerIdDocUrl = u),
+          ),
+        ),
+      ],
+    );
   }
 
   // ── Step 1: Basics ──
@@ -317,8 +473,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       children: _kKeyFeatures.map((f) => FilterChip(
         label: Text(f, style: const TextStyle(fontSize: 12)),
         selected: _keyFeatures.contains(f),
-        selectedColor: _kRed.withValues(alpha: 0.15),
-        checkmarkColor: _kRed,
+        selectedColor: Colors.black.withValues(alpha: 0.06),
+        checkmarkColor: Colors.black87,
         onSelected: (sel) => setState(() {
           if (sel) {
             _keyFeatures.add(f);
@@ -344,7 +500,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
         icon: const Icon(Icons.photo_library_outlined),
         label: const Text('Gallery'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       )),
@@ -355,7 +512,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
           if (img != null) setState(() => _newFiles.add(img));
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: _kRed, side: const BorderSide(color: _kRed),
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
         ),
         child: const Icon(Icons.camera_alt_outlined),

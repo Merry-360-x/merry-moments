@@ -345,94 +345,86 @@ class _ResultCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          border: Border.all(color: const Color(0xFFEAEAEA)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
-                      height: 190,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const _PlaceholderImage(height: 190),
-                    )
-                  : const _PlaceholderImage(height: 190),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Type badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _typeColor(type).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _typeLabel(type),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: _typeColor(type),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (location.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF888888)),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        height: 104,
+                        width: 104,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const _HorizontalPlaceholderImage(size: 104),
+                      )
+                    : const _HorizontalPlaceholderImage(size: 104),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 104,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _typeColor(type).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _typeLabel(type),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: _typeColor(type),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        price,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A1A1A),
-                        ),
                       ),
-                      if (rating != null && rating != 'null' && rating.isNotEmpty)
-                        Row(
-                          children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A1A),
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          location,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const Spacer(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              price,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (rating != null && rating != 'null' && rating.isNotEmpty) ...[
+                            const SizedBox(width: 8),
                             const Icon(Icons.star, size: 13, color: Color(0xFFF5A623)),
                             const SizedBox(width: 3),
                             Text(
@@ -446,13 +438,14 @@ class _ResultCard extends StatelessWidget {
                               ),
                             ),
                           ],
-                        ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -501,17 +494,18 @@ class _ResultCard extends StatelessWidget {
   };
 }
 
-class _PlaceholderImage extends StatelessWidget {
-  const _PlaceholderImage({required this.height});
-  final double height;
+class _HorizontalPlaceholderImage extends StatelessWidget {
+  const _HorizontalPlaceholderImage({required this.size});
+
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: height,
-      width: double.infinity,
+      height: size,
+      width: size,
       color: const Color(0xFFF0F0F0),
-      child: const Icon(Icons.image_not_supported_outlined, size: 40, color: Color(0xFFCCCCCC)),
+      child: const Icon(Icons.image_not_supported_outlined, size: 28, color: Color(0xFFCCCCCC)),
     );
   }
 }
