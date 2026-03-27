@@ -84,15 +84,9 @@ export default {
           from: { opacity: "0", transform: "scale(0.95)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
-        "support-wave": {
-          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
-          "25%": { transform: "translateY(-3px) rotate(-4deg)" },
-          "50%": { transform: "translateY(2px) rotate(4deg)" },
-          "75%": { transform: "translateY(-2px) rotate(-2deg)" },
-        },
-        "support-ripple": {
-          "0%": { transform: "scale(1)", opacity: "0.55" },
-          "100%": { transform: "scale(2.1)", opacity: "0" },
+        "support-ping": {
+          "0%": { transform: "scale(1)", opacity: "0.4" },
+          "80%, 100%": { transform: "scale(1.9)", opacity: "0" },
         },
       },
       animation: {
@@ -100,10 +94,7 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out forwards",
         "scale-in": "scale-in 0.3s ease-out forwards",
-        "support-wave": "support-wave 2.4s ease-in-out infinite",
-        "support-ripple": "support-ripple 2s ease-out infinite",
-        "support-ripple-2": "support-ripple 2s ease-out 0.65s infinite",
-        "support-ripple-3": "support-ripple 2s ease-out 1.3s infinite",
+        "support-ping": "support-ping 2.4s cubic-bezier(0,0,0.2,1) infinite",
       },
     },
   },
