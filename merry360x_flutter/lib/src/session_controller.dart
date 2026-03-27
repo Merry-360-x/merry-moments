@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'models/mobile_sync.dart';
 import 'services/app_database.dart';
@@ -159,6 +160,7 @@ class SessionController extends ChangeNotifier {
       await client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'com.merry360x.mobile://login-callback/',
+        authScreenLaunchMode: LaunchMode.inAppWebView,
       );
       // signInWithOAuth opens an external browser and returns immediately.
       // The session is established when the deep link callback fires and
