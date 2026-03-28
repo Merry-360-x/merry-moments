@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1510"
+   LastUpgradeVersion = "2610"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -97,5 +97,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Generate dSYMs for Flutter Native Assets"
+               scriptText = "# Generate dSYMs for Flutter native asset frameworks (e.g. objective_c.framework)&#10;# that Xcode does not automatically produce dSYMs for.&#10;DSYMS_DIR=&quot;${ARCHIVE_PATH}/dSYMs&quot;&#10;FRAMEWORKS_DIR=&quot;${ARCHIVE_PATH}/Products/Applications/Runner.app/Frameworks&quot;&#10;if [ -d &quot;$FRAMEWORKS_DIR&quot; ]; then&#10;  for fw in &quot;$FRAMEWORKS_DIR&quot;/*.framework; do&#10;    name=$(basename &quot;$fw&quot; .framework)&#10;    binary=&quot;$fw/$name&quot;&#10;    dsym_out=&quot;$DSYMS_DIR/${name}.framework.dSYM&quot;&#10;    if [ -f &quot;$binary&quot; ] &amp;&amp; [ ! -d &quot;$dsym_out&quot; ]; then&#10;      xcrun dsymutil &quot;$binary&quot; -o &quot;$dsym_out&quot; 2&gt;/dev/null || true&#10;    fi&#10;  done&#10;fi&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "97C146ED1CF9000F007C117D"
+                     BuildableName = "Runner.app"
+                     BlueprintName = "Runner"
+                     ReferencedContainer = "container:Runner.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </ArchiveAction>
 </Scheme>
