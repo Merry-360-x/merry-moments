@@ -202,6 +202,7 @@ const BILLING_COUNTRY_OPTIONS = [
   { code: "CG", label: "Congo" },
   { code: "ZA", label: "South Africa" },
 ];
+
 const FLW_CARD_COUNTRIES = [
   { code: 'RW', name: 'Rwanda',           flag: '🇷🇼' },
   { code: 'NG', name: 'Nigeria',          flag: '🇳🇬' },
@@ -214,7 +215,7 @@ const FLW_CARD_COUNTRIES = [
   { code: 'EG', name: 'Egypt',            flag: '🇪🇬' },
   { code: 'CM', name: 'Cameroon',         flag: '🇨🇲' },
   { code: 'SN', name: 'Senegal',          flag: '🇸🇳' },
-  { code: 'CI', name: "Côte d'Ivoire",  flag: '🇨🇮' },
+  { code: 'CI', name: "Côte d'Ivoire",   flag: '🇨🇮' },
   { code: 'MW', name: 'Malawi',           flag: '🇲🇼' },
   { code: 'MZ', name: 'Mozambique',       flag: '🇲🇿' },
   { code: 'ET', name: 'Ethiopia',         flag: '🇪🇹' },
@@ -1402,7 +1403,7 @@ export default function CheckoutNew() {
         guests: Number(searchParams.get("guests")) || 1,
       } : null;
       
-      // Convert total to RWF for storage (all checkouts stored in RWF)
+      // Convert total to RWF for storage (all non-card checkouts stored in RWF)
       // Use payableAmount (which may be individual share or full total)
       let amountInRwf = payableAmount;
       if (displayCurrency !== 'RWF') {
@@ -1416,6 +1417,18 @@ export default function CheckoutNew() {
           original: payableAmount,
           rwf: amountInRwf
         });
+      }
+
+      // For card payments, pre-compute the USD charge amount BEFORE creating the checkout
+      // row so the DB stores USD as the canonical currency. This eliminates double-conversion
+      // (display→RWF→USD) and ensures retries use the exact same USD figure.
+      let cardAmountUsd: number | null = null;
+      if (paymentMethod === 'card') {
+        const rawUsd = convertAmount(amountInRwf, 'RWF', 'USD', usdRates);
+        if (!rawUsd || rawUsd <= 0) {
+          throw new Error('Unable to convert booking total to USD. Please try again.');
+        }
+        cardAmountUsd = roundToCurrency(rawUsd, 'USD');
       }
       
       // Calculate host earnings from total guest-paid amount (already includes discount-first pricing)
@@ -1438,8 +1451,9 @@ export default function CheckoutNew() {
         email: formData.email,
         phone: fullPhone || normalizedPhone,
         message: formData.notes || null,
-        total_amount: roundToCurrency(amountInRwf, 'RWF'),
-        currency: 'RWF', // Always store in RWF
+        // Card payments are stored in USD; all other methods store in RWF.
+        total_amount: paymentMethod === 'card' ? cardAmountUsd! : roundToCurrency(amountInRwf, 'RWF'),
+        currency: paymentMethod === 'card' ? 'USD' : 'RWF',
         // Fee breakdown fields
         base_price_amount: discountedListingSubtotalRwf,
         service_fee_amount: roundToCurrency(serviceFees * (displayCurrency === 'RWF' ? 1 : (amountInRwf / payableAmount)), 'RWF'),
@@ -1590,13 +1604,8 @@ export default function CheckoutNew() {
       }
 
       if (paymentMethod === 'card') {
-        // Flutterwave card payments require USD - convert from RWF
-        const rawUsd = convertAmount(amountInRwf, 'RWF', 'USD', usdRates);
-        if (!rawUsd || rawUsd <= 0) {
-          throw new Error('Unable to convert booking total to USD. Please try again.');
-        }
-        const cardAmountUsd = roundToCurrency(rawUsd, 'USD');
-
+        // cardAmountUsd was computed and stored in the checkout row above — use it directly.
+        // No re-conversion needed; the DB and Flutterwave both see the same USD figure.
         const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1626,7 +1635,7 @@ export default function CheckoutNew() {
         localStorage.removeItem("applied_discount");
         clearCheckoutDraft();
 
-        // Navigate to Flutterwave hosted checkout (avoids inline SDK loading issues)
+        // Navigate to Flutterwave hosted checkout page (avoids inline SDK loading issues)
         window.location.href = cardInitData.redirectUrl;
         return;
       }
@@ -2161,7 +2170,7 @@ export default function CheckoutNew() {
                           <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-2">
                             <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                              You’ll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa & Mastercard accepted worldwide
+                              You'll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa & Mastercard accepted worldwide
                             </p>
                           </div>
                         ) : null;
@@ -2197,7 +2206,7 @@ export default function CheckoutNew() {
                       {/* Security note */}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <LockKeyhole className="w-3.5 h-3.5 shrink-0" />
-                        <span>PCI-compliant · Card details entered on Flutterwave’s secure platform · Redirects to payment page</span>
+                        <span>PCI-compliant · Card details entered on Flutterwave's secure platform · Redirects to payment page</span>
                       </div>
                     </div>
                   )}
@@ -2369,7 +2378,7 @@ export default function CheckoutNew() {
                           </p>
                           <p className="text-muted-foreground">
                             {paymentMethod === 'card'
-                              ? <>After clicking "Pay", a secure window opens in this tab for Flutterwave card checkout (no iframe styling controls from our side).</>
+                              ? <>After clicking "Pay", the Flutterwave modal opens directly on this page. Enter your card details there — no redirects, card data never touches our servers.</>
                               : <>After clicking "Pay", our payment team will call you at <span className="font-medium text-foreground">{formData.email}</span> to complete your bank transfer.</>}
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">Need help: +250 796 214 719</p>

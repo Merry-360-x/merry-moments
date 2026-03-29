@@ -34,8 +34,8 @@ export default function PaymentFailed() {
   // Map failure reasons to user-friendly messages
   const getFailureInfo = () => {
     const reasonLower = reason.toLowerCase();
-    const isCardFlow = providerParam === "flutterwave" || providerParam === "pesapal";
-    const cardProviderLabel = providerParam === "pesapal" ? "Pesapal" : "Flutterwave";
+    const isCardFlow = providerParam === "flutterwave";
+    const cardProviderLabel = "Flutterwave";
     
     if (reasonLower.includes("insufficient") || reasonLower.includes("funds") || reasonLower.includes("balance")) {
       return {
@@ -158,60 +158,7 @@ export default function PaymentFailed() {
       const phoneNumber = checkout.phone;
       const totalAmount = checkout.total_amount;
 
-      const isPesapal = providerParam === "pesapal" || String(paymentProvider).toUpperCase() === "PESAPAL";
       const isFlutterwave = providerParam === "flutterwave" || String(paymentProvider).toUpperCase() === "FLUTTERWAVE";
-
-      if (isPesapal) {
-        const pendingUrl = `/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=pesapal`;
-        const redirectUrl = `${window.location.origin}${pendingUrl}`;
-
-        const cardInitResponse = await fetch("/api/pesapal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "create-payment",
-            checkoutId,
-            amount: Math.round(totalAmount),
-            currency,
-            payerName: checkout.name,
-            payerEmail: checkout.email,
-            phoneNumber: phoneNumber || undefined,
-            description: `Merry360x Booking Retry - ${checkoutId.slice(0, 8)}`,
-            redirectUrl,
-          }),
-        });
-
-        const cardInitData = await cardInitResponse.json().catch(() => ({}));
-        if (!cardInitResponse.ok || !cardInitData?.redirectUrl) {
-          const friendlyError = getFriendlyPaymentErrorMessage(cardInitData?.message);
-          toast({
-            title: "Payment Failed",
-            description: friendlyError || "Could not retry card payment. Please try again.",
-            variant: "destructive",
-          });
-          setIsRetrying(false);
-          return;
-        }
-
-        toast({
-          title: "Redirecting to card checkout",
-          description: "Complete your card payment on Pesapal.",
-        });
-
-        const opened = window.open(cardInitData.redirectUrl, "_blank", "noopener,noreferrer");
-        if (opened) {
-          navigate(pendingUrl);
-          return;
-        }
-
-        toast({
-          title: "Popup blocked",
-          description: "Opening Pesapal in this tab instead.",
-        });
-
-        window.location.href = cardInitData.redirectUrl;
-        return;
-      }
 
       if (isFlutterwave) {
         const pendingUrl = `/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
@@ -223,7 +170,8 @@ export default function PaymentFailed() {
           body: JSON.stringify({
             action: "create-payment",
             checkoutId,
-            amount: Math.round(totalAmount),
+            // Preserve decimal precision — USD amounts must not be rounded to integers
+            amount: currency === 'USD' ? Math.round(totalAmount * 100) / 100 : Math.round(totalAmount),
             currency,
             payerName: checkout.name,
             payerEmail: checkout.email,

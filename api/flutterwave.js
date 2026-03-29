@@ -475,15 +475,22 @@ async function handleWebhook(req, res) {
     });
   }
 
-  const expectedAmount = toNumber(checkoutData.total_amount);
   const txAmount = toNumber(txData.amount);
-  const expectedCurrency = String(checkoutData.currency || "RWF").toUpperCase();
   const txCurrency = String(txData.currency || "").toUpperCase();
+
+  // Prefer the charge amount/currency stored at initialization (may differ from the
+  // display currency, e.g. RWF display → USD charge for card payments).
+  const storedChargeAmount = toNumber(checkoutData?.metadata?.flutterwave?.charge_amount);
+  const storedChargeCurrency = checkoutData?.metadata?.flutterwave?.charge_currency
+    ? String(checkoutData.metadata.flutterwave.charge_currency).toUpperCase()
+    : null;
+  const expectedAmount = storedChargeAmount ?? toNumber(checkoutData.total_amount);
+  const expectedCurrency = storedChargeCurrency ?? String(checkoutData.currency || "RWF").toUpperCase();
 
   const amountMatches =
     expectedAmount !== null &&
     txAmount !== null &&
-    Math.round(expectedAmount) === Math.round(txAmount);
+    Math.abs(expectedAmount - txAmount) < 1; // allow ±1 unit for rounding
   const currencyMatches = expectedCurrency === txCurrency;
 
   const paymentStatus =
