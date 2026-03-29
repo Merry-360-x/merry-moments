@@ -70,7 +70,8 @@ class SessionController extends ChangeNotifier {
       if (newId != _userId) {
         _userId = newId;
         notifyListeners();
-        if (newId.isNotEmpty) refresh();
+        // Refresh for both login (load user data) and logout (load public data)
+        refresh();
       }
     });
   }
@@ -182,6 +183,8 @@ class SessionController extends ChangeNotifier {
     _payload = null;
     _error = null;
     notifyListeners();
+    // Reload public listings so the app doesn't appear empty after logout
+    refresh();
   }
 
   Future<void> deleteAccount() async {
