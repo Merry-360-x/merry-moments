@@ -54,6 +54,37 @@ function sanitizeBillingAddress(value) {
   };
 }
 
+function summarizeFlutterwaveData(data) {
+  if (!data || typeof data !== "object") return null;
+
+  const customer = data.customer && typeof data.customer === "object" ? data.customer : null;
+  const processorResponse =
+    data.processor_response && typeof data.processor_response === "object"
+      ? data.processor_response
+      : null;
+
+  return {
+    id: data.id ?? null,
+    tx_ref: data.tx_ref ?? null,
+    flw_ref: data.flw_ref ?? null,
+    status: data.status ?? null,
+    amount: data.amount ?? null,
+    currency: data.currency ?? null,
+    charged_amount: data.charged_amount ?? null,
+    app_fee: data.app_fee ?? null,
+    merchant_fee: data.merchant_fee ?? null,
+    processor_response: typeof data.processor_response === "string"
+      ? data.processor_response
+      : processorResponse?.type || null,
+    processor_response_code: processorResponse?.code ?? null,
+    auth_model: data.auth_model ?? data.payment_type ?? null,
+    payment_type: data.payment_type ?? null,
+    customer_email: customer?.email ?? null,
+    customer_phone: customer?.phone_number ?? customer?.phonenumber ?? null,
+    redirect_status: data.redirect_status ?? null,
+  };
+}
+
 function makeTxRef(checkoutId) {
   const slug = String(checkoutId).replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
   return `mry-${slug}-${Date.now().toString(36)}`.slice(0, 100);
@@ -301,6 +332,11 @@ async function handleCreatePayment(req, res) {
       link: hostedLink,
       charge_amount: chargeAmount,
       charge_currency: chargeCurrency,
+      init_status: initData?.status ?? null,
+      init_message: initData?.message ?? null,
+      init_data: summarizeFlutterwaveData(initData?.data),
+      billing_address_supplied: Boolean(storedBillingAddress),
+      billing_country: storedBillingAddress?.country || null,
       initialized_at: new Date().toISOString(),
     },
     ...(metadata && typeof metadata === "object" ? metadata : {}),
@@ -369,11 +405,40 @@ async function handleVerifyPayment(req, res) {
       msg.includes("not found") ||
       msg.includes("invalid id");
     if (notFound) {
+      if (checkoutData?.id) {
+        const nextMetadata = {
+          ...(checkoutData.metadata || {}),
+          payment_provider: "FLUTTERWAVE",
+          flutterwave: {
+            ...((checkoutData.metadata || {}).flutterwave || {}),
+            verify_status: "not_found_yet",
+            verify_message: verifyData?.message || null,
+            verify_http_status: verifyRes.status,
+            verify_checked_at: new Date().toISOString(),
+          },
+        };
+        await supabase.from("checkout_requests").update({ metadata: nextMetadata }).eq("id", checkoutData.id);
+      }
       return json(res, 200, {
         success: true,
         paymentStatus: "pending",
         checkoutId: checkoutData?.id ?? null,
       });
+    }
+    if (checkoutData?.id) {
+      const nextMetadata = {
+        ...(checkoutData.metadata || {}),
+        payment_provider: "FLUTTERWAVE",
+        flutterwave: {
+          ...((checkoutData.metadata || {}).flutterwave || {}),
+          verify_status: "error",
+          verify_message: verifyData?.message || null,
+          verify_http_status: verifyRes.status,
+          verify_error: summarizeFlutterwaveData(verifyData?.data),
+          verify_checked_at: new Date().toISOString(),
+        },
+      };
+      await supabase.from("checkout_requests").update({ metadata: nextMetadata }).eq("id", checkoutData.id);
     }
     console.error("Flutterwave verify error:", verifyData);
     return json(res, 502, {
@@ -423,8 +488,15 @@ async function handleVerifyPayment(req, res) {
         amount: txData.amount ?? null,
         currency: txData.currency ?? null,
         payment_type: txData.payment_type ?? null,
+        auth_model: txData.auth_model ?? null,
+        processor_response: txData.processor_response ?? null,
+        customer: txData.customer ?? null,
+        card: txData.card ?? null,
+        redirect_status: txData.redirect_status ?? null,
         amount_matches: amountMatches,
         currency_matches: currencyMatches,
+        verify_status: "success",
+        verify_message: verifyData?.message ?? null,
         verified_at: new Date().toISOString(),
       },
     };
@@ -558,8 +630,14 @@ async function handleWebhook(req, res) {
       amount: txData.amount ?? null,
       currency: txData.currency ?? null,
       payment_type: txData.payment_type ?? null,
+      auth_model: txData.auth_model ?? null,
+      processor_response: txData.processor_response ?? null,
+      customer: txData.customer ?? null,
+      card: txData.card ?? null,
+      redirect_status: txData.redirect_status ?? null,
       amount_matches: amountMatches,
       currency_matches: currencyMatches,
+      webhook_event: event,
       webhook_received_at: new Date().toISOString(),
     },
   };
