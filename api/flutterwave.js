@@ -1,9 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildBrevoSmtpPayload,
+  escapeHtml,
+  keyValueRows,
+  renderMinimalEmail,
+  validateRecipientEmail,
+} from "../lib/email-template-kit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY;
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FLW_WEBHOOK_HASH = process.env.FLW_WEBHOOK_HASH;
 const FLW_BASE_URL = "https://api.flutterwave.com/v3";
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://merry360x.com";
@@ -30,6 +38,163 @@ function safeAmount(value) {
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function formatMoney(amount, currency = "USD") {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return `${currency} 0.00`;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2 }).format(n);
+  } catch {
+    return `${currency} ${n.toFixed(2)}`;
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return String(dateStr);
+  }
+}
+
+async function sendFlwGuestEmail(checkout, items, bookingIds, reviewTokens) {
+  if (!BREVO_API_KEY) return;
+  const recipientCheck = validateRecipientEmail(checkout.email);
+  if (!recipientCheck.ok) return;
+
+  const guestName = checkout.name || "Guest";
+  const totalAmount = formatMoney(checkout.total_amount, checkout.currency || "USD");
+  const receiptNumber = `MRY-${Date.now().toString(36).toUpperCase()}`;
+  const singleToken = Array.isArray(reviewTokens) && reviewTokens.length === 1 ? reviewTokens[0]?.review_token : null;
+  const reviewUrl = singleToken ? `https://merry360x.com/review/${singleToken}` : `https://merry360x.com/my-bookings`;
+  const stars = [1, 2, 3, 4, 5]
+    .map((s) => `<a href="${reviewUrl}${reviewUrl.includes("?") ? "&" : "?"}rating=${s}" style="display:inline-block;text-decoration:none;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-right:6px;color:#111827;font-size:13px;">${"★".repeat(s)}</a>`)
+    .join("");
+  const itemsHtml = items.length > 1
+    ? `<div style="margin-bottom:12px;">${items.map((it) => `<p style="margin:0 0 6px;color:#374151;font-size:14px;">• ${escapeHtml(it.title || it.name || "Item")} — ${escapeHtml(formatMoney(it.calculated_price || it.price, it.calculated_price_currency || it.currency || "USD"))}</p>`).join("")}</div>`
+    : "";
+
+  const html = renderMinimalEmail({
+    eyebrow: "Payment Receipt",
+    title: "Booking confirmed",
+    subtitle: "Your card payment was successful and your booking is complete.",
+    bodyHtml: `${itemsHtml}${keyValueRows([
+      { label: "Receipt", value: escapeHtml(receiptNumber) },
+      { label: "Guest", value: escapeHtml(guestName) },
+      { label: "Amount Paid", value: escapeHtml(totalAmount) },
+      { label: "Payment", value: "Card (Flutterwave)" },
+      { label: "Status", value: "Paid" },
+      { label: "Bookings", value: escapeHtml(String(bookingIds.length)) },
+    ])}<div style="margin-top:14px;"><p style="margin:0 0 8px;color:#6b7280;font-size:12px;">Rate your experience:</p>${stars}</div>`,
+    ctaText: "View My Bookings",
+    ctaUrl: "https://merry360x.com/my-bookings",
+  });
+
+  try {
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { accept: "application/json", "api-key": BREVO_API_KEY, "content-type": "application/json" },
+      body: JSON.stringify(buildBrevoSmtpPayload({
+        senderName: "Merry 360 Experiences",
+        senderEmail: "support@merry360x.com",
+        to: [{ email: recipientCheck.email, name: guestName }],
+        subject: `Booking Confirmed - ${receiptNumber}`,
+        htmlContent: html,
+        tags: ["booking", "payment-confirmation", "flutterwave"],
+      })),
+    });
+    console.log(`📧 Flutterwave guest confirmation sent to ${recipientCheck.email}`);
+  } catch (err) {
+    console.error("❌ Flutterwave guest email failed:", err.message);
+  }
+}
+
+async function sendFlwHostNotification(supabase, booking, item) {
+  if (!BREVO_API_KEY) return;
+  try {
+    let hostId = null;
+    let itemTitle = item.title || item.name || "Your Service";
+    let itemType = "service";
+
+    if (item.item_type === "property") {
+      const { data: prop } = await supabase.from("properties").select("title, host_id").eq("id", item.reference_id).single();
+      if (prop) { itemTitle = prop.title; itemType = "property"; hostId = prop.host_id; }
+    } else if (item.item_type === "tour" || item.item_type === "tour_package") {
+      const table = item.item_type === "tour" ? "tours" : "tour_packages";
+      const hostField = item.item_type === "tour" ? "created_by" : "host_id";
+      const { data: tour } = await supabase.from(table).select(`title, ${hostField}`).eq("id", item.reference_id).single();
+      if (tour) { itemTitle = tour.title; itemType = "tour"; hostId = tour[hostField]; }
+    } else if (item.item_type === "transport_vehicle") {
+      const { data: veh } = await supabase.from("transport_vehicles").select("title, owner_id").eq("id", item.reference_id).single();
+      if (veh) { itemTitle = veh.title; itemType = "transport"; hostId = veh.owner_id; }
+    }
+
+    if (!hostId) return;
+
+    const { data: profile } = await supabase.from("profiles").select("email, full_name").eq("id", hostId).single();
+    if (!profile) return;
+
+    const hostCheck = validateRecipientEmail(profile.email);
+    if (!hostCheck.ok) return;
+
+    const bookingRef = `MRY-${booking.id.slice(0, 8).toUpperCase()}`;
+    const html = renderMinimalEmail({
+      eyebrow: "New Booking",
+      title: "You received a new booking",
+      subtitle: `Hi ${escapeHtml(profile.full_name || "Host")}, a guest booked your ${itemType}.`,
+      bodyHtml: keyValueRows([
+        { label: "Item", value: escapeHtml(itemTitle) },
+        { label: "Booking Ref", value: escapeHtml(bookingRef) },
+        { label: "Guest", value: escapeHtml(booking.guest_name || "Guest") },
+        { label: "Guest Email", value: booking.guest_email ? `<a href="mailto:${escapeHtml(booking.guest_email)}" style="color:#111827;text-decoration:none;">${escapeHtml(booking.guest_email)}</a>` : "—" },
+        { label: "Guest Phone", value: booking.guest_phone ? `<a href="tel:${escapeHtml(booking.guest_phone)}" style="color:#111827;text-decoration:none;">${escapeHtml(booking.guest_phone)}</a>` : "—" },
+        { label: "Check-in", value: escapeHtml(formatDate(booking.check_in)) },
+        { label: "Check-out", value: escapeHtml(formatDate(booking.check_out)) },
+        { label: "Guests", value: escapeHtml(String(booking.guests || 1)) },
+        { label: "Payment", value: "Card (Flutterwave)" },
+      ]),
+      ctaText: "Open Host Dashboard",
+      ctaUrl: "https://merry360x.com/host-dashboard",
+    });
+
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { accept: "application/json", "api-key": BREVO_API_KEY, "content-type": "application/json" },
+      body: JSON.stringify(buildBrevoSmtpPayload({
+        senderName: "Merry 360 Experiences",
+        senderEmail: "support@merry360x.com",
+        to: [{ email: hostCheck.email, name: profile.full_name || "Host" }],
+        subject: `New Booking: ${itemTitle} - ${bookingRef}`,
+        htmlContent: html,
+        tags: ["booking", "host-notification", "flutterwave"],
+      })),
+    });
+    console.log(`📧 Flutterwave host notification sent to ${hostCheck.email}`);
+  } catch (err) {
+    console.error("❌ Flutterwave host notification failed:", err.message);
+  }
+}
+
+async function sendFlwPostPaymentEmails(supabase, checkoutData, items, bookingIds) {
+  if (!bookingIds || bookingIds.length === 0) return;
+  try {
+    // Fetch review tokens
+    const { data: tokenData } = await supabase.from("bookings").select("id, review_token").in("id", bookingIds);
+    const reviewTokens = tokenData || [];
+
+    // Guest confirmation
+    await sendFlwGuestEmail(checkoutData, items, bookingIds, reviewTokens);
+
+    // Host notifications
+    for (let i = 0; i < bookingIds.length; i++) {
+      const { data: booking } = await supabase.from("bookings").select("*").eq("id", bookingIds[i]).single();
+      if (booking && items[i]) await sendFlwHostNotification(supabase, booking, items[i]);
+    }
+  } catch (err) {
+    console.error("❌ sendFlwPostPaymentEmails error:", err.message);
+  }
 }
 
 function sanitizeBillingAddress(value) {
@@ -110,6 +275,7 @@ async function flwGet(path) {
 async function createBookingsForPaidCheckout(supabase, checkoutData) {
   const items = checkoutData?.metadata?.items || [];
   const bookingDetails = checkoutData?.metadata?.booking_details;
+  const createdIds = [];
 
   for (const item of items) {
     try {
@@ -176,11 +342,13 @@ async function createBookingsForPaidCheckout(supabase, checkoutData) {
         continue;
       }
 
-      await supabase.from("bookings").insert(bookingData);
+      const { data: inserted } = await supabase.from("bookings").insert(bookingData).select("id").single();
+      if (inserted?.id) createdIds.push(inserted.id);
     } catch (error) {
       console.error("Flutterwave booking create error", error);
     }
   }
+  return createdIds;
 }
 
 async function handleCreatePayment(req, res) {
@@ -512,7 +680,10 @@ async function handleVerifyPayment(req, res) {
       .eq("id", checkoutData.id);
 
     if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
-      await createBookingsForPaidCheckout(supabase, { ...checkoutData, metadata: nextMetadata });
+      const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+      const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
+      const items = nextMetadata?.items || [];
+      await sendFlwPostPaymentEmails(supabase, mergedCheckout, items, createdIds);
     }
 
     return json(res, 200, {
@@ -653,7 +824,10 @@ async function handleWebhook(req, res) {
     .eq("id", checkoutData.id);
 
   if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
-    await createBookingsForPaidCheckout(supabase, { ...checkoutData, metadata: nextMetadata });
+    const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+    const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
+    const items = nextMetadata?.items || [];
+    await sendFlwPostPaymentEmails(supabase, mergedCheckout, items, createdIds);
   }
 
   return json(res, 200, {
