@@ -109,6 +109,14 @@ export function getFriendlyPaymentErrorMessage(message?: string, fallback = "Pay
     return message;
   }
 
+  if (lowered.includes("required parameters") || lowered.includes("required parameter")) {
+    return "Please complete your billing address exactly as it appears on your card statement.";
+  }
+
+  if (lowered.includes("minimum card payment is")) {
+    return message;
+  }
+
   return message;
 }
 

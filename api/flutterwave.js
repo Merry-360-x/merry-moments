@@ -32,6 +32,28 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function sanitizeBillingAddress(value) {
+  if (!value || typeof value !== "object") return null;
+
+  const line1 = safeStr(value.line1 || value.address1, 160);
+  const city = safeStr(value.city, 120);
+  const postalCode = safeStr(value.postalCode || value.postal_code || value.zip, 40);
+  const country = safeStr(value.countryCode || value.country || value.country_code, 10).toUpperCase();
+  const state = safeStr(value.state || value.province, 120);
+  const line2 = safeStr(value.line2 || value.address2, 160);
+
+  if (!line1 || !city || !postalCode || !country) return null;
+
+  return {
+    line1,
+    line2: line2 || undefined,
+    city,
+    state: state || undefined,
+    postal_code: postalCode,
+    country,
+  };
+}
+
 function makeTxRef(checkoutId) {
   const slug = String(checkoutId).replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
   return `mry-${slug}-${Date.now().toString(36)}`.slice(0, 100);
@@ -140,6 +162,7 @@ async function handleCreatePayment(req, res) {
     phoneNumber,
     description,
     redirectUrl,
+    billingAddress,
     metadata,
     inline, // true = web inline SDK (skip Flutterwave pre-registration)
   } = req.body || {};
@@ -172,6 +195,10 @@ async function handleCreatePayment(req, res) {
 
   const txRef = makeTxRef(checkoutId);
   const isInline = inline === true;
+  const storedBillingAddress =
+    sanitizeBillingAddress(billingAddress) ||
+    sanitizeBillingAddress(checkout?.metadata?.billing_address) ||
+    sanitizeBillingAddress(checkout?.metadata?.guest_info?.billing_address);
 
   if (isInline) {
     // Web inline SDK flow: skip Flutterwave API — the SDK handles it directly.
@@ -231,6 +258,7 @@ async function handleCreatePayment(req, res) {
       email,
       name: safeStr(payerName, 80) || "Customer",
       phonenumber: safeStr(phoneNumber, 30) || undefined,
+      address: storedBillingAddress || undefined,
     },
     customizations: {
       title: "Merry360x",
@@ -239,6 +267,7 @@ async function handleCreatePayment(req, res) {
     },
     meta: {
       checkout_id: checkoutId,
+      billing_country: storedBillingAddress?.country || undefined,
       ...(metadata && typeof metadata === "object" ? metadata : {}),
     },
   };

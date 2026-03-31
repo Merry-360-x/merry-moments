@@ -278,6 +278,7 @@ export default function CheckoutNew() {
     billingAddress1: "",
     billingAddress2: "",
     billingCity: "",
+    billingState: "",
     billingPostalCode: "",
     billingCountry: "RW",
   });
@@ -434,6 +435,7 @@ export default function CheckoutNew() {
       const cachedBillingAddress1 = typeof parsed?.billingAddress1 === "string" ? parsed.billingAddress1 : "";
       const cachedBillingAddress2 = typeof parsed?.billingAddress2 === "string" ? parsed.billingAddress2 : "";
       const cachedBillingCity = typeof parsed?.billingCity === "string" ? parsed.billingCity : "";
+      const cachedBillingState = typeof parsed?.billingState === "string" ? parsed.billingState : "";
       const cachedBillingPostalCode = typeof parsed?.billingPostalCode === "string" ? parsed.billingPostalCode : "";
       const cachedBillingCountry = typeof parsed?.billingCountry === "string" ? parsed.billingCountry : "";
 
@@ -445,6 +447,7 @@ export default function CheckoutNew() {
           billingAddress1: prev.billingAddress1 || cachedBillingAddress1,
           billingAddress2: prev.billingAddress2 || cachedBillingAddress2,
           billingCity: prev.billingCity || cachedBillingCity,
+          billingState: prev.billingState || cachedBillingState,
           billingPostalCode: prev.billingPostalCode || cachedBillingPostalCode,
           billingCountry: prev.billingCountry || cachedBillingCountry || prev.billingCountry,
         }));
@@ -470,6 +473,7 @@ export default function CheckoutNew() {
         billingAddress1: formData.billingAddress1,
         billingAddress2: formData.billingAddress2,
         billingCity: formData.billingCity,
+        billingState: formData.billingState,
         billingPostalCode: formData.billingPostalCode,
         billingCountry: formData.billingCountry,
         updatedAt: new Date().toISOString(),
@@ -482,6 +486,7 @@ export default function CheckoutNew() {
     formData.billingAddress1,
     formData.billingAddress2,
     formData.billingCity,
+    formData.billingState,
     formData.billingPostalCode,
     formData.billingCountry,
     countryCode,
@@ -1177,14 +1182,6 @@ export default function CheckoutNew() {
   }, [isMobileMoneyMethod, visibleMobileMoneyCountries, paymentMethod, setCurrency]);
 
   const isBankValid = true;
-  
-  // Step validation
-  const isDetailsValid = formData.fullName.trim() && formData.email.trim();
-  const isPaymentValid = isMobileMoneyMethod
-    ? phoneNumber.length >= 9
-    : paymentMethod === 'card'
-      ? true
-      : isBankValid;
 
   const goToStep = (step: Step) => {
     if (step === 'payment' && !isDetailsValid) {
@@ -1257,6 +1254,26 @@ export default function CheckoutNew() {
     return "RW";
   };
 
+  const requiresBillingState = () => {
+    const country = getBillingCountryCode();
+    return country === "US" || country === "CA";
+  };
+
+  const isCardBillingValid =
+    Boolean(formData.billingAddress1.trim()) &&
+    Boolean(formData.billingCity.trim()) &&
+    Boolean(formData.billingPostalCode.trim()) &&
+    Boolean(getBillingCountryCode()) &&
+    (!requiresBillingState() || Boolean(formData.billingState.trim()));
+
+  // Step validation
+  const isDetailsValid = formData.fullName.trim() && formData.email.trim();
+  const isPaymentValid = isMobileMoneyMethod
+    ? phoneNumber.length >= 9
+    : paymentMethod === 'card'
+      ? isCardBillingValid
+      : isBankValid;
+
   // Process payment
   const handlePayment = async () => {
     // Validate required guest info for non-logged-in users
@@ -1311,6 +1328,7 @@ export default function CheckoutNew() {
         line1: formData.billingAddress1.trim() || undefined,
         line2: formData.billingAddress2.trim() || undefined,
         city: formData.billingCity.trim() || undefined,
+        state: formData.billingState.trim() || undefined,
         postalCode: formData.billingPostalCode.trim() || undefined,
         countryCode: getBillingCountryCode(),
         phoneNumber: normalizedPhone || undefined,
@@ -1429,6 +1447,9 @@ export default function CheckoutNew() {
           throw new Error('Unable to convert booking total to USD. Please try again.');
         }
         cardAmountUsd = roundToCurrency(rawUsd, 'USD');
+        if (cardAmountUsd < 1) {
+          throw new Error('Minimum card payment is $1.00 USD. Please add more items or use Mobile Money / Bank Transfer.');
+        }
       }
       
       // Calculate host earnings from total guest-paid amount (already includes discount-first pricing)
@@ -1606,6 +1627,8 @@ export default function CheckoutNew() {
       if (paymentMethod === 'card') {
         // cardAmountUsd was computed and stored in the checkout row above — use it directly.
         // No re-conversion needed; the DB and Flutterwave both see the same USD figure.
+        const pendingUrl = `/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
+        const redirectUrl = `${window.location.origin}${pendingUrl}`;
         const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1618,6 +1641,8 @@ export default function CheckoutNew() {
             payerEmail: formData.email,
             phoneNumber: fullPhone || normalizedPhone,
             description: `Merry360x Booking - ${cartItems.length} item(s)`,
+            redirectUrl,
+            billingAddress,
             metadata: {
               item_count: cartItems.length,
               payment_type: paymentType,
@@ -2203,6 +2228,90 @@ export default function CheckoutNew() {
                         </div>
                       </div>
 
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Billing address</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Required for international cards, especially Canada and US cards using address verification.
+                          </p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="billingAddress1">Address line 1</Label>
+                          <Input
+                            id="billingAddress1"
+                            value={formData.billingAddress1}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, billingAddress1: e.target.value }))}
+                            placeholder="123 Main St"
+                            className="mt-1.5"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="billingAddress2">Address line 2 (optional)</Label>
+                          <Input
+                            id="billingAddress2"
+                            value={formData.billingAddress2}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, billingAddress2: e.target.value }))}
+                            placeholder="Apartment, suite, unit"
+                            className="mt-1.5"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="billingCity">City</Label>
+                            <Input
+                              id="billingCity"
+                              value={formData.billingCity}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, billingCity: e.target.value }))}
+                              placeholder="Toronto"
+                              className="mt-1.5"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="billingPostalCode">Postal code</Label>
+                            <Input
+                              id="billingPostalCode"
+                              value={formData.billingPostalCode}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, billingPostalCode: e.target.value }))}
+                              placeholder="M5V 2T6"
+                              className="mt-1.5"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="billingCountry">Billing country</Label>
+                            <select
+                              id="billingCountry"
+                              value={formData.billingCountry}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, billingCountry: e.target.value }))}
+                              className="mt-1.5 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                            >
+                              {BILLING_COUNTRY_OPTIONS.map((option) => (
+                                <option key={option.code} value={option.code}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <Label htmlFor="billingState">
+                              {requiresBillingState() ? 'State / Province' : 'State / Province (optional)'}
+                            </Label>
+                            <Input
+                              id="billingState"
+                              value={formData.billingState}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, billingState: e.target.value }))}
+                              placeholder={getBillingCountryCode() === 'CA' ? 'Ontario' : 'State / Province'}
+                              className="mt-1.5"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Security note */}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <LockKeyhole className="w-3.5 h-3.5 shrink-0" />
@@ -2274,6 +2383,12 @@ export default function CheckoutNew() {
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
+
+                  {paymentMethod === 'card' && !isCardBillingValid && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Complete your billing address to continue with card payment.
+                    </p>
+                  )}
                 </div>
               )}
 
