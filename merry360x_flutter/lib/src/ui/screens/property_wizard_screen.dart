@@ -189,6 +189,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       setState(() => _uploading = false);
 
       final fields = <String, dynamic>{
+      'is_published': true,
       'title': _titleCtrl.text.trim(),
       'location': _locCtrl.text.trim(),
       'address': _addressCtrl.text.trim(),
@@ -670,14 +671,27 @@ class _StepHeader extends StatelessWidget {
   final String title, subtitle;
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-    const SizedBox(height: 8),
-    Icon(icon, size: 48, color: _kRed),
-    const SizedBox(height: 14),
-    Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-    const SizedBox(height: 6),
-    Text(subtitle, style: const TextStyle(fontSize: 14, color: Colors.black45), textAlign: TextAlign.center),
-  ]);
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: _kRed.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, size: 22, color: _kRed),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+        ]),
+      ),
+    ],
+  );
 }
 
 class _WizField extends StatelessWidget {

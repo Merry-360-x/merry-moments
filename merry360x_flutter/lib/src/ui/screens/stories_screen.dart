@@ -39,7 +39,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Stories',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
@@ -130,8 +130,9 @@ class _StoryViewerScreenState extends State<_StoryViewerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+        leading: StageSafeLeadingButton(
+          icon: Icons.close,
+          color: Colors.white,
           onPressed: () => Navigator.pop(context),
         ),
         title: Text('${_index + 1} / ${widget.stories.length}',

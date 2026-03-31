@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -6,227 +6,209 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle, XCircle, Smartphone, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-// PawaPay status mapping
-const PAWAPAY_STATUS = {
-  SUBMITTED: "submitted",
-  ACCEPTED: "accepted",
-  COMPLETED: "completed",
-  FAILED: "failed",
-  REJECTED: "rejected",
-  CANCELLED: "cancelled",
-} as const;
+const isFinalStatus = (status: string) =>
+  ["completed", "failed", "rejected", "cancelled", "paid"].includes(status?.toLowerCase() || "");
 
-const isFinalStatus = (status: string) => {
-  return ["completed", "failed", "rejected", "cancelled", "paid"].includes(status?.toLowerCase() || "");
-};
+const isSuccessStatus = (status: string) =>
+  ["completed", "paid"].includes(status?.toLowerCase() || "");
 
-const isSuccessStatus = (status: string) => {
-  return ["completed", "paid"].includes(status?.toLowerCase() || "");
-};
+const isFailureStatus = (status: string) =>
+  ["failed", "rejected", "cancelled"].includes(status?.toLowerCase() || "");
 
-const isFailureStatus = (status: string) => {
-  return ["failed", "rejected", "cancelled"].includes(status?.toLowerCase() || "");
-};
+// How long (seconds) to show a "taking longer than expected" warning for card payments.
+const CARD_SLOW_WARNING_AFTER = 60;
 
 export default function PaymentPending() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const checkoutId = params.get("checkoutId") || params.get("bookingId");
   const depositId = params.get("depositId");
   const provider = (params.get("provider") || "pawapay").toLowerCase();
   const txRef = params.get("tx_ref") || params.get("txRef");
   const transactionId = params.get("transaction_id") || params.get("transactionId");
+  // Flutterwave appends ?status= to the redirect URL — read it for instant feedback.
+  const flwRedirectStatus = params.get("status");
 
-  const isCardProvider = provider === "flutterwave" || provider === "pesapal";
-  const cardProviderLabel = provider === "pesapal" ? "Pesapal" : "Flutterwave";
-  
+  const isCardProvider = provider === "flutterwave";
+  const cardProviderLabel = "Flutterwave";
+
   const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
-  const [pollCount, setPollCount] = useState(0);
   const [failureReason, setFailureReason] = useState<string | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
-  const [amount, setAmount] = useState<number | null>(null);
-  const [currency, setCurrency] = useState<string>("RWF");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Poll for payment status with intelligent intervals
+  // Refs so async callbacks always see current values without triggering effect restarts.
+  const checkingRef = useRef(false);
+  const statusRef = useRef(status);
+  const amountRef = useRef<number | null>(null);
+  const currencyRef = useRef<string>("RWF");
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  // Elapsed seconds counter while waiting.
   useEffect(() => {
-    if (!checkoutId || isFinalStatus(status)) return;
+    if (status !== "pending") return;
+    const t = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [status]);
 
-    const checkStatus = async () => {
-      if (checkingStatus) return;
-      
-      setCheckingStatus(true);
+  // If Flutterwave redirect immediately signals a cancellation, show it at once
+  // (we still poll once to update the DB, but the user sees the outcome right away).
+  useEffect(() => {
+    if (provider !== "flutterwave" || !flwRedirectStatus) return;
+    const s = flwRedirectStatus.toLowerCase();
+    if (s === "cancelled" || s === "failed") {
+      setStatus("failed");
+      setFailureReason("Card payment was cancelled");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
+  const resolveResult = useCallback(
+    (paymentStatus: string, failureMsg?: string | null) => {
+      // Never downgrade a confirmed success.
+      if (statusRef.current === "completed") return;
+      // Allow upgrading failure → success: Flutterwave can redirect with status=cancelled
+      // even when the underlying charge went through (e.g. Nigerian 3DS timeout).
+      // If the API/DB confirms "paid", always honour that.
+      if (statusRef.current === "failed" && !isSuccessStatus(paymentStatus)) return;
+      if (isSuccessStatus(paymentStatus)) {
+        setStatus("completed");
+        toast({ title: "Payment Successful!", description: "Payment confirmed. Redirecting to My Bookings..." });
+        setTimeout(() => {
+          navigate(`/my-bookings?checkoutId=${encodeURIComponent(checkoutId || "")}&payment=confirmed`, { replace: true });
+        }, 1500);
+      } else if (isFailureStatus(paymentStatus)) {
+        setStatus("failed");
+        setFailureReason(failureMsg || null);
+        setTimeout(() => {
+          const p = new URLSearchParams({
+            checkoutId: checkoutId || "",
+            reason: failureMsg || paymentStatus || "Payment was not completed",
+            provider,
+          });
+          if (amountRef.current) p.set("amount", String(amountRef.current));
+          p.set("currency", currencyRef.current);
+          navigate(`/payment-failed?${p.toString()}`);
+        }, 1500);
+      }
+    },
+    [checkoutId, provider, navigate, toast],
+  );
+
+  const doCheck = useCallback(async () => {
+    if (checkingRef.current || isFinalStatus(statusRef.current)) return;
+    checkingRef.current = true;
+    try {
+      let paymentStatus: string | null = null;
+      let failureMsg: string | null = null;
+
+      // Card payments: verify directly with Flutterwave API.
+      if (provider === "flutterwave") {
+        try {
+          const qp = new URLSearchParams({ action: "verify-payment" });
+          if (checkoutId) qp.set("checkoutId", checkoutId);
+          if (transactionId) qp.set("transaction_id", transactionId);
+          if (txRef) qp.set("tx_ref", txRef);
+          const res = await fetch(`/api/flutterwave?${qp}`);
+          const data = await res.json().catch(() => ({}));
+          if (data.success) {
+            paymentStatus = data.paymentStatus;
+            if (data.paymentStatus === "failed") {
+              failureMsg = data.flutterwaveStatus
+                ? `Card payment ${String(data.flutterwaveStatus).toLowerCase()}`
+                : "Card payment was not completed";
+            }
+          }
+        } catch (err) {
+          console.warn("Flutterwave verify error:", err);
+        }
+      }
+
+      // Mobile money: check PawaPay directly.
+      if (provider !== "flutterwave" && depositId) {
+        try {
+          const res = await fetch(`/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`);
+          const data = await res.json().catch(() => ({}));
+          if (data.success) {
+            paymentStatus = data.paymentStatus;
+            failureMsg = data.failureMessage;
+          }
+        } catch (err) {
+          console.warn("PawaPay check error:", err);
+        }
+      }
+
+      // Always check DB — webhook may have updated it before the API check above.
       try {
-        let paymentStatus = null;
-        let failureMsg = null;
-        let pawapayStatus = null;
-
-        if (provider === "flutterwave" && (transactionId || txRef)) {
-          try {
-            const verifyParams = new URLSearchParams({
-              checkoutId: checkoutId || "",
-            });
-            if (transactionId) verifyParams.set("transaction_id", transactionId);
-            if (txRef) verifyParams.set("tx_ref", txRef);
-
-            verifyParams.set("action", "verify-payment");
-
-            const response = await fetch(`/api/flutterwave?${verifyParams.toString()}`);
-            const data = await response.json();
-
-            if (data.success) {
-              paymentStatus = data.paymentStatus;
-              if (data.paymentStatus === "failed") {
-                failureMsg = data.flutterwaveStatus
-                  ? `Card payment ${String(data.flutterwaveStatus).toLowerCase()}`
-                  : "Card payment was not completed";
-              }
-            }
-          } catch (err) {
-            console.warn("Flutterwave verify error:", err);
-          }
-        }
-
-        if (provider === "pesapal") {
-          try {
-            const response = await fetch("/api/pesapal", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "check-status",
-                checkoutId: checkoutId || "",
-              }),
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (data.success) {
-              paymentStatus = data.paymentStatus;
-              if (data.paymentStatus === "failed") {
-                failureMsg = data.providerStatus
-                  ? `Card payment ${String(data.providerStatus).toLowerCase()}`
-                  : "Card payment was not completed";
-              }
-            }
-          } catch (err) {
-            console.warn("Pesapal status check error:", err);
-          }
-        }
-
-        // Check PawaPay API directly for real-time status
-        if (provider !== "flutterwave" && provider !== "pesapal" && depositId) {
-          try {
-            const response = await fetch(`/api/pawapay-check-status?depositId=${depositId}&checkoutId=${checkoutId}`);
-            const data = await response.json();
-            
-            console.log(`[${new Date().toISOString()}] PawaPay status:`, data);
-            
-            if (data.success) {
-              pawapayStatus = data.pawapayStatus;
-              paymentStatus = data.paymentStatus;
-              failureMsg = data.failureMessage;
-            }
-          } catch (err) {
-            console.warn("PawaPay check error:", err);
-          }
-        }
-
-        // Also check database for webhook updates
-        const { data: checkouts } = await supabase
+        const { data: checkout } = await supabase
           .from("checkout_requests")
           .select("payment_status, total_amount, currency")
           .eq("id", checkoutId as never)
           .single();
-
-        if (checkouts) {
-          // Database might have been updated by webhook
-          const dbStatus = (checkouts as any).payment_status;
-          setAmount((checkouts as any).total_amount);
-          setCurrency((checkouts as any).currency || "RWF");
-          
-          // Prioritize database status if it's more final than PawaPay status
-          if (isFinalStatus(dbStatus) && !isFinalStatus(paymentStatus || "")) {
-            paymentStatus = dbStatus;
-          } else if (!paymentStatus) {
-            paymentStatus = dbStatus;
-          }
+        if (checkout) {
+          const dbStatus = (checkout as any).payment_status as string;
+          amountRef.current = (checkout as any).total_amount;
+          currencyRef.current = (checkout as any).currency || "RWF";
+          if (isFinalStatus(dbStatus) && !isFinalStatus(paymentStatus || "")) paymentStatus = dbStatus;
+          else if (!paymentStatus) paymentStatus = dbStatus;
         }
-
-        // Handle different statuses
-        if (isSuccessStatus(paymentStatus || "")) {
-          console.log("Payment completed successfully");
-          setStatus("completed");
-          toast({
-            title: "Payment Successful!",
-            description: "Payment confirmed. Redirecting to My Bookings...",
-          });
-          setTimeout(() => {
-            navigate(`/my-bookings?checkoutId=${encodeURIComponent(checkoutId || "")}&payment=confirmed`, { replace: true });
-          }, 1500);
-        } else if (isFailureStatus(paymentStatus || "")) {
-          console.log("Payment failed:", paymentStatus, failureMsg);
-          setStatus("failed");
-          setFailureReason(failureMsg || null);
-          // Navigate to failure page with details
-          setTimeout(() => {
-            const params = new URLSearchParams({
-              checkoutId: checkoutId || "",
-              reason: failureMsg || paymentStatus || "Payment was not completed",
-              provider,
-            });
-            if (amount) params.set("amount", String(amount));
-            if (currency) params.set("currency", currency);
-            navigate(`/payment-failed?${params.toString()}`);
-          }, 1500);
-        }
-      } catch (error) {
-        console.error("Status check error:", error);
-      } finally {
-        setCheckingStatus(false);
+      } catch (err) {
+        console.warn("DB status check error:", err);
       }
-    };
 
-    // Initial check
-    checkStatus();
+      if (paymentStatus) resolveResult(paymentStatus, failureMsg);
+    } finally {
+      checkingRef.current = false;
+    }
+  }, [checkoutId, depositId, provider, txRef, transactionId, resolveResult]);
 
-    // Polling strategy:
-    // First 30 seconds: every 2 seconds (aggressive)
-    // 30s - 2 min: every 3 seconds
-    // 2 - 5 min: every 5 seconds
-    const getInterval = () => {
-      if (pollCount < 15) return 2000; // 0-30s: 2s intervals
-      if (pollCount < 40) return 3000; // 30s-2min: 3s intervals
-      return 5000; // 2min+: 5s intervals
-    };
+  // Single stable polling effect — only runs once on mount.
+  // Does NOT include volatile state (amount, currency, pollCount, checkingStatus) in deps
+  // to avoid tearing down and recreating the interval on every poll.
+  useEffect(() => {
+    if (!checkoutId) return;
 
-    const interval = setInterval(() => {
-      checkStatus();
-      setPollCount(c => c + 1);
-    }, getInterval());
+    // Immediate check on mount.
+    doCheck();
 
-    return () => clearInterval(interval);
-  }, [checkoutId, depositId, provider, txRef, transactionId, status, pollCount, checkingStatus, amount, currency, navigate, toast]);
+    // Escalating intervals: 2s → 4s → 6s.
+    let count = 0;
+    let intervalMs = 2000;
+    let intervalId = setInterval(tick, intervalMs);
 
-  const handleRetry = () => {
-    navigate("/checkout");
-  };
+    function tick() {
+      if (isFinalStatus(statusRef.current)) { clearInterval(intervalId); return; }
+      doCheck();
+      count++;
+      // Slow down after 15 polls (~30s) and again after 30 polls (~90s).
+      if (count === 15 || count === 30) {
+        clearInterval(intervalId);
+        intervalMs = count === 15 ? 4000 : 6000;
+        intervalId = setInterval(tick, intervalMs);
+      }
+    }
+
+    return () => clearInterval(intervalId);
+  // doCheck is stable (useCallback with stable deps). Only re-run if checkoutId changes.
+  }, [checkoutId, doCheck]);
+
+  const handleRetry = () => navigate("/checkout");
 
   const handleCancel = async () => {
-    // Try to cancel the payment in the database
     if (checkoutId) {
       try {
         await supabase
           .from("checkout_requests")
-          .update({ payment_status: "cancelled" })
+          .update({ payment_status: "cancelled" } as any)
           .eq("id", checkoutId as never);
-      } catch (err) {
-        console.error("Error canceling payment:", err);
-      }
+      } catch { /* ignore */ }
     }
     navigate("/");
   };
+
+  const showSlowWarning = isCardProvider && status === "pending" && elapsedSeconds >= CARD_SLOW_WARNING_AFTER;
 
   if (!checkoutId) {
     return (
@@ -289,7 +271,20 @@ export default function PaymentPending() {
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Checking payment status...</span>
               </div>
-              
+
+              {/* Slow-payment warning for card (after 60s) */}
+              {showSlowWarning && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>This is taking longer than expected. Your bank may still be processing the payment.</span>
+                  </div>
+                  <Button size="sm" variant="outline" className="self-center" onClick={() => doCheck()}>
+                    Check again
+                  </Button>
+                </div>
+              )}
+
               {/* Instructions */}
               <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm">
                 <div className="flex items-start gap-3">

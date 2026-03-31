@@ -331,6 +331,21 @@ async function handleVerifyPayment(req, res) {
   verifyData = await verifyRes.json().catch(() => ({}));
 
   if (!verifyRes.ok || verifyData?.status !== "success") {
+    // If Flutterwave says the transaction doesn't exist yet (e.g. called too early after
+    // redirect), return pending so the client keeps polling rather than treating it as an error.
+    const msg = String(verifyData?.message || "").toLowerCase();
+    const notFound =
+      verifyRes.status === 404 ||
+      msg.includes("no transaction") ||
+      msg.includes("not found") ||
+      msg.includes("invalid id");
+    if (notFound) {
+      return json(res, 200, {
+        success: true,
+        paymentStatus: "pending",
+        checkoutId: checkoutData?.id ?? null,
+      });
+    }
     console.error("Flutterwave verify error:", verifyData);
     return json(res, 502, {
       error: "Unable to verify transaction",
@@ -428,8 +443,10 @@ async function handleWebhook(req, res) {
   const payload = req.body || {};
   const event = safeStr(payload.event, 60);
 
-  if (event !== "charge.completed") {
-    // Acknowledge non-charge events without processing
+  // Process both charge.completed and charge.failed/charge.cancelled so failed
+  // transactions (e.g. 3DS timeouts, declines) update the checkout status immediately.
+  const isChargeEvent = event === "charge.completed" || event === "charge.failed" || event === "charge.cancelled";
+  if (!isChargeEvent) {
     return json(res, 200, { success: true, acknowledged: true, skipped: `event type: ${event}` });
   }
 
@@ -566,8 +583,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const source = req.method === "POST" ? (req.body || {}) : (req.query || {});
-    const action = safeStr(source?.action, 40);
+    // Always check both body and query string for `action`.
+    // The vercel.json rewrite adds ?action=webhook to incoming Flutterwave webhook calls,
+    // but Flutterwave's POST body contains only event/data — never an `action` field.
+    // Without checking req.query the webhook route silently returned 400 "Invalid action".
+    const bodySource = req.method === "POST" ? (req.body || {}) : {};
+    const querySource = req.query || {};
+    const action = safeStr(bodySource?.action || querySource?.action, 40);
 
     if (action === "webhook") {
       return await handleWebhook(req, res);

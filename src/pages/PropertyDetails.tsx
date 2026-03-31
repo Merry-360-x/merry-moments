@@ -27,6 +27,7 @@ import { convertAmount } from "@/lib/fx";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
 type PropertyRow = {
@@ -37,7 +38,6 @@ type PropertyRow = {
   price_per_month?: number | null;
   available_for_monthly_rental?: boolean | null;
   monthly_only_listing?: boolean | null;
-  currency: string | null;
   property_type: string | null;
   rating: number | null;
   review_count: number | null;
@@ -47,15 +47,14 @@ type PropertyRow = {
   is_published: boolean | null;
   host_id: string;
   max_guests: number;
+  currency: string | null;
   amenities: string[] | null;
   bedrooms: number | null;
   bathrooms: number | null;
   beds: number | null;
   cancellation_policy: string | null;
-  // Discounts (optional until migration is applied)
   weekly_discount?: number | null;
   monthly_discount?: number | null;
-  // Rules (optional until migration is applied)
   check_in_time?: string | null;
   check_out_time?: string | null;
   smoking_allowed?: boolean | null;
@@ -64,7 +63,6 @@ type PropertyRow = {
   conference_room_price?: number | null;
   conference_room_capacity?: number | null;
   conference_room_duration_hours?: number | null;
-  conference_room_min_rooms_required?: number | null;
   conference_room_equipment?: string[] | null;
   breakfast_available?: boolean | null;
   breakfast_price_per_night?: number | null;
@@ -145,6 +143,16 @@ const phraseSeed = (value: string) => {
     seed = (seed * 31 + value.charCodeAt(i)) >>> 0;
   }
   return seed;
+};
+
+const parseReviewedByPrefix = (comment: string | null | undefined) => {
+  const rawComment = String(comment || "").trim();
+  const reviewedByMatch = rawComment.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i);
+  const inferredName = reviewedByMatch ? String(reviewedByMatch[1] || "").trim() : "";
+  const cleanedComment = reviewedByMatch
+    ? (rawComment.replace(reviewedByMatch[0], "").trim() || null)
+    : (rawComment || null);
+  return { inferredName, cleanedComment };
 };
 
 export default function PropertyDetails() {
@@ -469,12 +477,7 @@ export default function PropertyDetails() {
         const firstName = (profile?.full_name || "").trim().split(/\s+/).filter(Boolean)[0] || "";
         const nickname = (profile?.nickname || "").trim();
         const usableNickname = /^(guest|anonymous)$/i.test(nickname) ? "" : nickname;
-        const rawComment = String(r.comment || "").trim();
-        const reviewedByMatch = rawComment.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i);
-        const inferredName = reviewedByMatch ? String(reviewedByMatch[1] || "").trim() : "";
-        const cleanedComment = reviewedByMatch
-          ? (rawComment.replace(reviewedByMatch[0], "").trim() || null)
-          : (rawComment || null);
+        const { inferredName, cleanedComment } = parseReviewedByPrefix(r.comment);
         const reviewerName = firstName || usableNickname || inferredName || "Guest";
         return {
           ...r,
@@ -1087,7 +1090,7 @@ export default function PropertyDetails() {
 
   const { data: relatedTours = [], isLoading: isLoadingRelatedTours } = useQuery({
     queryKey: ["related-tours", propertyId, nights, guests, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), locationHints.join("|")],
-    enabled: Boolean(propertyId),
+    enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
 
@@ -1190,7 +1193,7 @@ export default function PropertyDetails() {
 
   const { data: relatedTransportVehicles = [], isLoading: isLoadingRelatedTransportVehicles } = useQuery({
     queryKey: ["related-transport-vehicles", propertyId, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), guests, locationHints.join("|")],
-    enabled: Boolean(propertyId),
+    enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
 
@@ -1288,6 +1291,7 @@ export default function PropertyDetails() {
 
   const isLoadingRelatedAddOns = isLoadingRelatedTours || isLoadingRelatedTransportVehicles;
   const hasRelatedRecommendations = relatedTours.length > 0 || relatedTransportVehicles.length > 0;
+  const isPageLoading = isLoading || isLoadingRelatedAddOns;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1322,7 +1326,7 @@ export default function PropertyDetails() {
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.couldNotLoadProperties")}</p>
           </div>
-        ) : !isLoading && !data ? (
+        ) : !isPageLoading && !data ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("common.noPublishedProperties")}</p>
             <div className="mt-6">
@@ -1331,7 +1335,7 @@ export default function PropertyDetails() {
               </Link>
             </div>
           </div>
-        ) : !isLoading ? (
+        ) : !isPageLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Gallery + content */}
             <div className="lg:col-span-7 space-y-6">
@@ -1768,6 +1772,7 @@ export default function PropertyDetails() {
                                   {room.property_type || "Room"}
                                 </div>
                               </div>
+
                               <div className="p-3">
                                 <p className="text-sm font-semibold text-foreground truncate">{room.title}</p>
                                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -1792,7 +1797,7 @@ export default function PropertyDetails() {
                         })}
                       </div>
                     ) : (
-                      <p className="mt-2 text-xs text-muted-foreground">No rooms linked to this hotel yet.</p>
+                      <p className="mt-2 text-xs text-muted-foreground">No room listings have been added to this hotel yet.</p>
                     )}
                   </div>
                 ) : null}
@@ -1914,33 +1919,41 @@ export default function PropertyDetails() {
                     </Link>
                   </div>
                   <div className="space-y-4">
-                    {topReviews.map((r) => (
-                      <div key={r.id} className="border border-border rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`w-4 h-4 ${
-                                    star <= r.rating
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
-                                  }`}
-                                />
-                              ))}
+                    {topReviews.map((r) => {
+                      const { inferredName, cleanedComment } = parseReviewedByPrefix(r.comment);
+                      const displayName = /^(guest|anonymous)$/i.test(String(r.reviewer_name || "").trim())
+                        ? inferredName || "Guest"
+                        : r.reviewer_name;
+                      const displayComment = cleanedComment || r.comment;
+
+                      return (
+                        <div key={r.id} className="border border-border rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-4 h-4 ${
+                                      star <= r.rating
+                                        ? "fill-yellow-400 text-yellow-400"
+                                        : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-sm font-medium text-foreground">{displayName}</span>
                             </div>
-                            <span className="text-sm font-medium text-foreground">{(() => { const raw = String(r.comment || "").trim(); const m = raw.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i); const inferred = m ? String(m[1] || "").trim() : ""; const current = String(r.reviewer_name || "").trim(); return /^(guest|anonymous)$/i.test(current) ? (inferred || "Guest") : (r.reviewer_name || "Guest"); })()}</span>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(r.created_at).toLocaleDateString()}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(r.created_at).toLocaleDateString()}
-                          </div>
+                          {displayComment ? (
+                            <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{displayComment}</p>
+                          ) : null}
                         </div>
-                        {r.comment ? (
-                          <p className="mt-2 text-sm text-foreground/90 leading-relaxed">{(() => { const raw = String(r.comment || "").trim(); const m = raw.match(/reviewed\s+by\s+([^.!?:\n]+)[.!?:\-\s]*/i); return m ? (raw.replace(m[0], "").trim() || null) : r.comment; })()}</p>
-                        ) : null}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -2218,7 +2231,7 @@ export default function PropertyDetails() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
                     {nights > 0 ? (
                       <>
@@ -2245,7 +2258,7 @@ export default function PropertyDetails() {
                       <>Select valid dates to see total.</>
                     )}
                   </div>
-                  <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+                  <div className="flex items-center gap-2">
                     {(() => {
                       const bookingDisabled = booking || nights <= 0 || (isMonthlyOnlyListing && nights < 30) || (addedAddOn && !isInTripCart);
                       const bookingCtaLabel = booking
@@ -2263,47 +2276,47 @@ export default function PropertyDetails() {
                       onClick={addPropertyToTripCart}
                       disabled={booking}
                       type="button"
-                      className="shrink-0"
                     >
                       {isInTripCart ? t("propertyDetails.inTripCart") : t("propertyDetails.addToTripCart")}
                     </Button>
                     {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border bg-background p-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={breakfastPlan === "no_breakfast" ? "default" : "ghost"}
-                            disabled={bookingDisabled}
-                            onClick={() => setBreakfastPlan("no_breakfast")}
-                            className="h-8 px-2.5 whitespace-nowrap"
-                          >
-                            {breakfastPlan === "no_breakfast" ? <BadgeCheck className="w-3.5 h-3.5 mr-1" /> : null}
-                            No breakfast
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" disabled={bookingDisabled}>
+                            {bookingCtaLabel}
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={breakfastPlan === "with_breakfast" ? "default" : "ghost"}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
                             disabled={bookingDisabled}
-                            onClick={() => setBreakfastPlan("with_breakfast")}
-                            className="h-8 px-2.5 whitespace-nowrap"
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("no_breakfast");
+                            }}
                           >
-                            {breakfastPlan === "with_breakfast" ? <BadgeCheck className="w-3.5 h-3.5 mr-1" /> : null}
-                            With breakfast
-                          </Button>
-                        </div>
-                        <Button
-                          type="button"
-                          disabled={bookingDisabled}
-                          onClick={() => {
-                            void submitBooking();
-                          }}
-                          className="shrink-0"
-                        >
-                          {bookingCtaLabel}
-                        </Button>
-                      </div>
+                            {breakfastPlan === "no_breakfast" ? "No breakfast (Free) - selected" : "No breakfast (Free)"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setBreakfastPlan("with_breakfast");
+                            }}
+                          >
+                            {breakfastPlan === "with_breakfast"
+                              ? `With breakfast (+${displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night) - selected`
+                              : `With breakfast (+${displayMoney(Number(breakfastAddon.breakfastPricePerNight), String(data.currency ?? "RWF"))} / night)`}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={bookingDisabled}
+                            onSelect={() => {
+                              void submitBooking();
+                            }}
+                          >
+                            Continue to checkout
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <Button
                         onClick={() => void submitBooking()}

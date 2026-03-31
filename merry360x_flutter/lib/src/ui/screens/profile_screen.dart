@@ -294,13 +294,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Text('Sign Out'),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // ── Account Deletion ────────────────────────────────────────
+                  // Apple Guideline 5.1.1: users must be able to delete their account
+                  // from within the app. This section is intentionally prominent.
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF5F5),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFFFCDD2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.delete_forever_rounded, color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete Account',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Permanently removes your account and all associated data. This cannot be undone.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF9E2A2A), height: 1.4),
+                        ),
+                        const SizedBox(height: 12),
                         SizedBox(
+                          width: double.infinity,
                           height: 46,
-                          child: TextButton(
+                          child: OutlinedButton.icon(
                             onPressed: _confirmDeleteAccount,
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text('Delete Account'),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                            label: const Text('Delete My Account'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ),
                       ],

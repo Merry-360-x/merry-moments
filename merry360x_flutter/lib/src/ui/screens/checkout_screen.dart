@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -128,13 +128,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _showMobileMoney = true; // hidden for non-African regions
   String? _detectedCountryISO; // 2-letter ISO e.g. 'RW', 'US'
 
-  // Card billing fields
-  final _billingAddr1Ctrl = TextEditingController();
-  final _billingAddr2Ctrl = TextEditingController();
-  final _billingCityCtrl = TextEditingController();
-  final _billingPostalCtrl = TextEditingController();
-  String _billingCountry = 'RW';
-
   bool _submitting = false;
   String? _bookingId;
   String? _paymentMethod; // 'mobile_money', 'card', 'bank_transfer'
@@ -176,10 +169,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _notesCtrl.dispose();
     _phoneCtrl.dispose();
     _promoCtrl.dispose();
-    _billingAddr1Ctrl.dispose();
-    _billingAddr2Ctrl.dispose();
-    _billingCityCtrl.dispose();
-    _billingPostalCtrl.dispose();
     super.dispose();
   }
 
@@ -477,7 +466,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _paymentMethod = 'mobile_money';
         setState(() { _bookingId = id; _step = 2; });
       } else if (_payTab == 1) {
-        // ── Card (PesaPal) ──
+        // ── Card (Flutterwave) ──
         final api = AppDatabase();
         final checkoutId = await api.createCheckoutRequest(
           userId: widget.session.userId,
@@ -489,7 +478,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           serviceFeeAmount: _serviceFee,
           currency: _currency,
           paymentMethod: 'card',
-          paymentProvider: 'PESAPAL',
+          paymentProvider: 'FLUTTERWAVE',
           items: [
             {
               'item_type': itemType,
@@ -505,37 +494,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             if (_discountAmount > 0) 'discount_amount': _discountAmount,
           },
         );
-        final billing = <String, String>{
-          'line1': _billingAddr1Ctrl.text.trim(),
-          if (_billingAddr2Ctrl.text.trim().isNotEmpty) 'line2': _billingAddr2Ctrl.text.trim(),
-          'city': _billingCityCtrl.text.trim(),
-          'postalCode': _billingPostalCtrl.text.trim(),
-          'countryCode': _billingCountry,
-        };
-        final pesaResult = await api.initPesapalPayment(
+        final flwResult = await api.initFlutterwavePayment(
           checkoutId: checkoutId,
           amount: _total,
           currency: _currency,
           payerName: _nameCtrl.text.trim(),
           payerEmail: _emailCtrl.text.trim(),
-          billingAddress: billing,
           description: 'Merry360x Booking',
         );
-        final redirectUrl = pesaResult['redirectUrl']?.toString();
+        final redirectUrl = flwResult['redirectUrl']?.toString() ?? flwResult['link']?.toString();
         if (redirectUrl == null || redirectUrl.isEmpty) {
           throw Exception('No payment URL received');
-        }
-        // Open PesaPal payment page in browser
-        final uri = Uri.parse(redirectUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
         if (_appliedDiscount != null && _discountAmount > 0) {
           api.incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
         }
         _paymentMethod = 'card';
         _bookingId = checkoutId;
-        setState(() => _step = 2);
+        if (!mounted) return;
+        final payResult = await _showPaymentWebView(redirectUrl);
+        if (!mounted) return;
+        if (payResult == 'success') {
+          setState(() => _step = 2);
+        } else if (payResult == 'failed') {
+          _showSnack('Payment failed or was declined. Please try again.');
+        }
+        // 'cancelled' or null: user closed the sheet, stay on payment step
       } else {
         // ── Bank Transfer ──
         final id = await widget.session.createBooking(
@@ -563,6 +547,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<String?> _showPaymentWebView(String url) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      enableDrag: false,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x66000000),
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.92,
+        child: _PaymentWebSheet(url: url),
+      ),
+    );
+  }
+
   void _showSnack(String msg) => AppSnackBar.error(context, msg);
 
   @override
@@ -573,8 +572,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+        leading: StageSafeLeadingButton(
+          color: AppColors.black,
           onPressed: () => _step > 0 && _step < 2
               ? setState(() => _step--)
               : Navigator.pop(context),
@@ -1123,43 +1122,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ]),
 
         const SizedBox(height: 20),
-        _SectionTitle(label: 'Billing address'),
-        const SizedBox(height: 10),
-        _InputField(label: 'Street / House number', controller: _billingAddr1Ctrl, icon: Icons.home_outlined),
-        const SizedBox(height: 10),
-        _InputField(label: 'Apartment / Landmark (optional)', controller: _billingAddr2Ctrl, icon: Icons.apartment_outlined),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _InputField(label: 'City', controller: _billingCityCtrl, icon: Icons.location_city_outlined)),
-          const SizedBox(width: 10),
-          Expanded(child: _InputField(label: 'Postal code', controller: _billingPostalCtrl, icon: Icons.markunread_mailbox_outlined)),
-        ]),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          initialValue: _billingCountry,
-          decoration: InputDecoration(
-            labelText: 'Country',
-            prefixIcon: const Icon(Icons.flag_outlined, size: 20),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFDDE2F5)),
           ),
-          items: const [
-            DropdownMenuItem(value: 'RW', child: Text('Rwanda')),
-            DropdownMenuItem(value: 'KE', child: Text('Kenya')),
-            DropdownMenuItem(value: 'UG', child: Text('Uganda')),
-            DropdownMenuItem(value: 'ZM', child: Text('Zambia')),
-            DropdownMenuItem(value: 'TZ', child: Text('Tanzania')),
-            DropdownMenuItem(value: 'BI', child: Text('Burundi')),
-            DropdownMenuItem(value: 'ZA', child: Text('South Africa')),
-          ],
-          onChanged: (v) { if (v != null) setState(() => _billingCountry = v); },
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.credit_card_outlined, size: 18, color: Color(0xFF3D5AFE)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'A secure Flutterwave payment sheet opens right here in the app. Enter your card details there — card only, no redirects.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D), height: 1.45),
+                ),
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 16),
-        _securityNote('You\'ll be redirected to PesaPal\'s secure page to enter your card details. We never see your card number.'),
+        _securityNote('Your card details are entered on Flutterwave\'s secure page. We never store or see your card number.'),
       ],
     );
   }
@@ -1695,6 +1681,105 @@ class _PayTabButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flutterwave in-app payment sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaymentWebSheet extends StatefulWidget {
+  const _PaymentWebSheet({required this.url});
+  final String url;
+
+  @override
+  State<_PaymentWebSheet> createState() => _PaymentWebSheetState();
+}
+
+class _PaymentWebSheetState extends State<_PaymentWebSheet> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) => setState(() => _loading = true),
+        onPageFinished: (_) => setState(() => _loading = false),
+        onNavigationRequest: (request) {
+          final url = request.url;
+          if (url.contains('merry360x.com/payment-pending')) {
+            Navigator.of(context).pop('success');
+            return NavigationDecision.prevent;
+          }
+          if (url.contains('merry360x.com/payment-failed')) {
+            Navigator.of(context).pop('failed');
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Column(
+          children: [
+            // ── Header ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDDDDDD),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.lock_outline, size: 15, color: AppColors.foggy),
+                  const SizedBox(width: 5),
+                  const Text('Secure Payment',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.black)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: AppColors.black),
+                    onPressed: () => Navigator.of(context).pop('cancelled'),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  ),
+                ],
+              ),
+            ),
+            // ── WebView ──
+            Expanded(
+              child: Stack(
+                children: [
+                  WebViewWidget(controller: _controller),
+                  if (_loading)
+                    const Center(
+                      child: CircularProgressIndicator(color: AppColors.rausch),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

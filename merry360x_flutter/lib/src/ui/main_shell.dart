@@ -75,6 +75,14 @@ class _MainShellState extends State<MainShell> {
     setState(() => _tab = target);
   }
 
+  List<Widget> _buildTabs(SessionController session) => [
+    SafeArea(bottom: false, child: ExploreScreen(session: session)),
+    SafeArea(bottom: false, child: WishlistsScreen(session: session)),
+    AiScreen(session: session, onBack: _leaveAiScreen),
+    SafeArea(bottom: false, child: TripCartScreen(session: session)),
+    SafeArea(bottom: false, child: ProfileScreen(session: session)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -84,16 +92,10 @@ class _MainShellState extends State<MainShell> {
     final notifications = payload?.notifications ?? const [];
     final unreadCount = notifications.where((n) => n['read'] != true).length;
 
-    final tabs = [
-      ExploreScreen(session: session),
-      WishlistsScreen(session: session),
-      AiScreen(session: session, onBack: _leaveAiScreen),
-      TripCartScreen(session: session),
-      ProfileScreen(session: session),
-    ];
+    final tabs = _buildTabs(session);
 
     return Scaffold(
-      body: SafeArea(bottom: false, child: IndexedStack(index: _tab, children: tabs)),
+      body: IndexedStack(index: _tab, children: tabs),
       bottomNavigationBar: _tab == 2
           ? null
           : Container(
@@ -148,6 +150,9 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
+
+
+// ── Phone bottom nav item ─────────────────────────────────────────────────────
 class _NavItem extends StatelessWidget {
   const _NavItem({
     this.icon,

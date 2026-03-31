@@ -69,7 +69,7 @@ class _LegalContentScreenState extends State<LegalContentScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: Text(title),
       ),
       body: _loading

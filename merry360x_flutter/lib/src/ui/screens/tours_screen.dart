@@ -81,7 +81,7 @@ class _ToursScreenState extends State<ToursScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Tours & Experiences',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: false,

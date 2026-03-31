@@ -48,7 +48,7 @@ class _SupportScreenState extends State<SupportScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Support',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
@@ -285,7 +285,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: Text(subject, style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w600, fontSize: 15)),
       ),
       body: Column(children: [

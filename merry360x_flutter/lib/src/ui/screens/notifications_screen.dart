@@ -45,7 +45,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Notifications', style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
           if (_unreadCount > 0)

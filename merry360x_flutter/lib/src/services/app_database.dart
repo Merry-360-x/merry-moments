@@ -262,18 +262,17 @@ class AppDatabase {
     return (result as Map)['id'].toString();
   }
 
-  /// Initiate PesaPal card payment via serverless function
-  Future<Map<String, dynamic>> initPesapalPayment({
+  /// Initiate Flutterwave card payment via serverless function
+  Future<Map<String, dynamic>> initFlutterwavePayment({
     required String checkoutId,
     required double amount,
     required String currency,
     required String payerName,
     required String payerEmail,
     String? phoneNumber,
-    Map<String, String>? billingAddress,
     String? description,
   }) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pesapal');
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/flutterwave');
     final body = <String, dynamic>{
       'action': 'create-payment',
       'checkoutId': checkoutId,
@@ -282,22 +281,21 @@ class AppDatabase {
       'payerName': payerName,
       'payerEmail': payerEmail,
       'phoneNumber': ?phoneNumber,
-      'billingAddress': ?billingAddress,
       'description': description ?? 'Merry360x Mobile Booking',
-      'redirectUrl': 'https://merry360x.com/payment-pending?checkoutId=$checkoutId&provider=pesapal',
+      'redirectUrl': 'https://merry360x.com/payment-pending?checkoutId=$checkoutId&provider=flutterwave',
     };
     final resp = await _http.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body));
-    if (resp.statusCode != 200) throw Exception('PesaPal init failed: ${resp.body}');
+    if (resp.statusCode != 200) throw Exception('Flutterwave init failed: ${resp.body}');
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
-  /// Check PesaPal payment status
-  Future<String> checkPesapalStatus(String checkoutId) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pesapal');
+  /// Check Flutterwave payment status
+  Future<String> checkFlutterwaveStatus(String checkoutId) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/flutterwave');
     final resp = await _http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'action': 'check-status', 'checkoutId': checkoutId}),
+      body: jsonEncode({'action': 'verify-payment', 'checkoutId': checkoutId}),
     );
     if (resp.statusCode != 200) return 'pending';
     final data = jsonDecode(resp.body) as Map<String, dynamic>;

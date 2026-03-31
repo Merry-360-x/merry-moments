@@ -17,6 +17,35 @@ class AppColors {
   static const black = Color(0xFF222222);
 }
 
+class StageSafeLeadingButton extends StatelessWidget {
+  const StageSafeLeadingButton({
+    super.key,
+    this.icon = Icons.arrow_back,
+    this.color = AppColors.black,
+    this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+
+    return Padding(
+      padding: EdgeInsets.only(left: isTablet ? 44 : 0),
+      child: IconButton(
+        tooltip: tooltip,
+        icon: Icon(icon, color: color),
+        onPressed: onPressed ?? () => Navigator.maybePop(context),
+      ),
+    );
+  }
+}
+
 class Merry360xMobileApp extends StatefulWidget {
   const Merry360xMobileApp({super.key});
 
@@ -52,6 +81,8 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+
     return AnimatedBuilder(
       animation: _session,
       builder: (context, _) {
@@ -76,10 +107,11 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp> {
               thickness: 1,
               space: 0,
             ),
-            appBarTheme: const AppBarTheme(
+            appBarTheme: AppBarTheme(
               centerTitle: false,
               elevation: 0,
               scrolledUnderElevation: 0,
+              leadingWidth: isTablet ? 116 : kToolbarHeight,
               backgroundColor: AppColors.white,
               surfaceTintColor: Colors.transparent,
               foregroundColor: AppColors.black,

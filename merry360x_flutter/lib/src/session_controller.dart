@@ -5,7 +5,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'models/mobile_sync.dart';
 import 'services/app_database.dart';
@@ -105,6 +104,7 @@ class SessionController extends ChangeNotifier {
       await client.auth.signUp(
         email: email,
         password: password,
+        emailRedirectTo: 'com.merry360x.mobile://login-callback',
         data: fullName != null ? {'full_name': fullName} : null,
       );
     } catch (e) {
@@ -137,11 +137,39 @@ class SessionController extends ChangeNotifier {
       final idToken = credential.identityToken;
       if (idToken == null) throw Exception('No identity token from Apple');
 
+      // Capture name/email NOW — Apple only sends these on first sign-in.
+      final givenName = credential.givenName?.trim() ?? '';
+      final familyName = credential.familyName?.trim() ?? '';
+      final appleEmail = credential.email?.trim() ?? '';
+      final fullName = [givenName, familyName].where((s) => s.isNotEmpty).join(' ');
+
       await client.auth.signInWithIdToken(
         provider: OAuthProvider.apple,
         idToken: idToken,
         nonce: rawNonce,
       );
+
+      // After sign-in, persist profile data if Apple provided it.
+      final userId = client.auth.currentUser?.id;
+      if (userId != null && userId.isNotEmpty) {
+        final updates = <String, dynamic>{'user_id': userId};
+        if (fullName.isNotEmpty) updates['full_name'] = fullName;
+        if (appleEmail.isNotEmpty) updates['email'] = appleEmail;
+        if (updates.length > 1) {
+          try {
+            await client.from('profiles').upsert(updates, onConflict: 'user_id');
+            // Also update Supabase auth user_metadata so it is consistent.
+            if (fullName.isNotEmpty) {
+              await client.auth.updateUser(
+                UserAttributes(data: {'full_name': fullName}),
+              );
+            }
+          } catch (e) {
+            // Non-fatal: profile save failed, but auth succeeded.
+            debugPrint('[signInWithApple] profile upsert failed: $e');
+          }
+        }
+      }
     } catch (e) {
       _error = e.toString();
       rethrow;
@@ -158,14 +186,29 @@ class SessionController extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      await client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'com.merry360x.mobile://login-callback/',
-        authScreenLaunchMode: LaunchMode.inAppWebView,
-      );
-      // signInWithOAuth opens an external browser and returns immediately.
-      // The session is established when the deep link callback fires and
-      // supabase_flutter's app_links listener calls getSessionFromUrl.
+      final completer = Completer<void>();
+      late final StreamSubscription<AuthState> sub;
+      sub = client.auth.onAuthStateChange.listen((data) {
+        if (!completer.isCompleted && data.session != null) {
+          completer.complete();
+        }
+      });
+      try {
+        await client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: 'com.merry360x.mobile://login-callback',
+        );
+        if (client.auth.currentSession == null) {
+          await completer.future.timeout(const Duration(minutes: 2));
+        }
+      } finally {
+        await sub.cancel();
+      }
+      if (client.auth.currentSession == null) {
+        throw Exception('Google sign in did not complete');
+      }
+    } on TimeoutException {
+      throw Exception('Google sign in timed out');
     } catch (e) {
       _error = e.toString();
       rethrow;

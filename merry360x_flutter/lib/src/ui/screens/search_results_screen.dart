@@ -136,11 +136,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
             children: [
               // Back + title row
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 6, 16, 0),
+                padding: EdgeInsets.fromLTRB(
+                  MediaQuery.of(context).size.shortestSide >= 600 ? 28 : 4,
+                  6,
+                  16,
+                  0,
+                ),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, size: 22),
+                    StageSafeLeadingButton(
                       color: const Color(0xFF1A1A1A),
                       onPressed: () => Navigator.of(context).pop(),
                     ),

@@ -92,7 +92,7 @@ class ExploreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final gridColumns = isTablet ? 3 : 2;
-    final gridAspect = isTablet ? 0.72 : 0.76;
+    final gridAspect = isTablet ? 0.85 : 0.76;
     final payload = session.payload;
     final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
 
@@ -251,7 +251,7 @@ class _CityStaySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gridColumns = isTablet ? 3 : 2;
-    final gridAspect = isTablet ? 0.72 : 0.76;
+    final gridAspect = isTablet ? 0.85 : 0.76;
     final previewItems = items.take(_previewCount).toList();
     final hasMore = items.length > previewItems.length;
 
@@ -329,7 +329,7 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final gridColumns = isTablet ? 3 : 2;
-    final gridAspect = isTablet ? 0.72 : 0.76;
+    final gridAspect = isTablet ? 0.85 : 0.76;
     final visibleItems = widget.items.take(_visibleCount).toList();
     final hasMore = _visibleCount < widget.items.length;
 
@@ -409,7 +409,7 @@ class ListingCard extends StatelessWidget {
     final price = _priceLabel(item);
     final imageUrl = resolveListingImageUrl(item);
     final rating = (item['rating'] ?? item['average_rating'])?.toString();
-    final imageHeight = compact ? (isTablet ? 200.0 : 132.0) : (isTablet ? 230.0 : 220.0);
+    final imageHeight = compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,7 +598,7 @@ class _EventsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text(
           'Events',
           style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),

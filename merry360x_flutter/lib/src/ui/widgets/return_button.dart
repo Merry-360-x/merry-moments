@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+
 /// A consistent top-left "return" control.
 ///
 /// Behavior:
@@ -33,9 +35,9 @@ class ReturnButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    return StageSafeLeadingButton(
       tooltip: tooltip,
-      icon: Icon(Icons.arrow_back, color: color),
+      color: color ?? AppColors.black,
       onPressed: () => _handleTap(context),
     );
   }

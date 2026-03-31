@@ -232,7 +232,6 @@ const Accommodations = () => {
   const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
   const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
-  const [autoLocationRequested, setAutoLocationRequested] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [monthlyFilterMode, setMonthlyFilterMode] = useState<MonthlyFilterMode>(() => monthlyModeFromParams(searchParams));
   const [currentPage, setCurrentPage] = useState(1);
@@ -291,26 +290,30 @@ const Accommodations = () => {
     navigate(`/accommodations?${params.toString()}`);
   };
 
-  const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean }) => {
+  const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean; position?: GeolocationPosition }) => {
     const silent = Boolean(options?.silent);
 
-    if (!("geolocation" in navigator)) {
-      if (!silent) {
-        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
-      }
-      return;
-    }
+    const applyPosition = async (pos: GeolocationPosition) => {
+      const params = new URLSearchParams(searchParams);
+      const latitude = pos.coords.latitude;
+      const longitude = pos.coords.longitude;
+      const currentLat = Number(searchParams.get("lat"));
+      const currentLng = Number(searchParams.get("lng"));
+      const currentRegion = (searchParams.get("region") ?? "").trim();
+      const coordsChanged =
+        !Number.isFinite(currentLat) ||
+        !Number.isFinite(currentLng) ||
+        Math.abs(currentLat - latitude) > 0.0005 ||
+        Math.abs(currentLng - longitude) > 0.0005;
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const params = new URLSearchParams(searchParams);
-        params.set("nearby", "1");
-        params.set("lat", String(pos.coords.latitude));
-        params.set("lng", String(pos.coords.longitude));
+      params.set("nearby", "1");
+      params.set("lat", String(latitude));
+      params.set("lng", String(longitude));
 
+      if (coordsChanged || !currentRegion) {
         try {
           const reverse = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
             { headers: { Accept: "application/json" } }
           );
           const info = await reverse.json().catch(() => null);
@@ -322,8 +325,29 @@ const Accommodations = () => {
         } catch {
           // Keep nearby coordinates even if reverse geocoding fails
         }
+      }
 
-        navigate(`/accommodations?${params.toString()}`);
+      const nextQuery = params.toString();
+      if (nextQuery !== searchParams.toString()) {
+        navigate(`/accommodations?${nextQuery}`, { replace: true });
+      }
+    };
+
+    if (options?.position) {
+      await applyPosition(options.position);
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      if (!silent) {
+        toast({ variant: "destructive", title: "Location not available", description: "Your browser does not support geolocation." });
+      }
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void applyPosition(pos);
       },
       () => {
         if (!silent) {
@@ -335,33 +359,70 @@ const Accommodations = () => {
   }, [navigate, searchParams, toast]);
 
   useEffect(() => {
-    if (autoLocationRequested || nearby) return;
-
+    let watchId: number | null = null;
+    let permissionStatus: PermissionStatus | null = null;
     let cancelled = false;
 
-    const maybeRequestNearbyRecommendations = async () => {
-      setAutoLocationRequested(true);
+    const stopWatching = () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    };
 
+    const startWatching = () => {
+      if (!("geolocation" in navigator) || watchId !== null) return;
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          void requestNearbyRecommendations({ silent: true, position: pos });
+        },
+        () => {
+          stopWatching();
+        },
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+      );
+    };
+
+    const syncNearbyRecommendations = async () => {
       if (!("permissions" in navigator) || typeof navigator.permissions?.query !== "function") {
+        await requestNearbyRecommendations({ silent: true });
+        startWatching();
         return;
       }
 
       try {
-        const permissionStatus = await navigator.permissions.query({ name: "geolocation" });
-        if (!cancelled && permissionStatus.state === "granted") {
+        permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (cancelled) return;
+
+        const handlePermissionChange = () => {
+          if (permissionStatus?.state === "granted") {
+            void requestNearbyRecommendations({ silent: true });
+            startWatching();
+          } else {
+            stopWatching();
+          }
+        };
+
+        permissionStatus.onchange = handlePermissionChange;
+        if (permissionStatus.state === "granted") {
           await requestNearbyRecommendations({ silent: true });
+          startWatching();
         }
       } catch {
-        // Ignore permission API errors; nearby recommendations remain available via explicit user action.
+        await requestNearbyRecommendations({ silent: true });
+        startWatching();
       }
     };
 
-    void maybeRequestNearbyRecommendations();
+    void syncNearbyRecommendations();
 
     return () => {
       cancelled = true;
+      stopWatching();
+      if (permissionStatus) permissionStatus.onchange = null;
     };
-  }, [autoLocationRequested, nearby, requestNearbyRecommendations]);
+  }, [requestNearbyRecommendations]);
 
   const {
     data: properties = [],
@@ -409,8 +470,10 @@ const Accommodations = () => {
     refetchOnWindowFocus: true,
   });
 
+  const shouldLoadRecommendations = !searchParams.get("q") && !hostId;
+
   // Smart place recommendations
-  const { data: recommendations = [] } = useQuery({
+  const { data: recommendations = [], isLoading: recommendationsLoading } = useQuery({
     queryKey: ["smart-recommendations", user?.id],
     queryFn: async () => {
       // Get user's favorite locations and property types
@@ -441,7 +504,7 @@ const Accommodations = () => {
       // Get popular/highly-rated properties
       const { data: popular, error } = await supabase
         .from("properties")
-        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, beds, max_guests")
+        .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, max_guests")
         .eq("is_published", true)
         .gte("rating", 4.0)
         .gte("review_count", 3)
@@ -478,8 +541,10 @@ const Accommodations = () => {
       return scored.sort((a: any, b: any) => b.score - a.score).slice(0, 6);
     },
     staleTime: 1000 * 60 * 30, // 30 minutes
-    enabled: !searchParams.get("q") && !hostId && properties.length > 0, // Only show when not searching
+    enabled: shouldLoadRecommendations, // Fetch in parallel with properties so the section is ready on first render.
   });
+
+  const mainContentLoading = propertiesLoading || (shouldLoadRecommendations && recommendationsLoading);
 
   const { data: hostPreview } = useQuery({
     queryKey: ["host-preview", hostId],
@@ -562,10 +627,10 @@ const Accommodations = () => {
                 <Search className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-semibold text-muted-foreground">{t("nav.accommodations")}</div>
+                <div className="text-[11px] font-semibold text-primary">Merry AI Search</div>
                 <input
                   type="text"
-                  placeholder={t("common.search")}
+                  placeholder="Ask Merry AI about stays in Rwanda"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -596,10 +661,10 @@ const Accommodations = () => {
           {/* Desktop/tablet: existing layout */}
           <div className="hidden sm:flex bg-card rounded-xl shadow-card p-4 flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
             <div className="flex-1">
-              <label className="block text-xs text-muted-foreground mb-1">{t("nav.accommodations")}</label>
+              <label className="block text-xs text-primary mb-1">Merry AI Search</label>
               <input
                 type="text"
-                placeholder={t("common.search")}
+                placeholder="Ask Merry AI about stays in Rwanda"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -1138,7 +1203,7 @@ const Accommodations = () => {
                           type={property.property_type}
                           bedrooms={(property as any).bedrooms ?? null}
                           bathrooms={(property as any).bathrooms ?? null}
-                          beds={(property as any).beds ?? null}
+                          beds={null}
                           maxGuests={(property as any).max_guests ?? null}
                           checkInTime={null}
                           checkOutTime={null}
@@ -1177,7 +1242,7 @@ const Accommodations = () => {
                       type={property.property_type}
                       bedrooms={(property as any).bedrooms ?? null}
                       bathrooms={(property as any).bathrooms ?? null}
-                      beds={(property as any).beds ?? null}
+                      beds={null}
                       maxGuests={(property as any).max_guests ?? null}
                       checkInTime={null}
                       checkOutTime={null}
@@ -1203,7 +1268,7 @@ const Accommodations = () => {
             )}
             
             {/* All screens: 3-column grid */}
-            {propertiesLoading ? (
+            {mainContentLoading ? (
               <div className="col-span-full">
                 <LoadingSpinner message={t("common.loading")} />
               </div>

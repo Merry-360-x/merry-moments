@@ -120,8 +120,8 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left),
+        leading: StageSafeLeadingButton(
+          icon: Icons.chevron_left,
           onPressed: _goBack,
         ),
         title: const Text('Create'),

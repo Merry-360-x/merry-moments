@@ -471,7 +471,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         children: [
           // ── Image gallery with overlay buttons ──
           SizedBox(
-            height: 260,
+            height: MediaQuery.of(context).size.shortestSide >= 600 ? 460 : 260,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -488,15 +488,11 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 // Top bar: back, like, share
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 6,
-                  left: 12,
+                  left: MediaQuery.of(context).size.shortestSide >= 600 ? null : 12,
                   right: 12,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _CircleBtn(
-                        icon: Icons.arrow_back,
-                        onTap: () => Navigator.pop(context),
-                      ),
-                      const Spacer(),
                       _CircleBtn(
                         icon: _liked ? Icons.favorite : Icons.favorite_border,
                         color: _liked ? AppColors.rausch : AppColors.black,
@@ -510,6 +506,25 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     ],
                   ),
                 ),
+                // Back button: bottom-left on iPad (avoids Stage Manager dots), top-left on iPhone
+                if (MediaQuery.of(context).size.shortestSide >= 600)
+                  Positioned(
+                    bottom: 18,
+                    left: 12,
+                    child: _CircleBtn(
+                      icon: Icons.arrow_back,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  )
+                else
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 6,
+                    left: 12,
+                    child: _CircleBtn(
+                      icon: Icons.arrow_back,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  ),
                 // Dot indicators
                 if (images.length > 1)
                   Positioned(

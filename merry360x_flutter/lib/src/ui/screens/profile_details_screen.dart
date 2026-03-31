@@ -60,7 +60,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Profile details'),
       ),
       body: ListView(

@@ -633,7 +633,7 @@ class _AiScreenState extends State<AiScreen> {
     return ColoredBox(
       color: Colors.white,
       child: SafeArea(
-        bottom: false,
+        bottom: true,
         child: Column(
           children: [
             _buildHeader(maxContentWidth, isWide),
@@ -654,50 +654,71 @@ class _AiScreenState extends State<AiScreen> {
   }
 
   Widget _buildHeader(double maxContentWidth, bool isWide) {
+    final backButton = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.linnen,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        onPressed: widget.onBack,
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.black),
+      ),
+    );
+    final sparkleButton = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.linnen,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(Icons.auto_awesome, color: AppColors.black, size: 18),
+    );
+    final titleCol = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text('Merry', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black, letterSpacing: -0.5)),
+        SizedBox(height: 2),
+        Text(
+          'AI concierge for stays, tours, transport, and checkout.',
+          style: TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.25),
+        ),
+      ],
+    );
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(isWide ? 28 : 16, 8, isWide ? 28 : 16, 0),
+      padding: EdgeInsets.fromLTRB(isWide ? 28 : 16, isWide ? 16 : 8, isWide ? 28 : 16, 0),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxContentWidth),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-              Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(top: 1, right: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.linnen,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.black),
-                ),
-              ),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Merry', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black, letterSpacing: -0.5)),
-                    SizedBox(height: 2),
-                    Text(
-                      'AI concierge for stays, tours, transport, and checkout.',
-                      style: TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.25),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: isWide
+              // iPad: title left, buttons right — back button away from Stage Manager dots
+              ? [
+                  Expanded(child: titleCol),
+                  const SizedBox(width: 10),
+                  backButton,
+                  const SizedBox(width: 8),
+                  sparkleButton,
+                ]
+              // iPhone: back button left (no Stage Manager), sparkle right
+              : [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(color: AppColors.linnen, borderRadius: BorderRadius.circular(14)),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.black),
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.linnen,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.auto_awesome, color: AppColors.black, size: 18),
-              ),
-          ],
+                  ),
+                  Expanded(child: titleCol),
+                  sparkleButton,
+                ],
         ),
       ),
     );
@@ -774,22 +795,42 @@ class _AiScreenState extends State<AiScreen> {
   }
 
   Widget _buildWelcome(double maxWidth, bool isWide) {
-    return SingleChildScrollView(
-      key: const ValueKey('welcome'),
-      padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 8, isWide ? 24 : 16, 16),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Column(
+    // On iPad use slightly smaller text and tighter spacing.
+    final bodySize = isWide ? 13.0 : 14.0;
+    final headSize = isWide ? 14.0 : 15.0;
+    final subSize = isWide ? 11.0 : 12.0;
+
+    return isWide
+        ? SingleChildScrollView(
+            key: const ValueKey('welcome'),
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24, 48, 24, 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: _buildWelcomeContent(isWide, bodySize, headSize, subSize),
+                ),
+              ),
+            ),
+          )
+        : SingleChildScrollView(
+            key: const ValueKey('welcome'),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: _buildWelcomeContent(isWide, bodySize, headSize, subSize),
+          );
+  }
+
+  Widget _buildWelcomeContent(bool isWide, double bodySize, double headSize, double subSize) {
+    return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Ask for a stay, a tour, airport pickup, your trip cart, or checkout help.',
-                style: TextStyle(fontSize: 14, color: AppColors.hof, height: 1.5),
+                style: TextStyle(fontSize: bodySize, color: AppColors.hof, height: 1.5),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(isWide ? 12 : 14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -798,65 +839,83 @@ class _AiScreenState extends State<AiScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'What can I help with?',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
+                      style: TextStyle(fontSize: headSize, fontWeight: FontWeight.w700, color: AppColors.black),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
+                    const SizedBox(height: 3),
+                    Text(
                       'Start fast with one of these options.',
-                      style: TextStyle(fontSize: 12, color: AppColors.foggy),
+                      style: TextStyle(fontSize: subSize, color: AppColors.foggy),
                     ),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 1.65,
-                      children: [
-                        _StarterCard(
-                          title: 'Plan a trip',
-                          subtitle: 'Answer a few questions and get a trip plan',
-                          onTap: () => _send('Plan a trip for me.'),
-                        ),
-                        _StarterCard(
-                          title: 'What is Merry360X?',
-                          subtitle: 'Learn what Merry can help you book',
-                          onTap: () => _send('What is Merry360X and what can you help me book?'),
-                        ),
-                        _StarterCard(
-                          title: 'Find the cheapest',
-                          subtitle: 'Start with lower-budget options',
-                          onTap: () => _send('Find the cheapest trip options you can recommend for me.'),
-                        ),
-                        _StarterCard(
-                          title: 'Ask about Merry360X',
-                          subtitle: 'Ask anything related to Merry360X freely',
-                          onTap: () => _send('Tell me about Merry360X and how to use it.'),
-                        ),
-                      ],
+                    const SizedBox(height: 10),
+                    // IntrinsicHeight rows auto-size card height to content —
+                    // no fixed childAspectRatio that can overflow when titles wrap.
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _StarterCard(
+                              title: 'Plan a trip',
+                              subtitle: 'Answer a few questions and get a trip plan',
+                              isWide: isWide,
+                              onTap: () => _send('Plan a trip for me.'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StarterCard(
+                              title: 'What is Merry360X?',
+                              subtitle: 'Learn what Merry can help you book',
+                              isWide: isWide,
+                              onTap: () => _send('What is Merry360X and what can you help me book?'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _StarterCard(
+                              title: 'Find the cheapest',
+                              subtitle: 'Start with lower-budget options',
+                              isWide: isWide,
+                              onTap: () => _send('Find the cheapest trip options you can recommend for me.'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StarterCard(
+                              title: 'Ask about Merry360X',
+                              subtitle: 'Ask anything related to Merry360X freely',
+                              isWide: isWide,
+                              onTap: () => _send('Tell me about Merry360X and how to use it.'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.linnen,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
+                child: Text(
                   'Merry gives recommendations, opens native details, and can route you into trip cart, bookings, and checkout.',
-                  style: TextStyle(fontSize: 13, color: AppColors.hof, height: 1.5),
+                  style: TextStyle(fontSize: bodySize, color: AppColors.hof, height: 1.5),
                 ),
               ),
             ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1275,11 +1334,12 @@ class _ActionChip extends StatelessWidget {
 }
 
 class _StarterCard extends StatelessWidget {
-  const _StarterCard({required this.title, required this.subtitle, this.onTap});
+  const _StarterCard({required this.title, required this.subtitle, this.onTap, this.isWide = false});
 
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final bool isWide;
 
   @override
   Widget build(BuildContext context) {
@@ -1287,7 +1347,7 @@ class _StarterCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(isWide ? 10 : 12),
         decoration: BoxDecoration(
           color: AppColors.linnen,
           borderRadius: BorderRadius.circular(16),
@@ -1295,20 +1355,16 @@ class _StarterCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black, height: 1.2),
+              style: TextStyle(fontSize: isWide ? 12.0 : 13.0, fontWeight: FontWeight.w700, color: AppColors.black, height: 1.2),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
               subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AppColors.foggy, height: 1.3),
+              style: TextStyle(fontSize: isWide ? 10.5 : 11.0, color: AppColors.foggy, height: 1.3),
             ),
           ],
         ),

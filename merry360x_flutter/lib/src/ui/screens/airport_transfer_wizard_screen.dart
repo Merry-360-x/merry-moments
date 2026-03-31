@@ -251,6 +251,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
       setState(() => _uploading = false);
 
       final vehicleFields = <String, dynamic>{
+        'is_published': true,
         'title': _titleCtrl.text.trim(),
         'provider_name': _providerCtrl.text.trim(),
         'car_brand': _carBrand,
@@ -745,14 +746,25 @@ class _Header extends StatelessWidget {
   final String subtitle;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 6),
-          Icon(icon, size: 44, color: _kRed),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
-          const SizedBox(height: 6),
-          Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.black45), textAlign: TextAlign.center),
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: _kRed.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 22, color: _kRed),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+            ]),
+          ),
         ],
       );
 }

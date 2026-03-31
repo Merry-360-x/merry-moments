@@ -12,7 +12,13 @@ void main() async {
   debugPrint('[main] Supabase URL: $url');
   debugPrint('[main] Supabase key length: ${key.length}');
 
-  await Supabase.initialize(url: url, anonKey: key);
+  await Supabase.initialize(
+    url: url,
+    anonKey: key,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
+  );
   debugPrint('[main] Supabase initialized OK');
 
   runApp(const Merry360xMobileApp());

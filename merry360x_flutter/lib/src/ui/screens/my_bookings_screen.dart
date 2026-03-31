@@ -47,7 +47,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
         backgroundColor: AppColors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('My Bookings',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
         bottom: TabBar(
@@ -314,7 +314,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: const BackButton(color: AppColors.black),
+        leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Write a Review',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
       ),
