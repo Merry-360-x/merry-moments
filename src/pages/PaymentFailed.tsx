@@ -14,6 +14,27 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+async function loadFlutterwaveInlineSdk() {
+  if ((window as any).FlutterwaveCheckout) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector('script[data-flutterwave-sdk="true"]') as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load payment SDK")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.async = true;
+    script.dataset.flutterwaveSdk = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load payment SDK"));
+    document.head.appendChild(script);
+  });
+}
+
 export default function PaymentFailed() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -161,14 +182,14 @@ export default function PaymentFailed() {
       const isFlutterwave = providerParam === "flutterwave" || String(paymentProvider).toUpperCase() === "FLUTTERWAVE";
 
       if (isFlutterwave) {
-        const pendingUrl = `/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
-        const redirectUrl = `${window.location.origin}${pendingUrl}`;
+        const billingAddress = (metadata as any)?.billing_address || (metadata as any)?.guest_info?.billing_address || undefined;
 
         const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create-payment",
+            inline: true,
             checkoutId,
             // Preserve decimal precision — USD amounts must not be rounded to integers
             amount: currency === 'USD' ? Math.round(totalAmount * 100) / 100 : Math.round(totalAmount),
@@ -177,12 +198,12 @@ export default function PaymentFailed() {
             payerEmail: checkout.email,
             phoneNumber: phoneNumber || undefined,
             description: `Merry360x Booking Retry - ${checkoutId.slice(0, 8)}`,
-            redirectUrl,
+            billingAddress,
           }),
         });
 
         const cardInitData = await cardInitResponse.json().catch(() => ({}));
-        if (!cardInitResponse.ok || !cardInitData?.link) {
+        if (!cardInitResponse.ok || !cardInitData?.txRef) {
           const friendlyError = getFriendlyPaymentErrorMessage(cardInitData?.message);
           toast({
             title: "Payment Failed",
@@ -194,22 +215,56 @@ export default function PaymentFailed() {
         }
 
         toast({
-          title: "Redirecting to card checkout",
-          description: "Complete your card payment on Flutterwave.",
+          title: "Opening card checkout",
+          description: "Complete your card payment in the Flutterwave secure modal.",
         });
 
-        const opened = window.open(cardInitData.link, "_blank", "noopener,noreferrer");
-        if (opened) {
-          navigate(pendingUrl);
-          return;
-        }
+        await loadFlutterwaveInlineSdk();
 
-        toast({
-          title: "Popup blocked",
-          description: "Opening Flutterwave in this tab instead.",
+        const capturedCheckoutId = checkoutId;
+        const capturedTxRef = cardInitData.txRef;
+        const capturedAmount = currency === 'USD' ? Math.round(totalAmount * 100) / 100 : Math.round(totalAmount);
+
+        (window as any).FlutterwaveCheckout({
+          public_key: import.meta.env.VITE_FLW_PUBLIC_KEY,
+          tx_ref: capturedTxRef,
+          amount: capturedAmount,
+          currency,
+          payment_options: 'card',
+          customer: {
+            email: checkout.email,
+            name: checkout.name,
+            phone_number: phoneNumber || undefined,
+          },
+          customizations: {
+            title: 'Merry360x',
+            description: `Booking Retry - ${checkoutId.slice(0, 8)}`,
+            logo: `${window.location.origin}/brand/logo.png`,
+          },
+          meta: {
+            checkout_id: capturedCheckoutId,
+          },
+          callback: (data: any) => {
+            const txId = String(data?.transaction_id || data?.id || '');
+            const status = String(data?.status || '').toLowerCase();
+            if (status === 'successful' || status === 'completed') {
+              navigate(
+                `/payment-pending?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&tx_ref=${encodeURIComponent(capturedTxRef)}&transaction_id=${encodeURIComponent(txId)}`,
+                { replace: true }
+              );
+              return;
+            }
+
+            setIsRetrying(false);
+            navigate(
+              `/payment-failed?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&reason=${encodeURIComponent(status || 'Payment not completed')}`,
+              { replace: true }
+            );
+          },
+          onclose: () => {
+            setIsRetrying(false);
+          },
         });
-
-        window.location.href = cardInitData.link;
         return;
       }
 

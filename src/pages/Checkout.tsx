@@ -511,6 +511,27 @@ export default function CheckoutNew() {
     navigate(`/secure-card-handoff?checkoutId=${encodeURIComponent(checkoutId)}`);
   };
 
+  const loadFlutterwaveInlineSdk = async () => {
+    if ((window as any).FlutterwaveCheckout) return;
+
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector('script[data-flutterwave-sdk="true"]') as HTMLScriptElement | null;
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Failed to load payment SDK")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.flutterwave.com/v3.js";
+      script.async = true;
+      script.dataset.flutterwaveSdk = "true";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load payment SDK"));
+      document.head.appendChild(script);
+    });
+  };
+
   useEffect(() => {
     const savedDraft = localStorage.getItem(checkoutDraftKey);
     if (!savedDraft) return;
@@ -1627,13 +1648,12 @@ export default function CheckoutNew() {
       if (paymentMethod === 'card') {
         // cardAmountUsd was computed and stored in the checkout row above — use it directly.
         // No re-conversion needed; the DB and Flutterwave both see the same USD figure.
-        const pendingUrl = `/payment-pending?checkoutId=${encodeURIComponent(checkoutId)}&provider=flutterwave`;
-        const redirectUrl = `${window.location.origin}${pendingUrl}`;
         const cardInitResponse = await fetch("/api/flutterwave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create-payment",
+            inline: true,
             checkoutId,
             amount: cardAmountUsd,
             currency: 'USD',
@@ -1641,7 +1661,6 @@ export default function CheckoutNew() {
             payerEmail: formData.email,
             phoneNumber: fullPhone || normalizedPhone,
             description: `Merry360x Booking - ${cartItems.length} item(s)`,
-            redirectUrl,
             billingAddress,
             metadata: {
               item_count: cartItems.length,
@@ -1652,16 +1671,61 @@ export default function CheckoutNew() {
         });
 
         const cardInitData = await cardInitResponse.json().catch(() => ({}));
-        if (!cardInitResponse.ok || !cardInitData?.redirectUrl) {
+        if (!cardInitResponse.ok || !cardInitData?.txRef) {
           throw new Error(cardInitData?.error || cardInitData?.message || 'Unable to initialize card payment');
         }
 
-        await clearCart();
-        localStorage.removeItem("applied_discount");
-        clearCheckoutDraft();
+        await loadFlutterwaveInlineSdk();
 
-        // Navigate to Flutterwave hosted checkout page (avoids inline SDK loading issues)
-        window.location.href = cardInitData.redirectUrl;
+        const capturedCheckoutId = checkoutId;
+        const capturedTxRef = cardInitData.txRef;
+        const capturedAmount = cardAmountUsd;
+
+        (window as any).FlutterwaveCheckout({
+          public_key: import.meta.env.VITE_FLW_PUBLIC_KEY,
+          tx_ref: capturedTxRef,
+          amount: capturedAmount,
+          currency: 'USD',
+          payment_options: 'card',
+          customer: {
+            email: formData.email,
+            name: formData.fullName,
+            phone_number: fullPhone || normalizedPhone || undefined,
+          },
+          customizations: {
+            title: 'Merry360x',
+            description: `Booking - ${cartItems.length} item(s)`,
+            logo: `${window.location.origin}/brand/logo.png`,
+          },
+          meta: {
+            checkout_id: capturedCheckoutId,
+            billing_country: billingAddress.countryCode,
+            card_country: cardCountry,
+          },
+          callback: async (data: any) => {
+            const txId = String(data?.transaction_id || data?.id || '');
+            const status = String(data?.status || '').toLowerCase();
+            if (status === 'successful' || status === 'completed') {
+              await clearCart();
+              localStorage.removeItem("applied_discount");
+              clearCheckoutDraft();
+              navigate(
+                `/payment-pending?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&tx_ref=${encodeURIComponent(capturedTxRef)}&transaction_id=${encodeURIComponent(txId)}`,
+                { replace: true }
+              );
+              return;
+            }
+
+            setIsProcessing(false);
+            navigate(
+              `/payment-failed?checkoutId=${encodeURIComponent(capturedCheckoutId)}&provider=flutterwave&reason=${encodeURIComponent(status || 'Payment not completed')}`,
+              { replace: true }
+            );
+          },
+          onclose: () => {
+            setIsProcessing(false);
+          },
+        });
         return;
       }
 
@@ -2315,7 +2379,7 @@ export default function CheckoutNew() {
                       {/* Security note */}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <LockKeyhole className="w-3.5 h-3.5 shrink-0" />
-                        <span>PCI-compliant · Card details entered on Flutterwave's secure platform · Redirects to payment page</span>
+                        <span>PCI-compliant · Card details entered on Flutterwave's secure modal · No full-page redirect</span>
                       </div>
                     </div>
                   )}
@@ -2493,7 +2557,7 @@ export default function CheckoutNew() {
                           </p>
                           <p className="text-muted-foreground">
                             {paymentMethod === 'card'
-                              ? <>After clicking "Pay", the Flutterwave modal opens directly on this page. Enter your card details there — no redirects, card data never touches our servers.</>
+                              ? <>After clicking "Pay", the Flutterwave secure modal opens on this page. Enter your card details there — no full-page redirect, and card data never touches our servers.</>
                               : <>After clicking "Pay", our payment team will call you at <span className="font-medium text-foreground">{formData.email}</span> to complete your bank transfer.</>}
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">Need help: +250 796 214 719</p>
