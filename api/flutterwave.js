@@ -12,7 +12,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FLW_WEBHOOK_HASH = process.env.FLW_WEBHOOK_HASH;
+const FLW_WEBHOOK_HASH = (process.env.FLW_WEBHOOK_HASH || "").trim();
 const FLW_BASE_URL = "https://api.flutterwave.com/v3";
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://merry360x.com";
 
