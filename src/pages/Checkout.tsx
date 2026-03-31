@@ -436,6 +436,12 @@ const BILLING_COUNTRY_OPTIONS = [
   { code: "ZW", label: "Zimbabwe" },
 ];
 
+const CARD_BRAND_LOGOS = [
+  { src: "/payment-icons/visa.svg", alt: "Visa" },
+  { src: "/payment-icons/mastercard.svg", alt: "Mastercard" },
+  { src: "/payment-icons/amex.svg", alt: "American Express" },
+];
+
 export default function CheckoutNew() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -2338,7 +2344,16 @@ export default function CheckoutNew() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.card")}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Visa, Mastercard, AmEx</p>
+                          <div className="hidden sm:flex items-center gap-1.5 mt-1">
+                            {CARD_BRAND_LOGOS.map((brand) => (
+                              <span
+                                key={brand.alt}
+                                className="h-5 rounded-sm border border-border/70 bg-white px-1.5 py-0.5 flex items-center justify-center"
+                              >
+                                <img src={brand.src} alt={brand.alt} className="h-3 w-auto" loading="lazy" />
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -2452,8 +2467,14 @@ export default function CheckoutNew() {
                           <p className="text-sm font-semibold text-foreground">Pay with Card</p>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="border border-border rounded px-1.5 py-0.5 text-xs font-bold text-muted-foreground tracking-wide">VISA</span>
-                          <span className="border border-border rounded px-1.5 py-0.5 text-xs font-bold text-muted-foreground tracking-wide">MC</span>
+                          {CARD_BRAND_LOGOS.map((brand) => (
+                            <span
+                              key={brand.alt}
+                              className="h-6 rounded-md border border-border/70 bg-white px-1.5 py-1 flex items-center justify-center"
+                            >
+                              <img src={brand.src} alt={brand.alt} className="h-3.5 w-auto" loading="lazy" />
+                            </span>
+                          ))}
                         </div>
                       </div>
 
@@ -2468,7 +2489,7 @@ export default function CheckoutNew() {
                           <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-2">
                             <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                              You'll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa & Mastercard accepted worldwide
+                              You'll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa, Mastercard and AmEx accepted worldwide
                             </p>
                           </div>
                         ) : null;
