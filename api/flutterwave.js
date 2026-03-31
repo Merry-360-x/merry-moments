@@ -20,8 +20,8 @@ function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, verif-hash, verif_hash");
   res.end(JSON.stringify(body));
 }
 
@@ -706,10 +706,31 @@ async function handleVerifyPayment(req, res) {
 }
 
 async function handleWebhook(req, res) {
+  if (req.method === "GET" || req.method === "HEAD") {
+    res.statusCode = 200;
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, verif-hash, verif_hash");
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
+    return json(res, 200, {
+      success: true,
+      provider: "flutterwave",
+      route: "webhook",
+      status: "ready",
+    });
+  }
+
   // Verify webhook authenticity via secret hash header
   const incomingHash = req.headers?.["verif-hash"] || req.headers?.["verif_hash"] || "";
   if (!FLW_WEBHOOK_HASH || incomingHash !== FLW_WEBHOOK_HASH) {
-    return json(res, 401, { error: "Unauthorized" });
+    return json(res, 200, {
+      success: true,
+      acknowledged: true,
+      skipped: "Invalid or missing webhook signature",
+    });
   }
 
   const payload = req.body || {};
@@ -859,7 +880,7 @@ export default async function handler(req, res) {
     return json(res, 500, { error: "Flutterwave is not configured" });
   }
 
-  if (req.method !== "POST" && req.method !== "GET") {
+  if (req.method !== "POST" && req.method !== "GET" && req.method !== "HEAD") {
     return json(res, 405, { error: "Method not allowed" });
   }
 
