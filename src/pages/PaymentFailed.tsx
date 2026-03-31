@@ -20,6 +20,7 @@ async function loadFlutterwaveInlineSdk() {
   await new Promise<void>((resolve, reject) => {
     const existing = document.querySelector('script[data-flutterwave-sdk="true"]') as HTMLScriptElement | null;
     if (existing) {
+      if (existing.dataset.loaded === 'true') { resolve(); return; }
       existing.addEventListener("load", () => resolve(), { once: true });
       existing.addEventListener("error", () => reject(new Error("Failed to load payment SDK")), { once: true });
       return;
@@ -29,7 +30,7 @@ async function loadFlutterwaveInlineSdk() {
     script.src = "https://checkout.flutterwave.com/v3.js";
     script.async = true;
     script.dataset.flutterwaveSdk = "true";
-    script.onload = () => resolve();
+    script.onload = () => { script.dataset.loaded = 'true'; resolve(); };
     script.onerror = () => reject(new Error("Failed to load payment SDK"));
     document.head.appendChild(script);
   });
