@@ -39,6 +39,8 @@ export interface PropertyCardProps {
   onToggleFavorite?: () => void;
   hostId?: string | null;
   showHostVerifiedBadge?: boolean;
+  /** Pass true for above-the-fold cards to load the image eagerly at high priority */
+  priority?: boolean;
 }
 
 const PropertyCard = ({
@@ -67,6 +69,7 @@ const PropertyCard = ({
   onToggleFavorite,
   hostId,
   showHostVerifiedBadge = true,
+  priority = false,
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -149,6 +152,7 @@ const PropertyCard = ({
             images={gallery}
             alt={title}
             className="w-full h-full"
+            priority={priority}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />

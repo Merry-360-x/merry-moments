@@ -88,6 +88,9 @@ export default {
           "0%": { transform: "scale(1)", opacity: "0.4" },
           "80%, 100%": { transform: "scale(1.9)", opacity: "0" },
         },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -95,6 +98,7 @@ export default {
         "fade-in": "fade-in 0.5s ease-out forwards",
         "scale-in": "scale-in 0.3s ease-out forwards",
         "support-ping": "support-ping 2.4s cubic-bezier(0,0,0.2,1) infinite",
+        shimmer: "shimmer 1.4s infinite",
       },
     },
   },

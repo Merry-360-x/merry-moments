@@ -179,12 +179,12 @@ export function PersonalizedRecommendations({
           {/* Mobile: 2-column grid like Airbnb */}
           <div className="md:hidden">
             <div className="grid grid-cols-2 gap-3">
-              {properties.map((property) => (
+              {properties.map((property, i) => (
                 <div 
                   key={property.id} 
                   className="group relative"
                 >
-                  <PropertyCard {...mapToPropertyProps(property)} />
+                  <PropertyCard {...mapToPropertyProps(property)} priority={i < 4} />
                 </div>
               ))}
             </div>
@@ -192,13 +192,13 @@ export function PersonalizedRecommendations({
 
           {/* Desktop: Grid */}
           <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-5">
-            {properties.map((property) => (
+            {properties.map((property, i) => (
               <div 
                 key={property.id} 
                 className="group relative overflow-hidden rounded-2xl transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
               >
                 <div className="[&>div]:rounded-2xl [&>div]:border-0 [&>div]:shadow-none [&>div]:hover:shadow-none [&_img]:object-cover [&_img]:h-full">
-                  <PropertyCard {...mapToPropertyProps(property)} />
+                  <PropertyCard {...mapToPropertyProps(property)} priority={i < 4} />
                 </div>
                 {property.reasons && property.reasons.length > 0 && (
                   <div className="absolute top-3 right-3 z-10">

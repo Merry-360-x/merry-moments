@@ -7,6 +7,8 @@ type Props = {
   alt: string;
   className?: string;
   intervalMs?: number;
+  /** Set true for cards in the initial viewport — loads first image eagerly at high priority */
+  priority?: boolean;
 };
 
 export default function ListingImageCarousel({
@@ -14,6 +16,7 @@ export default function ListingImageCarousel({
   alt,
   className,
   intervalMs = 1200,
+  priority = false,
 }: Props) {
   const clean = useMemo(
     () => (images ?? []).map((x) => (typeof x === "string" ? x : "")).filter(Boolean),
@@ -53,18 +56,26 @@ export default function ListingImageCarousel({
     if (!hover) setIdx(0);
   }, [hover]);
 
+  const [imgLoaded, setImgLoaded] = useState(false);
+
   if (clean.length === 0) {
     return <div className={className ?? ""} />;
   }
 
   return (
     <div
-      className={className ?? ""}
+      className={`relative ${className ?? ""}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onTouchStart={() => setHover(true)}
       onTouchEnd={() => setHover(false)}
     >
+      {/* Shimmer skeleton shown until first image loads */}
+      {!imgLoaded && (
+        <div className="absolute inset-0 bg-muted overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+      )}
       <div
         className="h-full w-full flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${idx * 100}%)` }}
@@ -84,14 +95,15 @@ export default function ListingImageCarousel({
               key={src}
               src={
                 loadedIndices.has(i)
-                  ? optimizeCloudinaryImage(src, { width: 640, height: 480, quality: 'auto:good', format: 'auto' })
+                  ? optimizeCloudinaryImage(src, { width: 480, height: 360, quality: 'auto:good', format: 'auto' })
                   : undefined
               }
               alt={alt}
               className="w-full h-full object-cover shrink-0"
-              loading="lazy"
-              decoding="async"
-              fetchPriority="low"
+              loading={i === 0 && priority ? "eager" : "lazy"}
+              decoding={i === 0 && priority ? "sync" : "async"}
+              fetchPriority={i === 0 && priority ? "high" : "auto"}
+              onLoad={i === 0 ? () => setImgLoaded(true) : undefined}
             />
           )
         ))}
