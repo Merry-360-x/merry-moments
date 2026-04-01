@@ -142,7 +142,9 @@ export const trackWebEvent = async (
   };
 
   try {
-    await (supabase as any).from("web_events").insert(row);
+    const insertPromise = (supabase as any).from("web_events").insert(row);
+    const insertTimeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+    await Promise.race([insertPromise, insertTimeout]);
   } catch {
     // swallow: analytics must never break app UX
   }

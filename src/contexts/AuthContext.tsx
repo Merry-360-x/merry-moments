@@ -284,7 +284,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const finalRedirect = options?.redirectTo ?? "/";
     const emailRedirectTo = `${baseUrl}/auth/callback?redirect=${encodeURIComponent(finalRedirect)}`;
 
-    const { data, error } = await supabase.auth.signUp({
+    const signUpPromise = supabase.auth.signUp({
       email,
       password,
       options: {
@@ -297,6 +297,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
+    const signUpTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Signup request timed out. Please check your connection and try again.")), 15000)
+    );
+    const { data, error } = await Promise.race([signUpPromise, signUpTimeout]);
 
     if (!error) {
       // Send welcome email as a best-effort async task for every successful signup.
