@@ -340,6 +340,18 @@ const Auth = () => {
     navigate(pendingRedirect ?? defaultPostAuthPath, { replace: true });
   };
 
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -529,11 +541,16 @@ const Auth = () => {
       const phoneWithoutPlus = formattedPhone.replace('+', '');
       
       // Check if phone number exists in database (check both formats for consistency)
-      const { data: existingUsers } = await supabase
-        .from("profiles")
-        .select("user_id, phone")
-        .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
-        .limit(1);
+      const { data: existingUsers, error: existingUsersError } = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("user_id, phone")
+          .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
+          .limit(1),
+        10000,
+        "Connection timed out while checking your phone number. Please try again.",
+      );
+      if (existingUsersError) throw existingUsersError;
       
       const existingUser = existingUsers?.[0] || null;
       
@@ -560,18 +577,22 @@ const Auth = () => {
         // Don't return - continue with OTP
       }
       
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
-        options: {
-          // For signup, we need to pass user metadata
-          data: !isLogin && !existingUser ? {
-            full_name: `${firstName.trim()} ${lastName.trim()}`,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            phone_number: formattedPhone,
-          } : undefined,
-        },
-      });
+      const { error } = await withTimeout(
+        supabase.auth.signInWithOtp({
+          phone: formattedPhone,
+          options: {
+            // For signup, we need to pass user metadata
+            data: !isLogin && !existingUser ? {
+              full_name: `${firstName.trim()} ${lastName.trim()}`,
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              phone_number: formattedPhone,
+            } : undefined,
+          },
+        }),
+        15000,
+        "Connection timed out while sending your verification code. Please try again.",
+      );
 
       if (error) throw error;
 
@@ -612,68 +633,106 @@ const Auth = () => {
     try {
       const formattedPhone = formatPhoneForAuth(phoneNumber);
       
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: formattedPhone,
-        token: otpCode,
-        type: 'sms',
-      });
+      const { data, error } = await withTimeout(
+        supabase.auth.verifyOtp({
+          phone: formattedPhone,
+          token: otpCode,
+          type: 'sms',
+        }),
+        15000,
+        "Connection timed out while verifying your code. Please try again.",
+      );
 
       if (error) throw error;
 
       if (data.session && data.user) {
-        // Always check/create profile for phone auth users
-        const fullName = firstName.trim() && lastName.trim() 
-          ? `${firstName.trim()} ${lastName.trim()}`
-          : null;
-        const phoneWithoutPlus = formattedPhone.replace('+', '');
-        
-        // Check if profile exists by user_id first
-        const { data: existingProfile } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, phone")
-          .eq("user_id", data.user.id)
-          .maybeSingle();
-        
-        // Also check if there's an existing profile with this phone (different user_id)
-        // This can happen if user signed up with email first, then tries phone
-        const { data: phoneProfiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
-          .neq("user_id", data.user.id)
-          .limit(1);
-        
-        const phoneProfile = phoneProfiles?.[0];
-        
-        if (!existingProfile) {
-          if (phoneProfile) {
-            // There's already a profile with this phone but different user
-            // This is a duplicate - update the existing profile's user_id or handle conflict
-            console.warn("Phone already exists for different user:", phoneProfile.user_id);
+        // Keep profile synchronization best-effort so auth never appears stuck.
+        try {
+          const fullName = firstName.trim() && lastName.trim()
+            ? `${firstName.trim()} ${lastName.trim()}`
+            : null;
+          const phoneWithoutPlus = formattedPhone.replace('+', '');
+
+          const { data: existingProfile, error: existingProfileError } = await withTimeout(
+            supabase
+              .from("profiles")
+              .select("user_id, full_name, phone")
+              .eq("user_id", data.user.id)
+              .maybeSingle(),
+            10000,
+            "Connection timed out while loading your profile.",
+          );
+
+          if (existingProfileError) {
+            throw existingProfileError;
           }
-          // Create new profile for first-time phone users
-          await supabase
-            .from("profiles")
-            .insert({
-              user_id: data.user.id,
-              full_name: fullName || phoneProfile?.full_name || `User`,
-              phone: formattedPhone,
-            });
-        } else if (fullName && (!existingProfile.full_name || existingProfile.full_name === 'User')) {
-          // Update profile if name was provided and current name is empty/default
-          await supabase
-            .from("profiles")
-            .update({
-              full_name: fullName,
-              phone: formattedPhone,
-            })
-            .eq("user_id", data.user.id);
-        } else if (!existingProfile.phone) {
-          // Update phone if profile exists but phone is missing
-          await supabase
-            .from("profiles")
-            .update({ phone: formattedPhone })
-            .eq("user_id", data.user.id);
+
+          const { data: phoneProfiles, error: phoneProfilesError } = await withTimeout(
+            supabase
+              .from("profiles")
+              .select("user_id, full_name")
+              .or(`phone.eq.${formattedPhone},phone.eq.${phoneWithoutPlus}`)
+              .neq("user_id", data.user.id)
+              .limit(1),
+            10000,
+            "Connection timed out while checking existing phone profiles.",
+          );
+
+          if (phoneProfilesError) {
+            throw phoneProfilesError;
+          }
+
+          const phoneProfile = phoneProfiles?.[0];
+
+          if (!existingProfile) {
+            if (phoneProfile) {
+              // There's already a profile with this phone but different user.
+              console.warn("Phone already exists for different user:", phoneProfile.user_id);
+            }
+            const { error: insertError } = await withTimeout(
+              supabase
+                .from("profiles")
+                .insert({
+                  user_id: data.user.id,
+                  full_name: fullName || phoneProfile?.full_name || "User",
+                  phone: formattedPhone,
+                }),
+              10000,
+              "Connection timed out while creating your profile.",
+            );
+            if (insertError) {
+              console.warn("Failed to create phone-auth profile:", insertError);
+            }
+          } else if (fullName && (!existingProfile.full_name || existingProfile.full_name === 'User')) {
+            const { error: updateError } = await withTimeout(
+              supabase
+                .from("profiles")
+                .update({
+                  full_name: fullName,
+                  phone: formattedPhone,
+                })
+                .eq("user_id", data.user.id),
+              10000,
+              "Connection timed out while updating your profile.",
+            );
+            if (updateError) {
+              console.warn("Failed to update phone-auth profile:", updateError);
+            }
+          } else if (!existingProfile.phone) {
+            const { error: updatePhoneError } = await withTimeout(
+              supabase
+                .from("profiles")
+                .update({ phone: formattedPhone })
+                .eq("user_id", data.user.id),
+              10000,
+              "Connection timed out while saving your phone number.",
+            );
+            if (updatePhoneError) {
+              console.warn("Failed to store phone number on profile:", updatePhoneError);
+            }
+          }
+        } catch (profileError) {
+          console.warn("Phone-auth profile sync skipped due to network error:", profileError);
         }
 
         clearSignupProgress();

@@ -16,9 +16,21 @@ export function uiErrorMessage(err: unknown, fallback = "Something went wrong. P
     // Supabase/PostgREST errors
     if (error.message) {
       const msg = String(error.message);
+      const normalizedMsg = msg.toLowerCase();
 
       if (isAbortLike(msg)) {
         return fallback;
+      }
+
+      if (
+        normalizedMsg.includes("failed to fetch") ||
+        normalizedMsg.includes("networkerror") ||
+        normalizedMsg.includes("network request failed") ||
+        normalizedMsg.includes("err_connection_timed_out") ||
+        normalizedMsg.includes("timed out") ||
+        normalizedMsg.includes("timeout")
+      ) {
+        return "We could not reach our servers. Please check your internet connection and try again, or switch to mobile data/VPN.";
       }
       
       // Handle specific error patterns

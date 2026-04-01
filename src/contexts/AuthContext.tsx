@@ -49,6 +49,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // This prevents stale initializeAuth/fetchRoles from repopulating state after sign-out.
   const authEpochRef = useRef(0);
 
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+
   const fetchRoles = async (userId: string) => {
     const epoch = authEpochRef.current;
     // Prevent duplicate simultaneous fetches
@@ -284,23 +296,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const finalRedirect = options?.redirectTo ?? "/";
     const emailRedirectTo = `${baseUrl}/auth/callback?redirect=${encodeURIComponent(finalRedirect)}`;
 
-    const signUpPromise = supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo,
-        data: {
-          full_name: fullName,
-          first_name: options?.firstName,
-          last_name: options?.lastName,
-          phone_number: options?.phoneNumber,
+    const { data, error } = await withTimeout(
+      supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo,
+          data: {
+            full_name: fullName,
+            first_name: options?.firstName,
+            last_name: options?.lastName,
+            phone_number: options?.phoneNumber,
+          },
         },
-      },
-    });
-    const signUpTimeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Signup request timed out. Please check your connection and try again.")), 15000)
+      }),
+      15000,
+      "Signup request timed out. Please check your connection and try again.",
     );
-    const { data, error } = await Promise.race([signUpPromise, signUpTimeout]);
 
     if (!error) {
       // Send welcome email as a best-effort async task for every successful signup.
@@ -371,10 +383,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email,
+        password,
+      }),
+      15000,
+      "Sign-in request timed out. Please check your connection and try again.",
+    );
     
     if (!error && data.session) {
       // Immediately update state for instant UI feedback
