@@ -34,6 +34,7 @@ export default function CompleteProfile() {
   const [totalPoints, setTotalPoints] = useState(0);
 
   const redirectTo = searchParams.get("redirect") || "/";
+  const requiresAdultConfirmation = redirectTo.startsWith("/checkout");
 
   // Redirect if not logged in
   useEffect(() => {
@@ -87,11 +88,15 @@ export default function CompleteProfile() {
 
   // Check if profile is complete and redirect
   useEffect(() => {
-    if (existingProfile?.full_name && existingProfile?.phone && existingProfile?.is_adult_confirmed) {
+    const hasFullName = Boolean(existingProfile?.full_name?.trim());
+    const hasPhone = Boolean(existingProfile?.phone?.trim());
+    const adultConfirmed = existingProfile?.is_adult_confirmed === true;
+
+    if (hasFullName && hasPhone && (!requiresAdultConfirmation || adultConfirmed)) {
       // Profile is complete, redirect
       navigate(redirectTo, { replace: true });
     }
-  }, [existingProfile, navigate, redirectTo]);
+  }, [existingProfile, navigate, redirectTo, requiresAdultConfirmation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +121,7 @@ export default function CompleteProfile() {
       return;
     }
 
-    if (!isAdultConfirmed) {
+    if (requiresAdultConfirmation && !isAdultConfirmed) {
       toast({
         variant: "destructive",
         title: "18+ confirmation required",
@@ -147,17 +152,22 @@ export default function CompleteProfile() {
 
       const alreadyReceivedBonus = (existingBonus as { profile_completed_bonus?: boolean } | null)?.profile_completed_bonus === true;
 
+      const profileUpdate: Record<string, unknown> = {
+        user_id: user.id,
+        full_name: fullName,
+        phone: formattedPhone,
+        updated_at: new Date().toISOString(),
+        profile_completed_bonus: true, // Mark as claimed
+      };
+
+      if (isAdultConfirmed) {
+        profileUpdate.is_adult_confirmed = true;
+        profileUpdate.adult_confirmed_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .upsert({
-          user_id: user.id,
-          full_name: fullName,
-          phone: formattedPhone,
-          is_adult_confirmed: true,
-          adult_confirmed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          profile_completed_bonus: true, // Mark as claimed
-        } as any, { onConflict: "user_id" });
+        .upsert(profileUpdate as any, { onConflict: "user_id" });
 
       if (error) throw error;
 

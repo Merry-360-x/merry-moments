@@ -10,6 +10,43 @@ const AuthCallback = () => {
   const [status, setStatus] = useState<"working" | "error">("working");
   const [message, setMessage] = useState<string>("Signing you in...");
 
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+
+  const getMetadataProfile = (rawMetadata: unknown) => {
+    const metadata = (rawMetadata ?? {}) as Record<string, unknown>;
+    const directFullName = typeof metadata.full_name === "string"
+      ? metadata.full_name.trim()
+      : "";
+    const firstName = typeof metadata.first_name === "string"
+      ? metadata.first_name.trim()
+      : "";
+    const lastName = typeof metadata.last_name === "string"
+      ? metadata.last_name.trim()
+      : "";
+    const composedFullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    const phoneNumber = typeof metadata.phone_number === "string"
+      ? metadata.phone_number.trim()
+      : "";
+
+    return {
+      fullName: directFullName || composedFullName || null,
+      phoneNumber: phoneNumber || null,
+    };
+  };
+
+  const requiresAdultConfirmation = (finalRedirect: string) =>
+    finalRedirect.startsWith("/checkout");
+
   const redirectTo = useMemo(() => {
     const raw = searchParams.get("redirect");
     if (!raw) return "/";
@@ -19,20 +56,76 @@ const AuthCallback = () => {
   }, [searchParams]);
 
   // Helper to check if profile needs completion
-  const checkProfileComplete = async (userId: string): Promise<boolean> => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("full_name, phone")
-      .eq("user_id", userId)
-      .single();
-    
-    // Profile is incomplete if missing name or phone
-    return !!(data?.full_name && data?.phone);
+  const checkProfileComplete = async (
+    userId: string,
+    metadata: unknown,
+    finalRedirect: string,
+  ): Promise<boolean> => {
+    const metadataProfile = getMetadataProfile(metadata);
+    const needsAdultConfirmation = requiresAdultConfirmation(finalRedirect);
+
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("full_name, phone, is_adult_confirmed")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        10000,
+        "Timed out while checking profile completion.",
+      );
+
+      if (error) {
+        console.warn("[AuthCallback] Could not load profile completion status:", error.message);
+        // Fall back to metadata for non-checkout redirects.
+        return Boolean(
+          metadataProfile.fullName &&
+            metadataProfile.phoneNumber &&
+            !needsAdultConfirmation,
+        );
+      }
+
+      const profileData = data as {
+        full_name: string | null;
+        phone: string | null;
+        is_adult_confirmed?: boolean | null;
+      } | null;
+
+      const fullName = profileData?.full_name?.trim() || metadataProfile.fullName || "";
+      const phone = profileData?.phone?.trim() || metadataProfile.phoneNumber || "";
+      const adultConfirmed = profileData?.is_adult_confirmed === true;
+
+      if ((!profileData?.full_name || !profileData?.phone) && fullName && phone) {
+        try {
+          await supabase.from("profiles").upsert(
+            {
+              user_id: userId,
+              full_name: fullName,
+              phone,
+              updated_at: new Date().toISOString(),
+            } as any,
+            { onConflict: "user_id" },
+          );
+        } catch (syncError) {
+          console.warn("[AuthCallback] Could not backfill profile details:", syncError);
+        }
+      }
+
+      return Boolean(fullName && phone && (!needsAdultConfirmation || adultConfirmed));
+    } catch (error) {
+      console.warn("[AuthCallback] Profile completion check failed:", error);
+      // Avoid forcing users into profile flow when network checks are unavailable.
+      return true;
+    }
   };
 
   // Helper to navigate based on profile completion
-  const navigateWithProfileCheck = async (userId: string, finalRedirect: string) => {
-    const isComplete = await checkProfileComplete(userId);
+  const navigateWithProfileCheck = async (
+    userId: string,
+    metadata: unknown,
+    finalRedirect: string,
+  ) => {
+    const isComplete = await checkProfileComplete(userId, metadata, finalRedirect);
     if (isComplete) {
       navigate(finalRedirect, { replace: true });
     } else {
@@ -51,7 +144,11 @@ const AuthCallback = () => {
         if (!cancelled && recoveredFromHash) {
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData.session?.user) {
-            await navigateWithProfileCheck(sessionData.session.user.id, redirectTo);
+            await navigateWithProfileCheck(
+              sessionData.session.user.id,
+              sessionData.session.user.user_metadata,
+              redirectTo,
+            );
           } else {
             navigate(redirectTo, { replace: true });
           }
@@ -65,7 +162,11 @@ const AuthCallback = () => {
           const { data: existing } = await supabase.auth.getSession();
           if (existing.session) {
             if (!cancelled) {
-              await navigateWithProfileCheck(existing.session.user.id, redirectTo);
+              await navigateWithProfileCheck(
+                existing.session.user.id,
+                existing.session.user.user_metadata,
+                redirectTo,
+              );
             }
             return;
           }
@@ -100,7 +201,7 @@ const AuthCallback = () => {
 
             // Navigate with profile check
             if (!cancelled) {
-              await navigateWithProfileCheck(user.id, redirectTo);
+              await navigateWithProfileCheck(user.id, user.user_metadata, redirectTo);
             }
             return;
           }
@@ -115,7 +216,11 @@ const AuthCallback = () => {
         const { data } = await supabase.auth.getSession();
         if (data.session) {
           if (!cancelled) {
-            await navigateWithProfileCheck(data.session.user.id, redirectTo);
+            await navigateWithProfileCheck(
+              data.session.user.id,
+              data.session.user.user_metadata,
+              redirectTo,
+            );
           }
           return;
         }
