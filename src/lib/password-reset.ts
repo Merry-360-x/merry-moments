@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteOrigin } from "@/lib/site-origin";
 
 type PasswordResetApiResponse = {
   ok?: boolean;
@@ -7,7 +8,7 @@ type PasswordResetApiResponse = {
 };
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const redirectTo = `${window.location.origin}/reset-password`;
+  const redirectTo = `${getSiteOrigin()}/reset-password`;
 
   try {
     const response = await fetch("/api/support-email", {

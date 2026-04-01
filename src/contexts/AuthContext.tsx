@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { recoverSessionFromUrl, verifyAndRefreshSession } from "@/lib/auth-recovery";
+import { getSiteOrigin } from "@/lib/site-origin";
 import type { Database } from "@/integrations/supabase/types";
 
 type AuthContextType = {
@@ -292,7 +293,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fullName: string,
     options?: { firstName?: string; lastName?: string; phoneNumber?: string; redirectTo?: string }
   ) => {
-    const baseUrl = window.location.origin;
+    const baseUrl = getSiteOrigin();
     const finalRedirect = options?.redirectTo ?? "/";
     const emailRedirectTo = `${baseUrl}/auth/callback?redirect=${encodeURIComponent(finalRedirect)}`;
 

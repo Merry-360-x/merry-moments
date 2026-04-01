@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { LoyaltyPointsPopup } from "@/components/LoyaltyPointsPopup";
 import { getPreferredDashboardPath } from "@/lib/role-dashboard";
+import { getSiteOrigin } from "@/lib/site-origin";
 
 const SIGNUP_STORAGE_KEY = 'signup_form_progress';
 
@@ -452,7 +453,7 @@ const Auth = () => {
     try {
       // Build the callback URL - OAuth should always redirect back to /auth first
       // so Supabase can detect the session from URL hash, then we redirect to final destination
-      const baseUrl = window.location.origin;
+      const baseUrl = getSiteOrigin();
       // Always redirect back to /auth, with the final destination as a redirect param
       const finalRedirect = redirectTo ?? "/";
       const callbackUrl = `${baseUrl}/auth?redirect=${encodeURIComponent(finalRedirect)}`;
