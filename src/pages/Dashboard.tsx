@@ -320,7 +320,7 @@ export default function Dashboard() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <Link to="/my-bookings">
               <Card className="p-3 hover:bg-muted/40 transition-colors">
                 <div className="flex items-start justify-between gap-2">
@@ -358,6 +358,20 @@ export default function Dashboard() {
                       Trip Cart
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">{cartCount} items in cart</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
+                </div>
+              </Card>
+            </Link>
+            <Link to="/post-booking">
+              <Card className="p-3 hover:bg-muted/40 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-muted-foreground" />
+                      Post-Booking
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Charges, disputes, wallet</div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
                 </div>

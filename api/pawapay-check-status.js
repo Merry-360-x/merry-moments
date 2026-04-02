@@ -109,6 +109,113 @@ async function sendHostPayoutStatusEmail({ toEmail, toName, status, amount, curr
   return { sent: true };
 }
 
+async function syncPostBookingChargeFromCheckout(supabase, checkoutData, paymentStatus) {
+  const chargeId = checkoutData?.metadata?.post_booking_charge_id;
+  if (!chargeId) return { handled: false };
+
+  const nowIso = new Date().toISOString();
+
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, user_id, booking_id, status")
+    .eq("id", chargeId)
+    .maybeSingle();
+
+  if (!charge) return { handled: true, updated: false, reason: "charge_not_found" };
+
+  if (paymentStatus === "paid") {
+    await supabase
+      .from("charges")
+      .update({
+        status: "paid",
+        payment_method: "mobile_money",
+        payment_provider: "pawapay",
+        payment_reference: checkoutData.id,
+        paid_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id);
+
+    const { data: mods } = await supabase
+      .from("booking_modifications")
+      .select("*")
+      .eq("charge_id", charge.id)
+      .eq("status", "accepted")
+      .limit(1);
+
+    const linkedModification = Array.isArray(mods) && mods.length ? mods[0] : null;
+
+    if (linkedModification) {
+      await supabase
+        .from("bookings")
+        .update({
+          check_in: linkedModification.new_check_in || linkedModification.old_check_in,
+          check_out: linkedModification.new_check_out || linkedModification.old_check_out,
+          total_price: linkedModification.new_price,
+          ...(linkedModification.new_property_id ? { property_id: linkedModification.new_property_id } : {}),
+        })
+        .eq("id", linkedModification.booking_id);
+
+      await supabase
+        .from("booking_modifications")
+        .update({ payment_status: "paid", updated_at: nowIso })
+        .eq("id", linkedModification.id);
+    }
+
+    try {
+      await supabase.from("notifications").insert({
+        user_id: charge.user_id,
+        title: "Payment successful",
+        body: "Your post-booking mobile money payment was successful.",
+        notification_type: "payment_success",
+        channel: "in_app",
+        data: {
+          charge_id: charge.id,
+          booking_id: charge.booking_id,
+          checkout_id: checkoutData.id,
+        },
+      });
+    } catch (_) {
+      // Notification is best effort.
+    }
+
+    return { handled: true, updated: true, chargeId: charge.id, bookingModificationId: linkedModification?.id || null };
+  }
+
+  if (paymentStatus === "failed") {
+    await supabase
+      .from("charges")
+      .update({
+        status: "failed",
+        payment_method: "mobile_money",
+        payment_provider: "pawapay",
+        payment_reference: checkoutData.id,
+        failed_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id);
+
+    try {
+      await supabase.from("notifications").insert({
+        user_id: charge.user_id,
+        title: "Payment failed",
+        body: "Your post-booking mobile money payment failed. Please retry.",
+        notification_type: "payment_failed",
+        channel: "in_app",
+        data: {
+          charge_id: charge.id,
+          booking_id: charge.booking_id,
+          checkout_id: checkoutData.id,
+        },
+      });
+    } catch (_) {
+      // Notification is best effort.
+    }
+  }
+
+  return { handled: true, updated: false };
+}
+
 async function fetchPawaPayPayout(pawapayPayoutId) {
   const url = `${PAWAPAY_BASE_URL}/payouts/${pawapayPayoutId}`;
   const response = await fetch(url, {
@@ -402,7 +509,7 @@ export default async function handler(req, res) {
       // Fetch full checkout to get items for booking creation
       const { data: checkoutData, error: checkoutFetchError } = await supabase
         .from("checkout_requests")
-        .select("id, user_id, payment_status, metadata, currency")
+        .select("id, user_id, email, phone, payment_status, metadata, currency")
         .eq("id", orderId)
         .single();
 
@@ -419,6 +526,17 @@ export default async function handler(req, res) {
         console.error("Failed to update checkout:", updateError);
       } else {
         console.log(`Checkout ${orderId} updated: payment=${paymentStatus}`);
+      }
+
+      if (checkoutData) {
+        try {
+          await syncPostBookingChargeFromCheckout(supabase, checkoutData, paymentStatus);
+        } catch (syncErr) {
+          console.warn("Post-booking charge sync failed", {
+            checkoutId: checkoutData.id,
+            error: syncErr?.message || String(syncErr),
+          });
+        }
       }
 
       // Create bookings if payment completed and not already created

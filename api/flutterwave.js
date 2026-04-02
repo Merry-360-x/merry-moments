@@ -351,6 +351,94 @@ async function createBookingsForPaidCheckout(supabase, checkoutData) {
   return createdIds;
 }
 
+async function settlePostBookingChargeIfPresent(supabase, checkoutData) {
+  const chargeId = safeStr(checkoutData?.metadata?.post_booking_charge_id, 80);
+  if (!chargeId) return { handled: false };
+
+  const nowIso = new Date().toISOString();
+
+  const { data: charge, error: chargeErr } = await supabase
+    .from("charges")
+    .select("id, user_id, booking_id, status")
+    .eq("id", chargeId)
+    .maybeSingle();
+
+  if (chargeErr || !charge) {
+    return {
+      handled: true,
+      updated: false,
+      error: chargeErr?.message || "charge_not_found",
+    };
+  }
+
+  if (charge.status !== "paid") {
+    await supabase
+      .from("charges")
+      .update({
+        status: "paid",
+        payment_method: "card",
+        payment_provider: "flutterwave",
+        payment_reference: checkoutData.id,
+        paid_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id);
+  }
+
+  const { data: mods } = await supabase
+    .from("booking_modifications")
+    .select("*")
+    .eq("charge_id", charge.id)
+    .eq("status", "accepted")
+    .limit(1);
+
+  const linkedModification = Array.isArray(mods) && mods.length ? mods[0] : null;
+
+  if (linkedModification) {
+    await supabase
+      .from("bookings")
+      .update({
+        check_in: linkedModification.new_check_in || linkedModification.old_check_in,
+        check_out: linkedModification.new_check_out || linkedModification.old_check_out,
+        total_price: linkedModification.new_price,
+        ...(linkedModification.new_property_id ? { property_id: linkedModification.new_property_id } : {}),
+      })
+      .eq("id", linkedModification.booking_id);
+
+    await supabase
+      .from("booking_modifications")
+      .update({
+        payment_status: "paid",
+        updated_at: nowIso,
+      })
+      .eq("id", linkedModification.id);
+  }
+
+  try {
+    await supabase.from("notifications").insert({
+      user_id: charge.user_id,
+      title: "Payment successful",
+      body: "Your post-booking charge payment was successful.",
+      notification_type: "payment_success",
+      channel: "in_app",
+      data: {
+        charge_id: charge.id,
+        booking_id: charge.booking_id,
+        checkout_id: checkoutData.id,
+      },
+    });
+  } catch (_) {
+    // Notification is best effort.
+  }
+
+  return {
+    handled: true,
+    updated: true,
+    chargeId: charge.id,
+    bookingModificationId: linkedModification?.id || null,
+  };
+}
+
 async function handleCreatePayment(req, res) {
   const {
     checkoutId,
@@ -681,6 +769,7 @@ async function handleVerifyPayment(req, res) {
 
     if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
       const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+      await settlePostBookingChargeIfPresent(supabase, mergedCheckout);
       const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
       const items = nextMetadata?.items || [];
       await sendFlwPostPaymentEmails(supabase, mergedCheckout, items, createdIds);
@@ -846,6 +935,7 @@ async function handleWebhook(req, res) {
 
   if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
     const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+    await settlePostBookingChargeIfPresent(supabase, mergedCheckout);
     const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
     const items = nextMetadata?.items || [];
     await sendFlwPostPaymentEmails(supabase, mergedCheckout, items, createdIds);

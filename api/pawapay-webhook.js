@@ -20,6 +20,96 @@ function formatMoney(amount, currency = "RWF") {
   return `${Math.round(num).toLocaleString("en-US")} ${code}`;
 }
 
+async function syncPostBookingChargeFromCheckout(supabase, checkout, paymentStatus) {
+  const chargeId = checkout?.metadata?.post_booking_charge_id;
+  if (!chargeId) return { handled: false };
+
+  const nowIso = new Date().toISOString();
+
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, user_id, booking_id, status")
+    .eq("id", chargeId)
+    .maybeSingle();
+
+  if (!charge) return { handled: true, updated: false, reason: "charge_not_found" };
+
+  if (paymentStatus === "paid") {
+    await supabase
+      .from("charges")
+      .update({
+        status: "paid",
+        payment_method: "mobile_money",
+        payment_provider: "pawapay",
+        payment_reference: checkout.id,
+        paid_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id);
+
+    const { data: mods } = await supabase
+      .from("booking_modifications")
+      .select("*")
+      .eq("charge_id", charge.id)
+      .eq("status", "accepted")
+      .limit(1);
+
+    const linkedModification = Array.isArray(mods) && mods.length ? mods[0] : null;
+
+    if (linkedModification) {
+      await supabase
+        .from("bookings")
+        .update({
+          check_in: linkedModification.new_check_in || linkedModification.old_check_in,
+          check_out: linkedModification.new_check_out || linkedModification.old_check_out,
+          total_price: linkedModification.new_price,
+          ...(linkedModification.new_property_id ? { property_id: linkedModification.new_property_id } : {}),
+        })
+        .eq("id", linkedModification.booking_id);
+
+      await supabase
+        .from("booking_modifications")
+        .update({ payment_status: "paid", updated_at: nowIso })
+        .eq("id", linkedModification.id);
+    }
+
+    try {
+      await supabase.from("notifications").insert({
+        user_id: charge.user_id,
+        title: "Payment successful",
+        body: "Your post-booking mobile money payment was successful.",
+        notification_type: "payment_success",
+        channel: "in_app",
+        data: {
+          charge_id: charge.id,
+          booking_id: charge.booking_id,
+          checkout_id: checkout.id,
+        },
+      });
+    } catch (_) {
+      // Best effort.
+    }
+
+    return { handled: true, updated: true, chargeId: charge.id, bookingModificationId: linkedModification?.id || null };
+  }
+
+  if (paymentStatus === "failed") {
+    await supabase
+      .from("charges")
+      .update({
+        status: "failed",
+        payment_method: "mobile_money",
+        payment_provider: "pawapay",
+        payment_reference: checkout.id,
+        failed_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id);
+  }
+
+  return { handled: true, updated: false };
+}
+
 // Format date
 function formatDate(dateStr) {
   if (!dateStr) return "N/A";
@@ -628,9 +718,19 @@ export default async function handler(req, res) {
 
     console.log(`✅ Checkout ${checkout.id} updated: ${checkout.payment_status} → ${newPaymentStatus}`);
 
+    let postBookingSync = { handled: false };
+    try {
+      postBookingSync = await syncPostBookingChargeFromCheckout(supabase, checkout, newPaymentStatus);
+    } catch (syncErr) {
+      console.warn("Post-booking sync failed in webhook", {
+        checkoutId: checkout.id,
+        error: syncErr?.message || String(syncErr),
+      });
+    }
+
     // Create bookings when payment is completed
     let createdBookingIds = [];
-    if (shouldCreateBookings && checkout.metadata?.items) {
+    if (shouldCreateBookings && !postBookingSync.handled && checkout.metadata?.items) {
       console.log("📦 Creating bookings from checkout items...");
       const items = checkout.metadata.items;
       const bookingDetails = checkout.metadata.booking_details;
@@ -711,7 +811,7 @@ export default async function handler(req, res) {
     }
 
     // Send email notification if payment completed
-    if (shouldNotify && checkout.email && newPaymentStatus === "paid") {
+    if (shouldNotify && !postBookingSync.handled && checkout.email && newPaymentStatus === "paid") {
       console.log(`📧 Sending confirmation email to ${checkout.email}...`);
       const items = checkout.metadata?.items || [];
 

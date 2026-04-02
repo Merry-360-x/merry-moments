@@ -5,6 +5,7 @@ import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../utils/app_snackbar.dart';
 import 'admin_dashboard_screen.dart';
+import 'admin_post_booking_screen.dart';
 import 'affiliates_screen.dart';
 import 'become_host_screen.dart';
 import 'financial_dashboard_screen.dart';
@@ -13,6 +14,7 @@ import 'legal_content_screen.dart';
 import 'my_bookings_screen.dart';
 import 'notifications_screen.dart';
 import 'operations_dashboard_screen.dart';
+import 'post_booking_center_screen.dart';
 import 'profile_details_screen.dart';
 import 'support_dashboard_screen.dart';
 import 'support_screen.dart';
@@ -464,6 +466,14 @@ class _QuickAccessSection extends StatelessWidget {
                   ),
                   _QuickAccessTile(
                     width: tileWidth,
+                    title: 'Post-Booking',
+                    subtitle: 'Charges, changes, disputes',
+                    icon: Icons.account_balance_wallet_outlined,
+                    accentColor: const Color(0xFFD97706),
+                    onTap: () => _go(context, PostBookingCenterScreen(session: session)),
+                  ),
+                  _QuickAccessTile(
+                    width: tileWidth,
                     title: 'Notifications',
                     subtitle: 'Updates and alerts',
                     icon: Icons.notifications_active_outlined,
@@ -531,6 +541,15 @@ class _QuickAccessSection extends StatelessWidget {
                       icon: Icons.support_agent_outlined,
                       accentColor: const Color(0xFFB26A00),
                       onTap: () => _go(context, SupportDashboardScreen(session: session)),
+                    ),
+                  if (session.canManagePostBooking)
+                    _QuickAccessTile(
+                      width: tileWidth,
+                      title: 'Post-Booking Console',
+                      subtitle: 'Admin charge and dispute queue',
+                      icon: Icons.gavel_outlined,
+                      accentColor: const Color(0xFF92400E),
+                      onTap: () => _go(context, AdminPostBookingScreen(session: session)),
                     ),
                 ],
               ),

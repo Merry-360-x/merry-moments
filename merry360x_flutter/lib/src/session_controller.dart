@@ -33,6 +33,7 @@ class SessionController extends ChangeNotifier {
   bool get canAccessOperationsDashboard => isAdmin || isOperationsStaff;
   bool get canAccessFinancialDashboard => isAdmin || isFinancialStaff;
   bool get canAccessSupportDashboard => isAdmin || isCustomerSupport;
+  bool get canManagePostBooking => isAdmin || isFinancialStaff || isOperationsStaff || isCustomerSupport;
 
   String get userId => _userId;
   String? get accessToken => _supabase?.auth.currentSession?.accessToken;
@@ -472,6 +473,44 @@ class SessionController extends ChangeNotifier {
   }) async {
     if (!isAuthenticated) throw Exception('Sign in to contact support');
     return _api.createSupportTicket(userId: _userId, subject: subject, message: message);
+  }
+
+  // ---- Post-booking workflows ----
+
+  Future<Map<String, dynamic>> fetchUserPostBookingOverview() async {
+    if (!isAuthenticated) throw Exception('Sign in to continue');
+    final token = _requireAccessToken();
+    return _api.fetchPostBookingOverview(accessToken: token);
+  }
+
+  Future<Map<String, dynamic>> fetchAdminPostBookingOverview() async {
+    if (!isAuthenticated) throw Exception('Sign in to continue');
+    if (!canManagePostBooking) {
+      throw Exception('You do not have access to the post-booking console');
+    }
+    final token = _requireAccessToken();
+    return _api.fetchPostBookingOverview(accessToken: token, admin: true);
+  }
+
+  Future<Map<String, dynamic>> postBookingAction(
+    String action, {
+    Map<String, dynamic> body = const <String, dynamic>{},
+  }) async {
+    if (!isAuthenticated) throw Exception('Sign in to continue');
+    final token = _requireAccessToken();
+    return _api.postBookingAction(
+      accessToken: token,
+      action: action,
+      body: body,
+    );
+  }
+
+  String _requireAccessToken() {
+    final token = accessToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Your session expired. Please sign in again.');
+    }
+    return token;
   }
 
   @override

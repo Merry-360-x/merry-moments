@@ -51,6 +51,8 @@ const CreateAirportTransfer = lazy(() => import("./pages/CreateAirportTransfer")
 const SearchResults = lazy(() => import("./pages/SearchResults"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const PostBookingCenter = lazy(() => import("./pages/PostBookingCenter"));
+const AdminPostBooking = lazy(() => import("./pages/AdminPostBooking"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
@@ -612,6 +614,30 @@ const App = () => (
               {/* Redirect old route to new one */}
               <Route path="/support-dashboard" element={<Navigate to="/customer-support-dashboard" replace />} />
               <Route path="/my-bookings" element={<MyBookings />} />
+              <Route
+                path="/post-booking"
+                element={
+                  <RequireAuth>
+                    <PostBookingCenter />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/resolution-center"
+                element={
+                  <RequireAuth>
+                    <PostBookingCenter />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/post-booking"
+                element={
+                  <RequireRole allowed={["admin", "financial_staff", "operations_staff", "customer_support"]}>
+                    <AdminPostBooking />
+                  </RequireRole>
+                }
+              />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/trip-cart" element={<TripCart />} />
               <Route path="/checkout" element={<Checkout />} />

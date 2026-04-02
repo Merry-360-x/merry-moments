@@ -505,6 +505,10 @@ const Navbar = () => {
                       </span>
                     )}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/post-booking")}> 
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    Post-Booking Center
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/favorites")}>
                     <Heart className="w-4 h-4 mr-2" />
                     {t("actions.favorites")}
@@ -541,6 +545,12 @@ const Navbar = () => {
                           {openTicketsCount > 99 ? "99+" : openTicketsCount}
                         </span>
                       )}
+                    </DropdownMenuItem>
+                  )}
+                  {(isAdmin || isFinancialStaff || isOperationsStaff || isCustomerSupport) && (
+                    <DropdownMenuItem onClick={() => navigate("/admin/post-booking")}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Post-Booking Console
                     </DropdownMenuItem>
                   )}
                   {isHost && (
@@ -714,6 +724,17 @@ const Navbar = () => {
                           </span>
                         )}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/post-booking");
+                        }}
+                      >
+                        <CalendarDays className="w-4 h-4" /> Post-Booking
+                      </Button>
                       {!isHost ? (
                         <Button
                           size="sm"
@@ -800,6 +821,19 @@ const Navbar = () => {
                         }}
                       >
                         <MessageSquare className="w-4 h-4" /> Support Dashboard
+                      </Button>
+                    ) : null}
+                    {(isAdmin || isFinancialStaff || isOperationsStaff || isCustomerSupport) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/admin/post-booking");
+                        }}
+                      >
+                        <Shield className="w-4 h-4" /> Post-Booking Console
                       </Button>
                     ) : null}
                   </div>

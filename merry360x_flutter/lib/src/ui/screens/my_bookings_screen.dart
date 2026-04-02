@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../../session_controller.dart';
+import 'post_booking_center_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key, required this.session});
@@ -50,6 +51,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
         leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('My Bookings',
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
+        actions: [
+          IconButton(
+            tooltip: 'Post-booking center',
+            icon: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.hof),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostBookingCenterScreen(session: widget.session),
+              ),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabs,
           indicatorColor: AppColors.black,

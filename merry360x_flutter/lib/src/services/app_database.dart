@@ -1404,6 +1404,82 @@ class AppDatabase {
     }
   }
 
+  // ── Post-booking API (server-validated flows) ──
+
+  Future<Map<String, dynamic>> fetchPostBookingOverview({
+    required String accessToken,
+    bool admin = false,
+  }) async {
+    final action = admin ? 'admin-overview' : 'user-overview';
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/post-booking')
+        .replace(queryParameters: {'action': action});
+
+    final response = await _http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    return _parsePostBookingResponse(
+      response,
+      fallbackError: 'Failed to load post-booking data',
+    );
+  }
+
+  Future<Map<String, dynamic>> postBookingAction({
+    required String accessToken,
+    required String action,
+    Map<String, dynamic> body = const <String, dynamic>{},
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/post-booking');
+    final payload = <String, dynamic>{
+      'action': action,
+      ...body,
+    };
+
+    final response = await _http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(payload),
+    );
+
+    return _parsePostBookingResponse(
+      response,
+      fallbackError: 'Post-booking request failed',
+    );
+  }
+
+  Map<String, dynamic> _parsePostBookingResponse(
+    http.Response response, {
+    required String fallbackError,
+  }) {
+    Map<String, dynamic> payload = const <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map) {
+        payload = decoded.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+      }
+    } catch (_) {
+      payload = const <String, dynamic>{};
+    }
+
+    final hasHttpError = response.statusCode < 200 || response.statusCode >= 300;
+    final hasApiError = payload['ok'] == false;
+
+    if (hasHttpError || hasApiError) {
+      final message = (payload['error'] ?? fallbackError).toString();
+      throw Exception(message);
+    }
+
+    return payload;
+  }
+
   // ════════════════════════════════════════════════
   // HOST — Properties CRUD
   // ════════════════════════════════════════════════
