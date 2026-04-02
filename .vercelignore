@@ -27,3 +27,6 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Keep Hobby plan under 12 serverless functions
+api/welcome-email.js
