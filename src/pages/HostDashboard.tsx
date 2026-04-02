@@ -413,7 +413,7 @@ const isHostTabValue = (value: string | null | undefined): value is HostTabValue
   Boolean(value && HOST_TAB_VALUES.includes(value as HostTabValue));
 
 export default function HostDashboard() {
-  const { user, isHost, isLoading: authLoading, rolesLoading } = useAuth();
+  const { user, isHost, roles, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -440,6 +440,12 @@ export default function HostDashboard() {
   const fetchInFlightRef = useRef(false);
   const queuedFetchRef = useRef(false);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canManagePostBooking = useMemo(() => {
+    return (roles ?? []).some((role) =>
+      ["admin", "financial_staff", "operations_staff", "customer_support"].includes(role)
+    );
+  }, [roles]);
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
@@ -7957,6 +7963,18 @@ export default function HostDashboard() {
               )}
             </div>
             <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/post-booking")}> 
+              <CreditCard className="w-4 h-4 mr-2" />
+              Post-Booking Center
+            </Button>
+            {canManagePostBooking ? (
+              <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}> 
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Post-Booking Console
+              </Button>
+            ) : null}
           </div>
         </div>
 

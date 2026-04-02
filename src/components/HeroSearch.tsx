@@ -236,6 +236,13 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
     onWhereChange?.(value === NEARBY_LABEL ? "" : value);
   };
 
+  const formatDateOnlyLocal = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const guestsLabel = useMemo(() => {
     const total = adults + children + infants;
     return total <= 1 ? t("heroSearch.oneGuest") : t("heroSearch.guests", { count: total });
@@ -304,8 +311,8 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
     }
     const params = new URLSearchParams();
     if (where.trim()) params.set("q", where.trim());
-    if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
-    if (dateRange?.to) params.set("end", dateRange.to.toISOString().slice(0, 10));
+    if (dateRange?.from) params.set("start", formatDateOnlyLocal(dateRange.from));
+    if (dateRange?.to) params.set("end", formatDateOnlyLocal(dateRange.to));
     if (dateFlexDays > 0) params.set("flex", String(dateFlexDays));
     if (whenTab === "months") params.set("stay", "monthly");
     params.set("adults", String(adults));
@@ -340,8 +347,8 @@ const HeroSearch = ({ onWhereChange }: HeroSearchProps) => {
     }
     const params = new URLSearchParams();
     if (where.trim()) params.set("q", where.trim());
-    if (dateRange?.from) params.set("start", dateRange.from.toISOString().slice(0, 10));
-    if (dateRange?.to) params.set("end", dateRange.to.toISOString().slice(0, 10));
+    if (dateRange?.from) params.set("start", formatDateOnlyLocal(dateRange.from));
+    if (dateRange?.to) params.set("end", formatDateOnlyLocal(dateRange.to));
     if (dateFlexDays > 0) params.set("flex", String(dateFlexDays));
     if (whenTab === "months") params.set("stay", "monthly");
     params.set("adults", String(adults));

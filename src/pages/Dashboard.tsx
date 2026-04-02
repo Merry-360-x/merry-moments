@@ -230,6 +230,10 @@ export default function Dashboard() {
     return roles.includes("host") || roles.includes("admin");
   }, [roles]);
 
+  const canManagePostBooking = useMemo(() => {
+    return roles.some((role) => ["admin", "financial_staff", "operations_staff", "customer_support"].includes(role));
+  }, [roles]);
+
   const upcomingBookings = useMemo(() => {
     const today = isoToday();
     return bookings.filter((b) => String(b.check_in) >= today);
@@ -307,6 +311,20 @@ export default function Dashboard() {
                   <span className="inline-flex items-center rounded-full bg-background/90 border border-border px-3 py-1 text-xs font-medium text-foreground">
                     {favoritesCount} saved places
                   </span>
+                  <Link to="/post-booking">
+                    <Button variant="outline" className="gap-2">
+                      <Shield className="w-4 h-4" />
+                      Post-Booking Center
+                    </Button>
+                  </Link>
+                  {canManagePostBooking ? (
+                    <Link to="/admin/post-booking">
+                      <Button variant="outline" className="gap-2">
+                        <LayoutDashboard className="w-4 h-4" />
+                        Post-Booking Console
+                      </Button>
+                    </Link>
+                  ) : null}
                   {canCreateStory ? (
                     <Link to="/create-story">
                       <Button className="gap-2">

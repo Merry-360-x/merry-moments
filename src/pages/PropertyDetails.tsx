@@ -95,11 +95,38 @@ const fetchProperty = async (id: string) => {
   return data as PropertyRow | null;
 };
 
-const isoToday = () => new Date().toISOString().slice(0, 10);
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const formatDateOnlyLocal = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateParamLocal = (value?: string | null) => {
+  if (!value) return null;
+
+  if (DATE_ONLY_PATTERN.test(value)) {
+    const [yearText, monthText, dayText] = value.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const parsed = new Date(year, month - 1, day);
+    parsed.setHours(0, 0, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+const isoToday = () => formatDateOnlyLocal(new Date());
 const isoTomorrow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return formatDateOnlyLocal(d);
 };
 
 const TOUR_RECOMMENDATION_PHRASES = [
@@ -172,14 +199,14 @@ export default function PropertyDetails() {
   const [checkIn, setCheckIn] = useState<Date | undefined>(() => {
     const param = searchParams.get("start") || searchParams.get("checkIn");
     if (!param) return new Date();
-    const parsed = new Date(param);
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    const parsed = parseDateParamLocal(param);
+    return parsed ?? new Date();
   });
   const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
     const startParam = searchParams.get("start") || searchParams.get("checkIn");
     const endParam = searchParams.get("end") || searchParams.get("checkOut");
-    const start = startParam ? new Date(startParam) : new Date();
-    const end = endParam ? new Date(endParam) : null;
+    const start = parseDateParamLocal(startParam) ?? new Date();
+    const end = parseDateParamLocal(endParam);
 
     if (end && !Number.isNaN(end.getTime()) && end > start) return end;
 
@@ -510,9 +537,10 @@ export default function PropertyDetails() {
           });
 
         const addOneDay = (dateText: string) => {
-          const date = new Date(`${dateText}T00:00:00`);
+          const date = parseDateParamLocal(dateText);
+          if (!date) return dateText;
           date.setDate(date.getDate() + 1);
-          return date.toISOString().slice(0, 10);
+          return formatDateOnlyLocal(date);
         };
 
         const merged: Array<{ start_date: string; end_date: string; reason: string | null; source?: string }> = [];
@@ -543,11 +571,12 @@ export default function PropertyDetails() {
       };
 
       const toLastNightDate = (checkIn: string, checkOut: string) => {
-        const start = new Date(`${checkIn}T00:00:00`);
-        const end = new Date(`${checkOut}T00:00:00`);
+        const start = parseDateParamLocal(checkIn);
+        const end = parseDateParamLocal(checkOut);
+        if (!start || !end) return checkIn;
         end.setDate(end.getDate() - 1);
         if (end < start) return checkIn;
-        return end.toISOString().slice(0, 10);
+        return formatDateOnlyLocal(end);
       };
 
       // First try the combined view, fallback to table if view doesn't exist
@@ -609,7 +638,7 @@ export default function PropertyDetails() {
         .from("property_custom_prices")
         .select("start_date, end_date, custom_price_per_night")
         .eq("property_id", propertyId!)
-        .gte("end_date", new Date().toISOString().slice(0, 10))
+        .gte("end_date", isoToday())
         .order("start_date", { ascending: true });
       if (error) return [];
       return (data ?? []) as CustomPriceRow[];
@@ -1008,8 +1037,8 @@ export default function PropertyDetails() {
     const qs = new URLSearchParams();
     qs.set("mode", "booking");
     qs.set("propertyId", String(data.id));
-    qs.set("checkIn", checkIn.toISOString().slice(0, 10));
-    qs.set("checkOut", checkOut.toISOString().slice(0, 10));
+    qs.set("checkIn", formatDateOnlyLocal(checkIn));
+    qs.set("checkOut", formatDateOnlyLocal(checkOut));
     qs.set("guests", String(guests));
     const includeBreakfast = breakfastAddon.breakfastEnabled
       ? (typeof includeBreakfastOverride === "boolean" ? includeBreakfastOverride : breakfastAddon.includeBreakfast)
@@ -1026,8 +1055,8 @@ export default function PropertyDetails() {
     if (!data || !propertyId) return;
     // Include booking metadata (dates, guests, nights)
     const metadata = {
-      check_in: checkIn ? checkIn.toISOString().slice(0, 10) : undefined,
-      check_out: checkOut ? checkOut.toISOString().slice(0, 10) : undefined,
+      check_in: checkIn ? formatDateOnlyLocal(checkIn) : undefined,
+      check_out: checkOut ? formatDateOnlyLocal(checkOut) : undefined,
       guests: guests,
       nights: nights,
       breakfast_included: breakfastAddon.includeBreakfast,
@@ -1089,7 +1118,7 @@ export default function PropertyDetails() {
   );
 
   const { data: relatedTours = [], isLoading: isLoadingRelatedTours } = useQuery({
-    queryKey: ["related-tours", propertyId, nights, guests, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), locationHints.join("|")],
+    queryKey: ["related-tours", propertyId, nights, guests, checkIn ? formatDateOnlyLocal(checkIn) : undefined, checkOut ? formatDateOnlyLocal(checkOut) : undefined, locationHints.join("|")],
     enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
@@ -1192,7 +1221,7 @@ export default function PropertyDetails() {
   });
 
   const { data: relatedTransportVehicles = [], isLoading: isLoadingRelatedTransportVehicles } = useQuery({
-    queryKey: ["related-transport-vehicles", propertyId, checkIn?.toISOString().slice(0, 10), checkOut?.toISOString().slice(0, 10), guests, locationHints.join("|")],
+    queryKey: ["related-transport-vehicles", propertyId, checkIn ? formatDateOnlyLocal(checkIn) : undefined, checkOut ? formatDateOnlyLocal(checkOut) : undefined, guests, locationHints.join("|")],
     enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";

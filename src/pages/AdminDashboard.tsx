@@ -42,7 +42,7 @@ import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { convertAmount } from "@/lib/fx";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Users,
   Home,
@@ -569,6 +569,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<TabValue>(() => {
@@ -3974,6 +3975,10 @@ For support, contact: support@merry360x.com
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}>
+              <Shield className="w-4 h-4 mr-2" />
+              Post-Booking Console
+            </Button>
             <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -4031,6 +4036,15 @@ For support, contact: support@merry360x.com
                 </Badge>
               )}
             </TabsTrigger>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 gap-1 border border-border bg-background/70 whitespace-nowrap"
+              onClick={() => navigate("/admin/post-booking")}
+            >
+              <Shield className="w-4 h-4" /> Post-Booking
+            </Button>
             <TabsTrigger value="payouts" className="gap-1">
               <Banknote className="w-4 h-4" /> Payouts
               {payouts.filter((p: any) => p.status === 'pending').length > 0 && (

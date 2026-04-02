@@ -516,9 +516,38 @@ export default function CheckoutNew() {
   const checkOutParam = searchParams.get("checkOut") || "";
   const guestContactCacheKey = "checkout-contact-cache";
 
+  const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+  const formatDateOnlyLocal = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseDateValue = (value?: string | null) => {
+    if (!value) return null;
+
+    if (DATE_ONLY_PATTERN.test(value)) {
+      const [yearText, monthText, dayText] = value.split("-");
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const parsed = new Date(year, month - 1, day);
+      parsed.setHours(0, 0, 0, 0);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  };
+
   const updateCheckoutDates = (nextCheckIn: string, nextCheckOut: string) => {
     if (!nextCheckIn || !nextCheckOut) return;
-    if (new Date(nextCheckOut) <= new Date(nextCheckIn)) {
+    const start = parseDateValue(nextCheckIn);
+    const end = parseDateValue(nextCheckOut);
+    if (!start || !end || end <= start) {
       toast({
         title: "Invalid dates",
         description: "Check-out must be after check-in.",
@@ -1005,9 +1034,11 @@ export default function CheckoutNew() {
     let nights = 1;
     
     if (checkIn && checkOut) {
-      const start = new Date(checkIn);
-      const end = new Date(checkOut);
-      nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      const start = parseDateValue(checkIn);
+      const end = parseDateValue(checkOut);
+      if (start && end) {
+        nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      }
     }
     
     const guests = parseInt(searchParams.get("guests") || "1", 10);
@@ -1451,21 +1482,28 @@ export default function CheckoutNew() {
 
   const toDateOnly = (value?: string | null) => {
     if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toISOString().slice(0, 10);
+    if (DATE_ONLY_PATTERN.test(value)) return value;
+    const parsed = parseDateValue(value);
+    if (!parsed) return null;
+    return formatDateOnlyLocal(parsed);
   };
 
   const addDays = (dateOnly: string, days: number) => {
-    const parsed = new Date(`${dateOnly}T00:00:00Z`);
-    if (Number.isNaN(parsed.getTime())) return dateOnly;
-    parsed.setUTCDate(parsed.getUTCDate() + days);
-    return parsed.toISOString().slice(0, 10);
+    const parsed = parseDateValue(dateOnly);
+    if (!parsed) return dateOnly;
+    parsed.setDate(parsed.getDate() + days);
+    return formatDateOnlyLocal(parsed);
   };
 
   const getDefaultBookingDates = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = formatDateOnlyLocal(new Date());
     return { checkIn: today, checkOut: addDays(today, 1) };
+  };
+
+  const formatDateForDisplay = (value?: string | null) => {
+    const parsed = parseDateValue(value);
+    if (!parsed) return value || "";
+    return parsed.toLocaleDateString();
   };
   
   const getNormalizedPhone = () => {
@@ -2205,16 +2243,14 @@ export default function CheckoutNew() {
                               id="checkInDate"
                               type="date"
                               value={checkInParam}
-                              min={new Date().toISOString().split("T")[0]}
+                              min={formatDateOnlyLocal(new Date())}
                               onChange={(e) => {
                                 const nextCheckIn = e.target.value;
                                 if (!nextCheckIn) return;
 
                                 const currentOut = checkOutParam;
-                                if (!currentOut || new Date(currentOut) <= new Date(nextCheckIn)) {
-                                  const adjustedOut = new Date(nextCheckIn);
-                                  adjustedOut.setDate(adjustedOut.getDate() + 1);
-                                  updateCheckoutDates(nextCheckIn, adjustedOut.toISOString().split("T")[0]);
+                                if (!currentOut || currentOut <= nextCheckIn) {
+                                  updateCheckoutDates(nextCheckIn, addDays(nextCheckIn, 1));
                                   return;
                                 }
 
@@ -2230,7 +2266,7 @@ export default function CheckoutNew() {
                               id="checkOutDate"
                               type="date"
                               value={checkOutParam}
-                              min={checkInParam || new Date().toISOString().split("T")[0]}
+                              min={checkInParam || formatDateOnlyLocal(new Date())}
                               onChange={(e) => {
                                 const nextCheckOut = e.target.value;
                                 if (!nextCheckOut || !checkInParam) return;
@@ -2691,7 +2727,7 @@ export default function CheckoutNew() {
                             <h4 className="font-medium truncate">{item.title}</h4>
                             <p className="text-sm text-muted-foreground">
                               {mode === 'booking' && checkIn && checkOut && item.item_type === 'property' 
-                                ? `${new Date(checkIn).toLocaleDateString()} - ${new Date(checkOut).toLocaleDateString()} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
+                                ? `${formatDateForDisplay(checkIn)} - ${formatDateForDisplay(checkOut)} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
                                 : `Qty: ${item.quantity}`
                               }
                             </p>
