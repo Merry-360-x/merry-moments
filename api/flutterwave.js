@@ -6,6 +6,7 @@ import {
   renderMinimalEmail,
   validateRecipientEmail,
 } from "../lib/email-template-kit.js";
+import { upsertSavedCardMethod } from "../lib/payment-method-storage.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -769,6 +770,12 @@ async function handleVerifyPayment(req, res) {
 
     if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
       const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+      await upsertSavedCardMethod({
+        supabase,
+        checkoutData: mergedCheckout,
+        txData,
+        source: "flutterwave_verify",
+      });
       await settlePostBookingChargeIfPresent(supabase, mergedCheckout);
       const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
       const items = nextMetadata?.items || [];
@@ -935,6 +942,12 @@ async function handleWebhook(req, res) {
 
   if (paymentStatus === "paid" && checkoutData.payment_status !== "paid") {
     const mergedCheckout = { ...checkoutData, metadata: nextMetadata };
+    await upsertSavedCardMethod({
+      supabase,
+      checkoutData: mergedCheckout,
+      txData,
+      source: "flutterwave_webhook",
+    });
     await settlePostBookingChargeIfPresent(supabase, mergedCheckout);
     const createdIds = await createBookingsForPaidCheckout(supabase, mergedCheckout);
     const items = nextMetadata?.items || [];

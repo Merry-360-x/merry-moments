@@ -6,6 +6,7 @@ import {
   renderMinimalEmail,
   validateRecipientEmail,
 } from "../lib/email-template-kit.js";
+import { upsertSavedMobileMoneyMethod } from "../lib/payment-method-storage.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -541,6 +542,16 @@ export default async function handler(req, res) {
 
       // Create bookings if payment completed and not already created
       if (paymentStatus === "paid" && checkoutData && checkoutData.payment_status !== "paid") {
+        await upsertSavedMobileMoneyMethod({
+          supabase,
+          checkoutData,
+          providerHint: checkoutData?.metadata?.payment_provider || depositData?.correspondent || null,
+          phoneNumberHint: depositData?.payer?.address?.value || checkoutData?.phone || null,
+          depositId,
+          correspondent: depositData?.correspondent || null,
+          source: "pawapay_status_check",
+        });
+
         console.log("📦 Creating bookings from checkout items (via status check)...");
         const items = checkoutData.metadata?.items || [];
         const bookingDetails = checkoutData.metadata?.booking_details;

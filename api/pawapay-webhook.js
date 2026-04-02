@@ -6,6 +6,7 @@ import {
   renderMinimalEmail,
   validateRecipientEmail,
 } from "../lib/email-template-kit.js";
+import { upsertSavedMobileMoneyMethod } from "../lib/payment-method-storage.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -725,6 +726,18 @@ export default async function handler(req, res) {
       console.warn("Post-booking sync failed in webhook", {
         checkoutId: checkout.id,
         error: syncErr?.message || String(syncErr),
+      });
+    }
+
+    if (shouldCreateBookings) {
+      await upsertSavedMobileMoneyMethod({
+        supabase,
+        checkoutData: checkout,
+        providerHint: checkout?.metadata?.payment_provider || event?.correspondent || null,
+        phoneNumberHint: event?.payer?.address?.value || checkout?.phone || null,
+        depositId,
+        correspondent: event?.correspondent || null,
+        source: "pawapay_webhook",
       });
     }
 

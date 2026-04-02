@@ -84,6 +84,23 @@ interface PaymentMethodInfo {
   textColor: string;
 }
 
+interface SavedPaymentMethod {
+  id: string;
+  method_type: 'card' | 'mobile_money';
+  provider: string;
+  display_name: string | null;
+  country_code: string | null;
+  phone_number: string | null;
+  card_brand: string | null;
+  card_last4: string | null;
+  card_expiry: string | null;
+  fingerprint: string;
+  is_default: boolean;
+  is_active: boolean;
+  last_used_at: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
 const PAWAPAY_METHODS: PaymentMethodInfo[] = [
   // Rwanda (+250) - RWF — MTN_MOMO_RWA, AIRTEL_RWA
   { id: 'mtn_rwa', name: 'MTN Mobile Money', shortName: 'MTN', provider: 'MTN', countryCode: '+250', country: 'Rwanda', currency: 'RWF', color: 'bg-yellow-400', textColor: 'text-black' },
@@ -183,6 +200,35 @@ const PAWAPAY_COUNTRY_BY_ISO: Record<string, string> = {
   MW: 'Malawi',
   BI: 'Burundi',
   CG: 'Congo',
+};
+
+const normalizeDialCode = (value?: string | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits ? `+${digits}` : null;
+};
+
+const toLocalPhoneDigits = (value?: string | null, dialCode?: string | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+
+  const normalizedDial = normalizeDialCode(dialCode);
+  if (!normalizedDial) return digits;
+
+  const dialDigits = normalizedDial.replace(/\D/g, "");
+  if (digits.startsWith(dialDigits) && digits.length > dialDigits.length) {
+    return digits.slice(dialDigits.length);
+  }
+
+  return digits;
+};
+
+const maskPhoneNumber = (value?: string | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length <= 4) return digits;
+  const visible = digits.slice(-4);
+  const hidden = "•".repeat(Math.max(2, digits.length - 4));
+  return `${hidden}${visible}`;
 };
 
 const BILLING_COUNTRY_OPTIONS = [
@@ -510,6 +556,10 @@ export default function CheckoutNew() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
   const [lastMobileMethod, setLastMobileMethod] = useState<string>(geoDefaults?.method ?? 'mtn_rwa');
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>([]);
+  const [savedMethodsLoading, setSavedMethodsLoading] = useState(false);
+  const [selectedSavedMethodId, setSelectedSavedMethodId] = useState<string | null>(null);
+  const [savedDefaultsApplied, setSavedDefaultsApplied] = useState(false);
   const mode = searchParams.get("mode");
   const isDirectPropertyCheckout = mode === "booking" && Boolean(searchParams.get("propertyId"));
   const checkInParam = searchParams.get("checkIn") || "";
@@ -665,6 +715,51 @@ export default function CheckoutNew() {
   }, [user]);
 
   useEffect(() => {
+    let isActive = true;
+
+    if (!user?.id) {
+      setSavedPaymentMethods([]);
+      setSelectedSavedMethodId(null);
+      setSavedMethodsLoading(false);
+      setSavedDefaultsApplied(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setSavedMethodsLoading(true);
+
+    ((supabase
+      .from("user_payment_methods")
+      .select(
+        "id, method_type, provider, display_name, country_code, phone_number, card_brand, card_last4, card_expiry, fingerprint, is_default, is_active, last_used_at, metadata"
+      ) as any)
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("is_default", { ascending: false })
+      .order("last_used_at", { ascending: false }))
+      .then(({ data, error }: any) => {
+        if (!isActive) return;
+
+        if (error) {
+          console.warn("Could not load saved payment methods:", error.message);
+          setSavedPaymentMethods([]);
+          setSavedMethodsLoading(false);
+          setSavedDefaultsApplied(true);
+          return;
+        }
+
+        setSavedPaymentMethods(Array.isArray(data) ? data : []);
+        setSavedMethodsLoading(false);
+        setSavedDefaultsApplied(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     if (user) return;
 
     const cached = localStorage.getItem(guestContactCacheKey);
@@ -793,6 +888,7 @@ export default function CheckoutNew() {
       if (typeof parsed?.phoneNumber === "string") setPhoneNumber(parsed.phoneNumber);
       if (typeof parsed?.countryCode === "string") setCountryCode(parsed.countryCode);
       if (typeof parsed?.paymentMethod === "string") setPaymentMethod(parsed.paymentMethod);
+      if (typeof parsed?.selectedSavedMethodId === "string") setSelectedSavedMethodId(parsed.selectedSavedMethodId);
     } catch (error) {
       console.warn("Failed to restore checkout draft", error);
     }
@@ -807,13 +903,14 @@ export default function CheckoutNew() {
         phoneNumber,
         countryCode,
         paymentMethod,
+        selectedSavedMethodId,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(checkoutDraftKey, JSON.stringify(draft));
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData, phoneNumber, countryCode, paymentMethod, checkoutDraftKey, hasCheckoutDraftContent]);
+  }, [formData, phoneNumber, countryCode, paymentMethod, selectedSavedMethodId, checkoutDraftKey, hasCheckoutDraftContent]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -824,6 +921,7 @@ export default function CheckoutNew() {
         phoneNumber,
         countryCode,
         paymentMethod,
+        selectedSavedMethodId,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(checkoutDraftKey, JSON.stringify(draft));
@@ -831,7 +929,7 @@ export default function CheckoutNew() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [formData, phoneNumber, countryCode, paymentMethod, checkoutDraftKey, hasCheckoutDraftContent]);
+  }, [formData, phoneNumber, countryCode, paymentMethod, selectedSavedMethodId, checkoutDraftKey, hasCheckoutDraftContent]);
 
   // Load discount from localStorage or URL
   useEffect(() => {
@@ -1409,6 +1507,178 @@ export default function CheckoutNew() {
   // Check if payment method is a mobile money method (not card or bank)
   const isMobileMoneyMethod = paymentMethod !== 'card' && paymentMethod !== 'bank';
 
+  const savedCardMethods = useMemo(
+    () => savedPaymentMethods.filter((method) => method.method_type === 'card' && method.is_active),
+    [savedPaymentMethods]
+  );
+
+  const savedMobileMethods = useMemo(
+    () => savedPaymentMethods.filter((method) => method.method_type === 'mobile_money' && method.is_active),
+    [savedPaymentMethods]
+  );
+
+  const defaultSavedCardMethod = useMemo(
+    () => savedCardMethods.find((method) => method.is_default) || savedCardMethods[0] || null,
+    [savedCardMethods]
+  );
+
+  const defaultSavedMobileMethod = useMemo(
+    () => savedMobileMethods.find((method) => method.is_default) || savedMobileMethods[0] || null,
+    [savedMobileMethods]
+  );
+
+  const selectedSavedCardMethod = useMemo(
+    () => savedCardMethods.find((method) => method.id === selectedSavedMethodId) || null,
+    [savedCardMethods, selectedSavedMethodId]
+  );
+
+  const findMobileMethodFromSaved = (saved: SavedPaymentMethod) => {
+    const metadata = (saved.metadata && typeof saved.metadata === "object"
+      ? saved.metadata
+      : {}) as Record<string, unknown>;
+
+    const metadataMethodId =
+      typeof metadata.payment_method_id === "string" ? metadata.payment_method_id : null;
+
+    if (metadataMethodId) {
+      const exact = PAWAPAY_METHODS.find((method) => method.id === metadataMethodId);
+      if (exact) return exact;
+    }
+
+    const normalizedProvider = (saved.provider || "").toUpperCase();
+    const normalizedCountryCode = normalizeDialCode(saved.country_code);
+    const providerMatches = PAWAPAY_METHODS.filter(
+      (method) => method.provider.toUpperCase() === normalizedProvider
+    );
+
+    if (providerMatches.length === 0) return null;
+    if (!normalizedCountryCode) return providerMatches[0];
+
+    return (
+      providerMatches.find((method) => method.countryCode === normalizedCountryCode) ||
+      providerMatches[0]
+    );
+  };
+
+  const applySavedMobileMethod = (saved: SavedPaymentMethod) => {
+    const matchedMethod = findMobileMethodFromSaved(saved);
+
+    if (matchedMethod) {
+      setLastMobileMethod(matchedMethod.id);
+      setPaymentMethod(matchedMethod.id);
+      setCountryCode(matchedMethod.countryCode);
+      setCurrency(matchedMethod.currency as any);
+    }
+
+    const localDigits = toLocalPhoneDigits(
+      saved.phone_number,
+      matchedMethod?.countryCode || normalizeDialCode(saved.country_code) || countryCode
+    );
+
+    if (localDigits) {
+      setPhoneNumber(localDigits);
+    }
+
+    setSelectedSavedMethodId(saved.id);
+    setShowContactModal(false);
+  };
+
+  const applySavedPaymentMethod = (saved: SavedPaymentMethod) => {
+    if (saved.method_type === 'card') {
+      if (isMobileMoneyMethod) setLastMobileMethod(paymentMethod);
+      setPaymentMethod('card');
+      setSelectedSavedMethodId(saved.id);
+      setShowContactModal(false);
+
+      const normalizedBillingCountry =
+        saved.country_code && /^[A-Za-z]{2}$/.test(saved.country_code)
+          ? saved.country_code.toUpperCase()
+          : null;
+
+      if (normalizedBillingCountry) {
+        setFormData((prev) => ({ ...prev, billingCountry: normalizedBillingCountry }));
+      }
+      return;
+    }
+
+    applySavedMobileMethod(saved);
+  };
+
+  useEffect(() => {
+    if (!user?.id || savedMethodsLoading || savedDefaultsApplied) return;
+
+    if (savedPaymentMethods.length === 0) {
+      setSavedDefaultsApplied(true);
+      return;
+    }
+
+    if (isMobileMoneyMethod && !phoneNumber.trim() && defaultSavedMobileMethod) {
+      const metadata = (defaultSavedMobileMethod.metadata && typeof defaultSavedMobileMethod.metadata === "object"
+        ? defaultSavedMobileMethod.metadata
+        : {}) as Record<string, unknown>;
+      const metadataMethodId =
+        typeof metadata.payment_method_id === "string" ? metadata.payment_method_id : null;
+
+      const provider = (defaultSavedMobileMethod.provider || "").toUpperCase();
+      const providerMatches = PAWAPAY_METHODS.filter(
+        (method) => method.provider.toUpperCase() === provider
+      );
+
+      const matchedMethod = metadataMethodId
+        ? (PAWAPAY_METHODS.find((method) => method.id === metadataMethodId) || null)
+        : null;
+
+      const fallbackMatch =
+        matchedMethod ||
+        providerMatches.find(
+          (method) => method.countryCode === normalizeDialCode(defaultSavedMobileMethod.country_code)
+        ) ||
+        providerMatches[0] ||
+        null;
+
+      if (fallbackMatch) {
+        setLastMobileMethod(fallbackMatch.id);
+        setPaymentMethod(fallbackMatch.id);
+        setCountryCode(fallbackMatch.countryCode);
+        setCurrency(fallbackMatch.currency as any);
+      }
+
+      const localDigits = toLocalPhoneDigits(
+        defaultSavedMobileMethod.phone_number,
+        fallbackMatch?.countryCode || normalizeDialCode(defaultSavedMobileMethod.country_code) || countryCode
+      );
+
+      if (localDigits) {
+        setPhoneNumber(localDigits);
+      }
+
+      setSelectedSavedMethodId(defaultSavedMobileMethod.id);
+      setShowContactModal(false);
+      setSavedDefaultsApplied(true);
+      return;
+    }
+
+    if (paymentMethod === 'card' && defaultSavedCardMethod) {
+      setSelectedSavedMethodId(defaultSavedCardMethod.id);
+      setSavedDefaultsApplied(true);
+      return;
+    }
+
+    setSavedDefaultsApplied(true);
+  }, [
+    user?.id,
+    savedMethodsLoading,
+    savedDefaultsApplied,
+    savedPaymentMethods,
+    isMobileMoneyMethod,
+    phoneNumber,
+    countryCode,
+    defaultSavedMobileMethod,
+    paymentMethod,
+    defaultSavedCardMethod,
+    setCurrency,
+  ]);
+
   // Only show methods relevant to detected region (single-country fallback when region is unavailable)
   const visibleMobileMoneyCountries = useMemo(() => {
     const singleCountry = (countryName?: string) => {
@@ -1773,6 +2043,10 @@ export default function CheckoutNew() {
           payment_type: paymentType,
           total_participants: hasGroupBooking ? tourParticipants : 1,
           group_total: hasGroupBooking ? total : null,
+          selected_payment_method_id: paymentMethod,
+          selected_saved_payment_method_id: selectedSavedMethodId,
+          payment_country_code: isMobileMoneyMethod ? countryCode : null,
+          save_payment_method: Boolean(user),
           payment_provider: (() => {
             if (paymentMethod === 'card') return 'FLUTTERWAVE';
             if (paymentMethod === 'bank') return 'BANK_TRANSFER';
@@ -1920,6 +2194,7 @@ export default function CheckoutNew() {
             metadata: {
               item_count: cartItems.length,
               payment_type: paymentType,
+              selected_saved_payment_method_id: selectedSavedMethodId,
             },
           }),
         });
@@ -2340,8 +2615,14 @@ export default function CheckoutNew() {
                     {isAfricanRegion === true && (
                     <button
                       onClick={() => {
+                        if (defaultSavedMobileMethod) {
+                          applySavedMobileMethod(defaultSavedMobileMethod);
+                          return;
+                        }
+
                         const nextMethod = isMobileMoneyMethod ? paymentMethod : lastMobileMethod;
                         setPaymentMethod(nextMethod || geoDefaults?.method || 'mtn_rwa');
+                        setSelectedSavedMethodId(null);
                         setShowContactModal(false);
                       }}
                       className={cn(
@@ -2365,6 +2646,7 @@ export default function CheckoutNew() {
                       onClick={() => {
                         if (isMobileMoneyMethod) setLastMobileMethod(paymentMethod);
                         setPaymentMethod('card');
+                        setSelectedSavedMethodId(defaultSavedCardMethod?.id || null);
                         setShowContactModal(false);
                       }}
                       className={cn(
@@ -2398,6 +2680,7 @@ export default function CheckoutNew() {
                       onClick={() => {
                         if (isMobileMoneyMethod) setLastMobileMethod(paymentMethod);
                         setPaymentMethod('bank');
+                        setSelectedSavedMethodId(null);
                         setShowContactModal(true);
                       }}
                       className={cn(
@@ -2418,6 +2701,70 @@ export default function CheckoutNew() {
                       </div>
                     </button>
                   </div>
+
+                  {user && (savedMethodsLoading || savedPaymentMethods.length > 0) && (
+                    <div className="rounded-xl border border-border bg-card p-3 md:p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-foreground" />
+                          <p className="text-sm font-medium text-foreground">Saved payment methods</p>
+                        </div>
+                        {savedMethodsLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                      </div>
+
+                      {!savedMethodsLoading && (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {savedPaymentMethods.slice(0, 4).map((savedMethod) => {
+                            const isCardMethod = savedMethod.method_type === 'card';
+                            const isSelected = selectedSavedMethodId === savedMethod.id;
+                            const title = isCardMethod
+                              ? (savedMethod.display_name || `${savedMethod.card_brand || 'Card'}${savedMethod.card_last4 ? ` •••• ${savedMethod.card_last4}` : ''}`)
+                              : (savedMethod.display_name || `${savedMethod.provider} Mobile Money`);
+                            const subtitle = isCardMethod
+                              ? (savedMethod.card_expiry ? `Exp ${savedMethod.card_expiry}` : 'Secure card vault')
+                              : `${savedMethod.country_code || ''} ${maskPhoneNumber(savedMethod.phone_number)}`.trim();
+
+                            return (
+                              <button
+                                key={savedMethod.id}
+                                type="button"
+                                onClick={() => applySavedPaymentMethod(savedMethod)}
+                                className={cn(
+                                  "rounded-lg border p-3 text-left transition-all",
+                                  isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">{title}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{subtitle || 'Saved method'}</p>
+                                  </div>
+                                  {isCardMethod ? (
+                                    <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
+                                  ) : (
+                                    <Smartphone className="w-4 h-4 text-muted-foreground shrink-0" />
+                                  )}
+                                </div>
+                                {savedMethod.is_default && (
+                                  <span className="inline-flex mt-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                    Default
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {!savedMethodsLoading && savedPaymentMethods.length > 4 && (
+                        <p className="text-xs text-muted-foreground">Showing your 4 most recent methods.</p>
+                      )}
+
+                      <p className="text-xs text-muted-foreground">
+                        Saved cards are stored as masked details and provider tokens only. CVV is never stored.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Payment Methods by Country */}
                   {isMobileMoneyMethod && <div className="space-y-4">
@@ -2462,6 +2809,7 @@ export default function CheckoutNew() {
                                     setPaymentMethod(method.id);
                                     setCountryCode(method.countryCode);
                                     setCurrency(method.currency as any);
+                                    setSelectedSavedMethodId(null);
                                   }}
                                   className={cn(
                                     "border-2 rounded-lg p-2.5 text-center transition-all",
@@ -2513,6 +2861,13 @@ export default function CheckoutNew() {
                           ))}
                         </div>
                       </div>
+
+                      {selectedSavedCardMethod && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                          Using saved card: {selectedSavedCardMethod.display_name || `${selectedSavedCardMethod.card_brand || 'Card'}${selectedSavedCardMethod.card_last4 ? ` •••• ${selectedSavedCardMethod.card_last4}` : ''}`}
+                          {selectedSavedCardMethod.card_expiry ? ` (Exp ${selectedSavedCardMethod.card_expiry})` : ''}
+                        </div>
+                      )}
 
                       {/* USD amount badge */}
                       {(() => {
@@ -2638,7 +2993,10 @@ export default function CheckoutNew() {
                               id="phone"
                               type="tel"
                               value={phoneNumber}
-                              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                              onChange={(e) => {
+                                setPhoneNumber(e.target.value.replace(/\D/g, ''));
+                                setSelectedSavedMethodId(null);
+                              }}
                               placeholder="78XXXXXXX"
                               className="pl-10 h-11"
                             />
@@ -2761,12 +3119,18 @@ export default function CheckoutNew() {
                                   {selectedMethodInfo.name}
                                 </span>
                               )}
-                              {paymentMethod === 'card' && 'Credit / Debit Card'}
+                              {paymentMethod === 'card' && (
+                                selectedSavedCardMethod?.display_name ||
+                                `${selectedSavedCardMethod?.card_brand || 'Credit / Debit Card'}${selectedSavedCardMethod?.card_last4 ? ` •••• ${selectedSavedCardMethod.card_last4}` : ''}`
+                              )}
                               {paymentMethod === 'bank' && 'Bank Transfer'}
                               {!isMobileMoney && paymentMethod !== 'card' && paymentMethod !== 'bank' && 'No payment method selected'}
                             </p>
                             {isMobileMoney && (
                               <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
+                            )}
+                            {paymentMethod === 'card' && selectedSavedCardMethod?.card_expiry && (
+                              <p className="text-sm text-muted-foreground">Exp {selectedSavedCardMethod.card_expiry}</p>
                             )}
                             {(paymentMethod === 'card' || paymentMethod === 'bank') && (
                               <p className="text-sm text-muted-foreground">
