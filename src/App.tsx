@@ -68,6 +68,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 import ScrollToTop from "@/components/ScrollToTop";
+import MomoGeoPopup from "@/components/MomoGeoPopup";
 const SupportCenterLauncher = lazy(() => import("@/components/SupportCenterLauncher"));
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useDataPersistence } from "@/hooks/useDataPersistence";
@@ -456,6 +457,7 @@ const App = () => (
             <Suspense fallback={null}>
               <SupportCenterLauncher />
             </Suspense>
+            <MomoGeoPopup />
             <RouteSeoManager />
             <WebAnalyticsManager />
             <RoutePrefetch />
