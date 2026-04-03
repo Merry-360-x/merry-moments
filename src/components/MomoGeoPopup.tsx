@@ -103,6 +103,20 @@ export default function MomoGeoPopup() {
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 Pay securely with your local mobile money wallet and confirm your booking fast.
               </p>
+              <div className="pt-1 flex items-center gap-2">
+                <img
+                  src="/payment-icons/mtn-momo.png"
+                  alt="MTN Mobile Money"
+                  className="h-4 w-auto rounded-sm border border-slate-200 dark:border-slate-700"
+                  loading="lazy"
+                />
+                <img
+                  src="/payment-icons/airtel-money.png"
+                  alt="Airtel Money"
+                  className="h-4 w-auto rounded-sm border border-slate-200 dark:border-slate-700"
+                  loading="lazy"
+                />
+              </div>
             </div>
 
             <div className="mt-4 flex items-center gap-2">
