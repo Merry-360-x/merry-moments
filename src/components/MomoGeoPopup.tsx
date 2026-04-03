@@ -97,9 +97,6 @@ export default function MomoGeoPopup() {
             </button>
 
             <div className="space-y-1.5 pr-12">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-                Mobile money available
-              </p>
               <h3 className="text-base font-semibold leading-tight text-slate-900">
                 Book with momo in minutes
               </h3>
