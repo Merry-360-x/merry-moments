@@ -28,6 +28,33 @@ function safeNum(x) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+function parsePawaPayDepositPayload(payload) {
+  if (Array.isArray(payload)) return payload[0] || {};
+  if (payload && typeof payload === "object") return payload;
+  return {};
+}
+
+function extractPawaPayFailure(payload, fallbackStatus) {
+  const depositPayload = parsePawaPayDepositPayload(payload);
+
+  const code = depositPayload?.rejectionReason?.rejectionCode ||
+    depositPayload?.failureReason?.failureCode ||
+    depositPayload?.failureReason?.code ||
+    depositPayload?.correspondentError?.code ||
+    depositPayload?.errorCode ||
+    null;
+
+  const message = depositPayload?.rejectionReason?.rejectionMessage ||
+    depositPayload?.failureReason?.failureMessage ||
+    depositPayload?.failureReason?.message ||
+    depositPayload?.correspondentError?.message ||
+    depositPayload?.errorMessage ||
+    depositPayload?.message ||
+    (fallbackStatus ? `Payment ${String(fallbackStatus).toLowerCase()}` : null);
+
+  return { code, message };
+}
+
 /**
  * Vercel serverless function to initiate PawaPay mobile money payment
  * 
@@ -222,14 +249,18 @@ export default async function handler(req, res) {
       if (cleanPhone.startsWith(prefix)) { countryCode = code; break; }
     }
     
-    const correspondentKey = `${provider}_${countryCode}`;
-    const correspondent = correspondentMap[correspondentKey] || correspondentMap[provider];
+    const providerKey = String(provider || "").trim();
+    const providerNormalized = providerKey.toUpperCase();
+    const correspondentKey = `${providerNormalized}_${countryCode}`;
+    const correspondent = correspondentMap[correspondentKey] ||
+      correspondentMap[providerNormalized] ||
+      correspondentMap[providerKey];
     
     if (!correspondent) {
-      return json(res, 400, { error: `Unsupported payment provider: ${provider} for country code ${countryCode}` });
+      return json(res, 400, { error: `Unsupported payment provider: ${providerKey || "unknown"} for country code ${countryCode}` });
     }
     
-    console.log("🌍 Payment country:", { countryCode, provider, correspondentKey, correspondent });
+    console.log("🌍 Payment country:", { countryCode, provider: providerNormalized, correspondentKey, correspondent });
 
     // Fetch checkout details from database
     const { data: checkout, error: checkoutError } = await supabase
@@ -283,9 +314,6 @@ export default async function handler(req, res) {
       country: phoneInfo.name
     });
 
-    // Generate unique deposit ID - must be a valid UUID
-    const depositId = crypto.randomUUID();
-
     // Format phone number properly for PawaPay
     // Already have cleanPhone from country detection above
     
@@ -313,162 +341,195 @@ export default async function handler(req, res) {
     
     console.log("📱 Phone number processed:", { original: phoneNumber, final: msisdn, country: phoneInfo.name });
 
-    // Create PawaPay deposit request
-    const pawaPayRequest = {
-      depositId,
-      amount: String(paymentAmount),
-      currency,
-      correspondent,
-      payer: {
-        type: "MSISDN",
-        address: {
-          value: msisdn
-        }
-      },
-      customerTimestamp: new Date().toISOString(),
-      // PawaPay requires statement description to be 22 chars or less
-      statementDescription: "Merry360x",
-      metadata: [
-        { fieldName: "checkoutId", fieldValue: orderId },
-        { fieldName: "customerName", fieldValue: safeStr(payerName, 100) },
-        { fieldName: "customerEmail", fieldValue: safeStr(payerEmail, 100), isPII: true }
-      ]
+    const submitPawaPayDeposit = async (depositIdValue, correspondentValue) => {
+      const requestPayload = {
+        depositId: depositIdValue,
+        amount: String(paymentAmount),
+        currency,
+        correspondent: correspondentValue,
+        payer: {
+          type: "MSISDN",
+          address: { value: msisdn }
+        },
+        customerTimestamp: new Date().toISOString(),
+        // PawaPay requires statement description to be 22 chars or less
+        statementDescription: "Merry360x",
+        metadata: [
+          { fieldName: "checkoutId", fieldValue: orderId },
+          { fieldName: "customerName", fieldValue: safeStr(payerName, 100) },
+          { fieldName: "customerEmail", fieldValue: safeStr(payerEmail, 100), isPII: true }
+        ]
+      };
+
+      console.log("Creating PawaPay deposit:", JSON.stringify(requestPayload, null, 2));
+      console.log("Phone number being sent:", msisdn);
+      console.log("Amount:", paymentAmount, currency);
+      console.log("Correspondent:", correspondentValue);
+
+      const providerResponse = await fetch(`${PAWAPAY_BASE_URL}/deposits`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${PAWAPAY_API_KEY}`
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      const responseText = await providerResponse.text();
+      console.log("PawaPay response status:", providerResponse.status);
+      console.log("PawaPay response:", responseText);
+      console.log("PawaPay API URL:", PAWAPAY_BASE_URL);
+
+      let rawPayload;
+      try {
+        rawPayload = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse PawaPay response:", e);
+        throw new Error(`Unable to parse provider response: ${responseText.substring(0, 200)}`);
+      }
+
+      const depositPayload = parsePawaPayDepositPayload(rawPayload);
+      return {
+        ok: providerResponse.ok,
+        statusCode: providerResponse.status,
+        rawPayload,
+        depositPayload,
+      };
     };
 
-    console.log("Creating PawaPay deposit:", JSON.stringify(pawaPayRequest, null, 2));
-    console.log("Phone number being sent:", msisdn);
-    console.log("Amount:", paymentAmount, currency);
-    console.log("Provider:", correspondent);
+    let selectedProvider = providerNormalized;
+    let selectedCorrespondent = correspondent;
+    let selectedDepositId = crypto.randomUUID();
 
-    // Call PawaPay API
-    const pawaPayResponse = await fetch(`${PAWAPAY_BASE_URL}/deposits`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${PAWAPAY_API_KEY}`
-      },
-      body: JSON.stringify(pawaPayRequest)
-    });
+    let providerAttempt = await submitPawaPayDeposit(selectedDepositId, selectedCorrespondent);
+    let pawaPayData = providerAttempt.depositPayload;
+    let rawProviderPayload = providerAttempt.rawPayload;
 
-    const responseText = await pawaPayResponse.text();
-    console.log("PawaPay response status:", pawaPayResponse.status);
-    console.log("PawaPay response:", responseText);
-    console.log("PawaPay API URL:", PAWAPAY_BASE_URL);
-
-    let pawaPayData;
-    try {
-      pawaPayData = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse PawaPay response:", e);
-      return json(res, 500, { 
-        error: "Payment provider error", 
-        details: responseText.substring(0, 200)
-      });
-    }
-
-    // Log the full response for debugging
-    console.log("📥 PawaPay full response:", JSON.stringify(pawaPayData, null, 2));
-    console.log("📥 Response status:", pawaPayResponse.status);
-    console.log("📥 Response keys:", Object.keys(pawaPayData || {}));
-
-    if (!pawaPayResponse.ok) {
-      console.error("❌ PawaPay API error:", pawaPayData);
-      
-      // Return detailed error to help debug
-      return json(res, pawaPayResponse.status, { 
+    if (!providerAttempt.ok) {
+      console.error("❌ PawaPay API error:", rawProviderPayload);
+      return json(res, providerAttempt.statusCode, {
         error: pawaPayData.errorMessage || "Payment initiation failed",
         code: pawaPayData.errorCode,
-        details: pawaPayData,
+        details: rawProviderPayload,
         debugInfo: {
           phone: msisdn,
           amount: paymentAmount,
-          correspondent,
-          depositId
+          correspondent: selectedCorrespondent,
+          depositId: selectedDepositId,
         }
       });
     }
 
-    // Check if payment was immediately rejected
-    const initialStatus = pawaPayData.status;
-    const rejectionReason = pawaPayData.failureReason;
-    const rejectionCode = pawaPayData.rejectionReason?.rejectionCode || 
-                          pawaPayData.failureReason?.failureCode ||
-                          pawaPayData.correspondentError?.code ||
-                          null;
-    
+    let initialStatus = String(pawaPayData.status || "").toUpperCase();
+    let { code: rejectionCode, message: rejectionMessage } = extractPawaPayFailure(pawaPayData, initialStatus);
+
+    const canFallbackRwandaProvider =
+      (initialStatus === "REJECTED" || initialStatus === "FAILED") &&
+      countryCode === "250" &&
+      ["MTN", "AIRTEL"].includes(selectedProvider) &&
+      ["PAYER_NOT_FOUND", "INVALID_PAYER"].includes(String(rejectionCode || "").toUpperCase());
+
+    if (canFallbackRwandaProvider) {
+      const alternateProvider = selectedProvider === "MTN" ? "AIRTEL" : "MTN";
+      const alternateCorrespondent = correspondentMap[`${alternateProvider}_${countryCode}`];
+
+      if (alternateCorrespondent) {
+        console.warn("⚠️ Initial provider rejected payer, retrying with alternate provider", {
+          countryCode,
+          originalProvider: selectedProvider,
+          alternateProvider,
+          rejectionCode,
+        });
+
+        const fallbackDepositId = crypto.randomUUID();
+        const fallbackAttempt = await submitPawaPayDeposit(fallbackDepositId, alternateCorrespondent);
+
+        if (fallbackAttempt.ok) {
+          selectedProvider = alternateProvider;
+          selectedCorrespondent = alternateCorrespondent;
+          selectedDepositId = fallbackDepositId;
+          providerAttempt = fallbackAttempt;
+          pawaPayData = fallbackAttempt.depositPayload;
+          rawProviderPayload = fallbackAttempt.rawPayload;
+          initialStatus = String(pawaPayData.status || "").toUpperCase();
+          ({ code: rejectionCode, message: rejectionMessage } = extractPawaPayFailure(pawaPayData, initialStatus));
+        }
+      }
+    }
+
+    // Log the full response for debugging
+    console.log("📥 PawaPay normalized payload:", JSON.stringify(pawaPayData, null, 2));
+    console.log("📥 Raw provider payload:", JSON.stringify(rawProviderPayload, null, 2));
+    console.log("📥 Response status:", providerAttempt.statusCode);
+
     console.log("📊 Payment status check:", {
       status: initialStatus,
-      hasFailureReason: !!rejectionReason,
-      failureReason: rejectionReason,
-      rejectionCode: rejectionCode,
-      fullResponse: pawaPayData
+      hasFailureReason: Boolean(rejectionCode || rejectionMessage),
+      failureReason: rejectionMessage,
+      rejectionCode,
+      selectedProvider,
+      selectedCorrespondent,
+      fullResponse: pawaPayData,
     });
-    
-    if (initialStatus === 'REJECTED' || initialStatus === 'FAILED') {
+
+    const paymentMethodValue = selectedProvider === "MTN"
+      ? "mtn_momo"
+      : selectedProvider === "AIRTEL"
+        ? "airtel_money"
+        : "mobile_money";
+
+    if (initialStatus === "REJECTED" || initialStatus === "FAILED") {
       console.error(`⚠️ Payment immediately ${initialStatus} by PawaPay!`);
       console.error("Full PawaPay response:", JSON.stringify(pawaPayData, null, 2));
-      console.error("Correspondent:", correspondent);
+      console.error("Correspondent:", selectedCorrespondent);
       console.error("Phone:", msisdn);
       console.error("Amount:", paymentAmount, currency);
-      
-      // Extract the actual failure reason from PawaPay - check ALL possible locations
-      let failureCode = pawaPayData.rejectionReason?.rejectionCode ||
-                        pawaPayData.failureReason?.failureCode || 
-                        pawaPayData.failureReason?.code ||
-                        pawaPayData.correspondentError?.code ||
-                        pawaPayData.errorCode ||
-                        'UNKNOWN';
-      
-      let failureMsg = pawaPayData.rejectionReason?.rejectionMessage ||
-                       pawaPayData.failureReason?.failureMessage || 
-                       pawaPayData.failureReason?.message ||
-                       pawaPayData.correspondentError?.message ||
-                       pawaPayData.errorMessage ||
-                       pawaPayData.message ||
-                       `Payment ${initialStatus.toLowerCase()}`;
-      
+
+      const failureCode = String(rejectionCode || "UNKNOWN").toUpperCase();
+      const failureMsg = rejectionMessage || `Payment ${initialStatus.toLowerCase()}`;
+
       console.error(`Extracted Failure Code: ${failureCode}`);
       console.error(`Extracted Failure Message: ${failureMsg}`);
-      
+
       // User-friendly messages for common codes
       const userMessages = {
-        'PAYER_NOT_FOUND': 'The phone number is not registered for mobile money. Please check the number and try again.',
-        'PAYER_LIMIT_REACHED': 'Transaction limit reached on your mobile money account. Please try a smaller amount or try again later.',
-        'INSUFFICIENT_BALANCE': 'Insufficient balance in your mobile money account.',
-        'TRANSACTION_DECLINED': 'The transaction was declined. Please try again or use a different payment method.',
-        'DUPLICATE_TRANSACTION': 'A similar transaction was recently made. Please wait a few minutes before trying again.',
-        'INVALID_PAYER': 'Invalid phone number format. Please enter a valid Rwanda mobile number.',
-        'UNKNOWN': 'Payment could not be completed. Please try again or contact support.'
+        "PAYER_NOT_FOUND": "The phone number is not registered for mobile money. Please check the number and try again.",
+        "PAYER_LIMIT_REACHED": "Transaction limit reached on your mobile money account. Please try a smaller amount or try again later.",
+        "INSUFFICIENT_BALANCE": "Insufficient balance in your mobile money account.",
+        "TRANSACTION_DECLINED": "The transaction was declined. Please try again or use a different payment method.",
+        "DUPLICATE_TRANSACTION": "A similar transaction was recently made. Please wait a few minutes before trying again.",
+        "INVALID_PAYER": "Invalid phone number format. Please enter a valid mobile number.",
+        "UNKNOWN": "Payment could not be completed. Please try again or contact support."
       };
-      
+
       const userMessage = userMessages[failureCode] || failureMsg;
-      
+
       // Update database with actual failure reason
       await supabase
         .from("checkout_requests")
         .update({
-          payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
+          payment_method: paymentMethodValue,
           payment_status: "failed",
           payment_error: `${failureCode}: ${failureMsg}`,
-          dpo_transaction_id: depositId,
+          dpo_transaction_id: selectedDepositId,
           updated_at: new Date().toISOString()
         })
         .eq("id", orderId);
-      
+
       return json(res, 200, {
         success: false,
         error: `Payment ${initialStatus.toLowerCase()}`,
         message: userMessage,
-        failureCode: failureCode,
-        depositId,
+        failureCode,
+        depositId: selectedDepositId,
         status: initialStatus,
         data: {
           checkoutId: orderId,
-          depositId,
-          correspondent,
+          depositId: selectedDepositId,
+          provider: selectedProvider,
+          correspondent: selectedCorrespondent,
           reason: failureCode,
-          details: pawaPayData,
-          rawFailureReason: rejectionReason
+          details: rawProviderPayload,
         }
       });
     }
@@ -477,15 +538,17 @@ export default async function handler(req, res) {
     const { error: updateError } = await supabase
       .from("checkout_requests")
       .update({
-        payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
+        payment_method: paymentMethodValue,
         payment_status: "pending",
-        dpo_transaction_id: depositId, // Reuse this field for PawaPay deposit ID
+        dpo_transaction_id: selectedDepositId, // Reuse this field for PawaPay deposit ID
         metadata: {
           ...checkout.metadata,
-          deposit_id: depositId,
+          deposit_id: selectedDepositId,
           payment_currency: currency,
           original_currency: originalCurrency,
-          payment_amount: paymentAmount
+          payment_amount: paymentAmount,
+          payment_provider: selectedProvider,
+          payment_correspondent: selectedCorrespondent,
         },
         updated_at: new Date().toISOString()
       })
@@ -522,13 +585,13 @@ export default async function handler(req, res) {
         .insert({
           checkout_id: orderId,
           provider: "pawapay",
-          transaction_id: depositId,
+          transaction_id: selectedDepositId,
           amount: paymentAmount,
           currency,
-          status: pawaPayData.status || "SUBMITTED",
-          payment_method: provider === 'MTN' ? 'mtn_momo' : 'airtel_money',
+          status: initialStatus || "SUBMITTED",
+          payment_method: paymentMethodValue,
           phone_number: msisdn,
-          provider_response: pawaPayData,
+          provider_response: rawProviderPayload,
           created_at: new Date().toISOString()
         });
     } catch (txErr) {
@@ -537,17 +600,18 @@ export default async function handler(req, res) {
 
     return json(res, 200, {
       success: true,
-      depositId,
-      status: pawaPayData.status,
+      depositId: selectedDepositId,
+      status: initialStatus || pawaPayData.status,
       message: "Payment initiated. Please complete the transaction on your phone.",
       data: {
         checkoutId: orderId,
-        depositId,
+        depositId: selectedDepositId,
         amount: paymentAmount,
         currency,
         phoneNumber: msisdn,
-        correspondent,
-        status: pawaPayData.status
+        provider: selectedProvider,
+        correspondent: selectedCorrespondent,
+        status: initialStatus || pawaPayData.status
       }
     });
 
