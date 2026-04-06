@@ -67,10 +67,23 @@ type Dispute = {
   created_at: string;
 };
 
+type HostBooking = {
+  id: string;
+  guest_name: string | null;
+  guest_email: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  total_price: number;
+  currency: string;
+  status: string;
+  created_at: string;
+};
+
 type PostBookingOverview = {
   charges: Charge[];
   booking_modifications: BookingModification[];
   disputes: Dispute[];
+  host_bookings: HostBooking[];
 };
 
 type DisputeDialogState = {
@@ -116,9 +129,10 @@ async function postBookingRequest(action: string, body: Record<string, unknown> 
   return payload;
 }
 
-async function fetchUserOverview() {
+async function fetchOverview(forHost = false) {
   const token = await getAccessToken();
-  const response = await fetch("/api/post-booking?action=user-overview", {
+  const action = forHost ? "host-overview" : "user-overview";
+  const response = await fetch(`/api/post-booking?action=${action}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -133,6 +147,7 @@ async function fetchUserOverview() {
     charges: payload.charges || [],
     booking_modifications: payload.booking_modifications || [],
     disputes: payload.disputes || [],
+    host_bookings: payload.host_bookings || [],
   } as PostBookingOverview;
 }
 
@@ -145,7 +160,7 @@ function statusTone(status: string) {
 }
 
 export default function PostBookingCenter() {
-  const { user } = useAuth();
+  const { user, isHost } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -156,6 +171,16 @@ export default function PostBookingCenter() {
     charges: [],
     booking_modifications: [],
     disputes: [],
+    host_bookings: [],
+  });
+
+  const [creatingCharge, setCreatingCharge] = useState(false);
+  const [hostChargeForm, setHostChargeForm] = useState({
+    booking_id: "",
+    charge_type: "extra_service",
+    amount: "",
+    description: "",
+    currency: "RWF",
   });
 
   const [payMethodByCharge, setPayMethodByCharge] = useState<Record<string, string>>({});
@@ -214,6 +239,11 @@ export default function PostBookingCenter() {
     () => overview.disputes.filter((dispute) => ["open", "in_review"].includes(String(dispute.status))).length,
     [overview.disputes]
   );
+  const hostBookingCount = overview.host_bookings.length;
+
+  useEffect(() => {
+    setActiveTab("charges");
+  }, [isHost]);
 
   const loadOverview = useCallback(async (withSpinner = true) => {
     if (!user?.id) return;
@@ -222,7 +252,7 @@ export default function PostBookingCenter() {
     setRefreshing(true);
 
     try {
-      const data = await fetchUserOverview();
+      const data = await fetchOverview(isHost);
       setOverview(data);
     } catch (error) {
       toast({
@@ -234,7 +264,7 @@ export default function PostBookingCenter() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast, user?.id]);
+  }, [isHost, toast, user?.id]);
 
   useEffect(() => {
     if (!user) {
@@ -250,6 +280,59 @@ export default function PostBookingCenter() {
     overview.charges.forEach((charge) => map.set(charge.id, charge));
     return map;
   }, [overview.charges]);
+
+  async function handleHostCreateCharge() {
+    if (!hostChargeForm.booking_id || !hostChargeForm.amount.trim() || !hostChargeForm.description.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing fields",
+        description: "Select booking, amount, and description.",
+      });
+      return;
+    }
+
+    const amount = Number(hostChargeForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Invalid amount",
+        description: "Enter a valid charge amount greater than zero.",
+      });
+      return;
+    }
+
+    setCreatingCharge(true);
+    try {
+      await postBookingRequest("create-charge", {
+        booking_id: hostChargeForm.booking_id,
+        charge_type: hostChargeForm.charge_type,
+        amount,
+        description: hostChargeForm.description.trim(),
+        currency: hostChargeForm.currency,
+      });
+
+      toast({
+        title: "Charge created",
+        description: "Guest was notified and can pay from post-booking center.",
+      });
+
+      setHostChargeForm((prev) => ({
+        ...prev,
+        amount: "",
+        description: "",
+      }));
+
+      await loadOverview(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not create charge",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setCreatingCharge(false);
+    }
+  }
 
   async function handlePayCharge(charge: Charge) {
     const method = payMethodByCharge[charge.id] || "card";
@@ -457,11 +540,15 @@ export default function PostBookingCenter() {
             <div className="space-y-2">
               <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/80">
                 <Sparkles className="h-3.5 w-3.5" />
-                Post-Booking Center
+                {isHost ? "Host Post-Booking" : "Post-Booking Center"}
               </p>
-              <h1 className="text-2xl lg:text-3xl font-semibold">Payments, Changes, and Resolution</h1>
+              <h1 className="text-2xl lg:text-3xl font-semibold">
+                {isHost ? "Charges and Collection" : "Payments, Changes, and Resolution"}
+              </h1>
               <p className="text-white/80 max-w-2xl text-sm lg:text-base">
-                Review extra charges, approve booking changes, and settle disputes in one secure flow.
+                {isHost
+                  ? "Create additional charges for your bookings and track payment status only for your guests."
+                  : "Review extra charges, approve booking changes, and settle disputes in one secure flow."}
               </p>
             </div>
             <Button
@@ -494,9 +581,9 @@ export default function PostBookingCenter() {
             <CardHeader className="pb-3">
               <CardDescription className="flex items-center gap-2 text-amber-600">
                 <ShieldAlert className="w-4 h-4" />
-                Open Disputes
+                {isHost ? "Your Bookings" : "Open Disputes"}
               </CardDescription>
-              <CardTitle className="text-2xl">{openDisputesCount}</CardTitle>
+              <CardTitle className="text-2xl">{isHost ? hostBookingCount : openDisputesCount}</CardTitle>
             </CardHeader>
           </Card>
 
@@ -505,8 +592,14 @@ export default function PostBookingCenter() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
             <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="modifications">Modifications</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="disputes">Resolution Center</TabsTrigger>
+            {isHost ? (
+              <TabsTrigger className="shrink-0" value="create-charge">Create Charge</TabsTrigger>
+            ) : (
+              <>
+                <TabsTrigger className="shrink-0" value="modifications">Modifications</TabsTrigger>
+                <TabsTrigger className="shrink-0" value="disputes">Resolution Center</TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           <TabsContent value="charges" className="mt-6 space-y-4">
@@ -554,7 +647,7 @@ export default function PostBookingCenter() {
                         </div>
                       </div>
 
-                      {charge.status === "pending" && (
+                      {!isHost && charge.status === "pending" && (
                         <div className="rounded-lg border border-border p-3 space-y-3">
                           <Label className="text-sm font-medium">Choose payment method</Label>
                           <div className="grid gap-2 sm:grid-cols-2">
@@ -676,6 +769,99 @@ export default function PostBookingCenter() {
             )}
           </TabsContent>
 
+          {isHost && (
+            <TabsContent value="create-charge" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create additional charge</CardTitle>
+                  <CardDescription>
+                    Select one of your bookings and send an extra charge request to the guest.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Booking</Label>
+                      <select
+                        value={hostChargeForm.booking_id}
+                        onChange={(event) => {
+                          const bookingId = event.target.value;
+                          const booking = overview.host_bookings.find((item) => item.id === bookingId);
+                          setHostChargeForm((prev) => ({
+                            ...prev,
+                            booking_id: bookingId,
+                            currency: booking?.currency || prev.currency,
+                          }));
+                        }}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">Select booking</option>
+                        {overview.host_bookings.map((booking) => (
+                          <option key={booking.id} value={booking.id}>
+                            {String(booking.id).slice(0, 8).toUpperCase()} - {(booking.guest_name || "Guest").trim() || "Guest"} - {formatMoney(booking.total_price, booking.currency)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Charge type</Label>
+                      <select
+                        value={hostChargeForm.charge_type}
+                        onChange={(event) => setHostChargeForm((prev) => ({ ...prev, charge_type: event.target.value }))}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="damage">Damage</option>
+                        <option value="late_fee">Late fee</option>
+                        <option value="extra_service">Extra service</option>
+                        <option value="upgrade">Upgrade</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Amount</Label>
+                      <Input
+                        value={hostChargeForm.amount}
+                        onChange={(event) => setHostChargeForm((prev) => ({ ...prev, amount: event.target.value }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Currency</Label>
+                      <select
+                        value={hostChargeForm.currency}
+                        onChange={(event) => setHostChargeForm((prev) => ({ ...prev, currency: event.target.value }))}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="RWF">RWF</option>
+                        <option value="EUR">EUR</option>
+                        <option value="KES">KES</option>
+                        <option value="UGX">UGX</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={hostChargeForm.description}
+                      onChange={(event) => setHostChargeForm((prev) => ({ ...prev, description: event.target.value }))}
+                      placeholder="Explain why this additional charge is needed"
+                      rows={3}
+                    />
+                  </div>
+
+                  <Button onClick={() => void handleHostCreateCharge()} disabled={creatingCharge}>
+                    {creatingCharge ? "Creating..." : "Create charge"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {!isHost && (
           <TabsContent value="modifications" className="mt-6 space-y-4">
             {overview.booking_modifications.length === 0 ? (
               <Card>
@@ -757,7 +943,9 @@ export default function PostBookingCenter() {
               })
             )}
           </TabsContent>
+          )}
 
+          {!isHost && (
           <TabsContent value="disputes" className="mt-6 space-y-4">
             {overview.disputes.length === 0 ? (
               <Card>
@@ -800,10 +988,12 @@ export default function PostBookingCenter() {
               ))
             )}
           </TabsContent>
+          )}
 
         </Tabs>
       </div>
 
+      {!isHost && (
       <Dialog open={disputeDialog.open} onOpenChange={(open) => setDisputeDialog((prev) => ({ ...prev, open }))}>
         <DialogContent>
           <DialogHeader>
@@ -846,6 +1036,7 @@ export default function PostBookingCenter() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       <Footer />
     </div>

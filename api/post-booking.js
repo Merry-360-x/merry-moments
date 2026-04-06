@@ -72,6 +72,10 @@ function isAdminOrStaffRole(role) {
   return ["admin", "financial_staff", "operations_staff", "customer_support"].includes(String(role || "").toLowerCase());
 }
 
+function isHostRole(role) {
+  return String(role || "").toLowerCase() === "host";
+}
+
 function readableMoney(amount, currency = "USD") {
   const n = safeAmount(amount);
   try {
@@ -125,12 +129,19 @@ async function authenticate(req) {
     userEmail: email,
     roles,
     isAdminOrStaff: roles.some(isAdminOrStaffRole),
+    isHost: roles.some(isHostRole),
   };
 }
 
 function requireAdminOrStaff(auth) {
   if (!auth?.isAdminOrStaff) {
     throw Object.assign(new Error("Forbidden: admin or staff role required"), { status: 403 });
+  }
+}
+
+function requireHost(auth) {
+  if (!auth?.isHost) {
+    throw Object.assign(new Error("Forbidden: host role required"), { status: 403 });
   }
 }
 
@@ -455,6 +466,93 @@ async function sendGuestPostBookingPaidEmail({ adminClient, charge, method }) {
   });
 }
 
+async function sendHostPostBookingPaidEmail({ adminClient, charge, method }) {
+  const { data: booking } = await adminClient
+    .from("bookings")
+    .select("id, host_id, guest_name")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  if (!booking?.host_id) return;
+
+  const { data: hostProfile } = await adminClient
+    .from("profiles")
+    .select("email, full_name")
+    .eq("user_id", booking.host_id)
+    .maybeSingle();
+
+  const targetEmail = safeStr(hostProfile?.email, 160);
+  if (!targetEmail) return;
+
+  const amountLabel = readableMoney(charge.amount, charge.currency || "USD");
+  const html = renderMinimalEmail({
+    eyebrow: "Payment Notice",
+    title: "Post-booking charge paid",
+    subtitle: "A guest completed a post-booking payment for your booking.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: escapeHtml(paymentMethodLabel(method)) },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Guest", value: escapeHtml(safeStr(booking.guest_name || "Guest", 120) || "Guest") },
+    ]),
+    ctaText: "Open Host Dashboard",
+    ctaUrl: appUrl("/host-dashboard"),
+  });
+
+  await sendEmailNotification({
+    toEmail: targetEmail,
+    toName: safeStr(hostProfile?.full_name || "Host", 120) || "Host",
+    subject: `Post-booking payment received - ${amountLabel}`,
+    html,
+    tags: ["post-booking", "host-notice", "payment-confirmation"],
+  });
+}
+
+async function sendAdminPostBookingPaidEmail({ adminClient, charge, method }) {
+  const { data: adminRoleRows } = await adminClient
+    .from("user_roles")
+    .select("user_id, role")
+    .in("role", ["admin", "financial_staff", "operations_staff", "customer_support"]);
+
+  const adminIds = Array.from(new Set((adminRoleRows || []).map((row) => String(row.user_id || "")).filter(Boolean)));
+  if (!adminIds.length) return;
+
+  const { data: adminProfiles } = await adminClient
+    .from("profiles")
+    .select("user_id, email, full_name")
+    .in("user_id", adminIds);
+
+  const amountLabel = readableMoney(charge.amount, charge.currency || "USD");
+
+  const html = renderMinimalEmail({
+    eyebrow: "Post-booking Alert",
+    title: "Post-booking payment completed",
+    subtitle: "A post-booking charge was paid successfully.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: escapeHtml(paymentMethodLabel(method)) },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Status", value: "Paid" },
+    ]),
+    ctaText: "Open Post-Booking Console",
+    ctaUrl: appUrl("/admin/post-booking"),
+  });
+
+  for (const admin of adminProfiles || []) {
+    const targetEmail = safeStr(admin?.email, 160);
+    if (!targetEmail) continue;
+    await sendEmailNotification({
+      toEmail: targetEmail,
+      toName: safeStr(admin?.full_name || "Admin", 120) || "Admin",
+      subject: `Post-booking payment completed - ${amountLabel}`,
+      html,
+      tags: ["post-booking", "admin-notice", "payment-confirmation"],
+    });
+  }
+}
+
 async function reconcileChargesFromCheckout({ adminClient, charges }) {
   const rows = Array.isArray(charges) ? charges : [];
   if (!rows.length) return rows;
@@ -518,6 +616,8 @@ async function reconcileChargesFromCheckout({ adminClient, charges }) {
 
         await ensureHostAdjustmentForPostBookingCharge({ adminClient, charge: updated }).catch(() => null);
         await sendGuestPostBookingPaidEmail({ adminClient, charge: updated, method }).catch(() => null);
+        await sendHostPostBookingPaidEmail({ adminClient, charge: updated, method }).catch(() => null);
+        await sendAdminPostBookingPaidEmail({ adminClient, charge: updated, method }).catch(() => null);
       }
       continue;
     }
@@ -546,6 +646,75 @@ async function reconcileChargesFromCheckout({ adminClient, charges }) {
   if (!updatedChargeById.size) return rows;
 
   return rows.map((charge) => updatedChargeById.get(charge.id) || charge);
+}
+
+async function listHostOverview({ adminClient, hostId }) {
+  const { data: bookingRows } = await adminClient
+    .from("bookings")
+    .select("id")
+    .eq("host_id", hostId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const bookingIds = (bookingRows || []).map((booking) => booking.id).filter(Boolean);
+  if (!bookingIds.length) {
+    return {
+      charges: [],
+      booking_modifications: [],
+      disputes: [],
+      host_bookings: [],
+    };
+  }
+
+  const [chargesRes, modificationsRes, disputesRes, hostBookingsRes] = await Promise.all([
+    adminClient
+      .from("charges")
+      .select("*")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    adminClient
+      .from("booking_modifications")
+      .select("*")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    adminClient
+      .from("disputes")
+      .select("*")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    adminClient
+      .from("bookings")
+      .select("id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at")
+      .in("id", bookingIds)
+      .order("created_at", { ascending: false })
+      .limit(500),
+  ]);
+
+  const reconciledCharges = await reconcileChargesFromCheckout({
+    adminClient,
+    charges: chargesRes.data || [],
+  });
+
+  return {
+    charges: reconciledCharges,
+    booking_modifications: modificationsRes.data || [],
+    disputes: disputesRes.data || [],
+    host_bookings: hostBookingsRes.data || [],
+  };
+}
+
+async function listHostBookings({ adminClient, hostId }) {
+  const { data: bookings } = await adminClient
+    .from("bookings")
+    .select("id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at")
+    .eq("host_id", hostId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  return { bookings: bookings || [] };
 }
 
 async function listUserOverview({ adminClient, userId }) {
@@ -628,7 +797,9 @@ async function listAdminOverview({ adminClient }) {
 }
 
 async function createCharge({ auth, body }) {
-  requireAdminOrStaff(auth);
+  if (!auth?.isAdminOrStaff && !auth?.isHost) {
+    throw Object.assign(new Error("Forbidden: host or staff role required"), { status: 403 });
+  }
 
   const bookingId = safeStr(body.booking_id, 80);
   const chargeType = safeStr(body.charge_type, 64).toLowerCase();
@@ -644,6 +815,10 @@ async function createCharge({ auth, body }) {
 
   const booking = await getBookingOrThrow(auth.adminClient, bookingId);
 
+  if (auth.isHost && booking.host_id !== auth.userId) {
+    throw Object.assign(new Error("Forbidden: booking does not belong to current host"), { status: 403 });
+  }
+
   const { data: charge, error } = await auth.adminClient
     .from("charges")
     .insert({
@@ -658,7 +833,7 @@ async function createCharge({ auth, body }) {
       status: "pending",
       due_at: dueAt,
       metadata: {
-        source: "post_booking_admin",
+        source: auth.isHost ? "post_booking_host" : "post_booking_admin",
         requested_by: auth.userId,
       },
     })
@@ -1405,6 +1580,18 @@ export default async function handler(req, res) {
         requireAdminOrStaff(auth);
         const overview = await listAdminOverview({ adminClient: auth.adminClient });
         return json(res, 200, { ok: true, ...overview });
+      }
+
+      if (action === "host-overview") {
+        requireHost(auth);
+        const overview = await listHostOverview({ adminClient: auth.adminClient, hostId: auth.userId });
+        return json(res, 200, { ok: true, ...overview });
+      }
+
+      if (action === "host-bookings") {
+        requireHost(auth);
+        const result = await listHostBookings({ adminClient: auth.adminClient, hostId: auth.userId });
+        return json(res, 200, { ok: true, ...result });
       }
 
       return json(res, 400, { ok: false, error: "Unsupported action" });

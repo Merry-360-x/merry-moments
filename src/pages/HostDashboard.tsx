@@ -7972,12 +7972,6 @@ export default function HostDashboard() {
               <CreditCard className="w-4 h-4 mr-2" />
               Post-Booking Center
             </Button>
-            {canManagePostBooking ? (
-              <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}> 
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Post-Booking Console
-              </Button>
-            ) : null}
           </div>
         </div>
 

@@ -25,6 +25,21 @@ function parsePawaPayResponse(payload) {
   return payload || null;
 }
 
+function safeStr(value, max = 200) {
+  const s = typeof value === "string" ? value.trim() : "";
+  return s.length > max ? s.slice(0, max) : s;
+}
+
+function formatMoney(amount, currency = "USD") {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return `${currency} 0.00`;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2 }).format(n);
+  } catch {
+    return `${currency} ${n.toFixed(2)}`;
+  }
+}
+
 function mapPawaPayPayoutStatus(status) {
   const normalized = String(status || "").toUpperCase();
   if (normalized === "COMPLETED") return "completed";
@@ -190,6 +205,132 @@ async function sendPostBookingGuestPaidEmail(supabase, charge, checkoutData) {
   }).catch(() => null);
 }
 
+async function sendPostBookingHostPaidEmail(supabase, charge, checkoutData) {
+  if (!BREVO_API_KEY || !charge?.booking_id) return;
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, host_id, guest_name")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  if (!booking?.host_id) return;
+
+  let hostProfile = null;
+  const { data: byUserId } = await supabase
+    .from("profiles")
+    .select("email, full_name")
+    .eq("user_id", booking.host_id)
+    .maybeSingle();
+  hostProfile = byUserId || null;
+
+  if (!hostProfile?.email) {
+    const { data: byId } = await supabase
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", booking.host_id)
+      .maybeSingle();
+    hostProfile = byId || hostProfile;
+  }
+
+  const targetEmail = safeStr(hostProfile?.email || "", 160);
+  const recipient = validateRecipientEmail(targetEmail);
+  if (!recipient.ok) return;
+
+  const amountLabel = formatMoney(charge.amount, charge.currency || "USD");
+  const htmlContent = renderMinimalEmail({
+    eyebrow: "Payment Notice",
+    title: "Post-booking charge paid",
+    subtitle: "A guest completed a post-booking payment for your booking.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: "Mobile Money (PawaPay)" },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Guest", value: escapeHtml(safeStr(booking.guest_name || "Guest", 120) || "Guest") },
+    ]),
+    ctaText: "Open Host Dashboard",
+    ctaUrl: "https://merry360x.com/host-dashboard",
+  });
+
+  await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": BREVO_API_KEY,
+    },
+    body: JSON.stringify(
+      buildBrevoSmtpPayload({
+        senderName: "Merry 360 Experiences",
+        senderEmail: "support@merry360x.com",
+        to: [{ email: recipient.email, name: safeStr(hostProfile?.full_name || "Host", 120) || "Host" }],
+        subject: `Post-booking payment received - ${amountLabel}`,
+        htmlContent,
+        tags: ["post-booking", "host-notice", "payment-confirmation", "pawapay"],
+      })
+    ),
+  }).catch(() => null);
+}
+
+async function sendPostBookingAdminPaidEmail(supabase, charge) {
+  if (!BREVO_API_KEY || !charge?.booking_id) return;
+
+  const { data: roleRows } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .in("role", ["admin", "financial_staff", "operations_staff", "customer_support"]);
+
+  const adminIds = Array.from(new Set((roleRows || []).map((row) => String(row.user_id || "")).filter(Boolean)));
+  if (!adminIds.length) return;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, email, full_name")
+    .in("user_id", adminIds);
+
+  const amountLabel = formatMoney(charge.amount, charge.currency || "USD");
+  const htmlContent = renderMinimalEmail({
+    eyebrow: "Post-booking Alert",
+    title: "Post-booking payment completed",
+    subtitle: "A post-booking charge was paid successfully.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: "Mobile Money (PawaPay)" },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Status", value: "Paid" },
+    ]),
+    ctaText: "Open Post-Booking Console",
+    ctaUrl: "https://merry360x.com/admin/post-booking",
+  });
+
+  for (const admin of profiles || []) {
+    const targetEmail = safeStr(admin?.email || "", 160);
+    const recipient = validateRecipientEmail(targetEmail);
+    if (!recipient.ok) continue;
+
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "api-key": BREVO_API_KEY,
+      },
+      body: JSON.stringify(
+        buildBrevoSmtpPayload({
+          senderName: "Merry 360 Experiences",
+          senderEmail: "support@merry360x.com",
+          to: [{ email: recipient.email, name: safeStr(admin?.full_name || "Admin", 120) || "Admin" }],
+          subject: `Post-booking payment completed - ${amountLabel}`,
+          htmlContent,
+          tags: ["post-booking", "admin-notice", "payment-confirmation", "pawapay"],
+        })
+      ),
+    }).catch(() => null);
+  }
+}
+
 async function syncPostBookingChargeFromCheckout(supabase, checkoutData, paymentStatus) {
   const chargeId = checkoutData?.metadata?.post_booking_charge_id;
   if (!chargeId) return { handled: false };
@@ -203,6 +344,8 @@ async function syncPostBookingChargeFromCheckout(supabase, checkoutData, payment
     .maybeSingle();
 
   if (!charge) return { handled: true, updated: false, reason: "charge_not_found" };
+
+  const wasAlreadyPaid = String(charge.status || "").toLowerCase() === "paid";
 
   if (paymentStatus === "paid") {
     await supabase
@@ -243,36 +386,50 @@ async function syncPostBookingChargeFromCheckout(supabase, checkoutData, payment
         .eq("id", linkedModification.id);
     }
 
-    try {
-      await supabase.from("notifications").insert({
-        user_id: charge.user_id,
-        title: "Payment successful",
-        body: "Your post-booking mobile money payment was successful.",
-        notification_type: "payment_success",
-        channel: "in_app",
-        data: {
-          charge_id: charge.id,
-          booking_id: charge.booking_id,
-          checkout_id: checkoutData.id,
-        },
-      });
-    } catch (_) {
-      // Notification is best effort.
+    if (!wasAlreadyPaid) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: charge.user_id,
+          title: "Payment successful",
+          body: "Your post-booking mobile money payment was successful.",
+          notification_type: "payment_success",
+          channel: "in_app",
+          data: {
+            charge_id: charge.id,
+            booking_id: charge.booking_id,
+            checkout_id: checkoutData.id,
+          },
+        });
+      } catch (_) {
+        // Notification is best effort.
+      }
+
+      try {
+        await ensureHostAdjustmentForPostBookingCharge(supabase, charge);
+      } catch (_) {
+        // Host adjustment is best effort.
+      }
+
+      try {
+        await sendPostBookingGuestPaidEmail(supabase, charge, checkoutData);
+      } catch (_) {
+        // Guest email is best effort.
+      }
+
+      try {
+        await sendPostBookingHostPaidEmail(supabase, charge, checkoutData);
+      } catch (_) {
+        // Host email is best effort.
+      }
+
+      try {
+        await sendPostBookingAdminPaidEmail(supabase, charge);
+      } catch (_) {
+        // Admin email is best effort.
+      }
     }
 
-    try {
-      await ensureHostAdjustmentForPostBookingCharge(supabase, charge);
-    } catch (_) {
-      // Host adjustment is best effort.
-    }
-
-    try {
-      await sendPostBookingGuestPaidEmail(supabase, charge, checkoutData);
-    } catch (_) {
-      // Guest email is best effort.
-    }
-
-    return { handled: true, updated: true, chargeId: charge.id, bookingModificationId: linkedModification?.id || null };
+    return { handled: true, updated: !wasAlreadyPaid, chargeId: charge.id, bookingModificationId: linkedModification?.id || null };
   }
 
   if (paymentStatus === "failed") {
