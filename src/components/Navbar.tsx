@@ -82,6 +82,7 @@ const Navbar = () => {
   const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileCurrencyMenuOpen, setMobileCurrencyMenuOpen] = useState(false);
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
 
   useEffect(() => {
@@ -91,7 +92,14 @@ const Navbar = () => {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setMobileCurrencyMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      setMobileCurrencyMenuOpen(false);
+    }
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -317,7 +325,12 @@ const Navbar = () => {
           {/* Mobile: menu on the left */}
           <button
             className="lg:hidden p-2 -ml-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              if (mobileMenuOpen) {
+                setMobileCurrencyMenuOpen(false);
+              }
+              setMobileMenuOpen(!mobileMenuOpen);
+            }}
             aria-label="Menu"
             type="button"
           >
@@ -614,7 +627,7 @@ const Navbar = () => {
                 </button>
                 <div className="flex max-w-full flex-1 items-center justify-end gap-2">
                   {/* Currency Selector - Mobile */}
-                  <DropdownMenu>
+                  <DropdownMenu modal={false} open={mobileCurrencyMenuOpen} onOpenChange={setMobileCurrencyMenuOpen}>
                     <DropdownMenuTrigger asChild>
                       <button
                         className="flex h-10 shrink-0 items-center gap-1 rounded-full border border-border bg-background px-3 text-sm font-medium"
@@ -624,18 +637,58 @@ const Navbar = () => {
                         <ChevronDown className="w-3 h-3" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="w-40 max-h-72 overflow-y-auto">
-                      <DropdownMenuItem onClick={() => setCurrency("RWF")}>RWF</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("USD")}>USD</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("EUR")}>EUR</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("GBP")}>GBP</DropdownMenuItem>
+                    <DropdownMenuContent align="end" sideOffset={8} className="z-[70] w-40 max-h-72 overflow-y-auto">
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("RWF");
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>RWF</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("USD");
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>USD</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("EUR");
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>EUR</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("GBP");
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>GBP</DropdownMenuItem>
                       <div className="border-t my-1" />
-                      <DropdownMenuItem onClick={() => setCurrency("TZS" as any)}>TZS</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("KES" as any)}>KES</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("UGX" as any)}>UGX</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("ZMW" as any)}>ZMW</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("BIF" as any)}>BIF</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCurrency("ZAR" as any)}>ZAR</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("TZS" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>TZS</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("KES" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>KES</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("UGX" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>UGX</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("ZMW" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>ZMW</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("BIF" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>BIF</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                        setCurrency("ZAR" as any);
+                        setMobileCurrencyMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}>ZAR</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>
