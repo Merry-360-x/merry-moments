@@ -892,12 +892,12 @@ export default function TourDetails() {
             </p>
           </div>
           <Button
-            className="h-14 min-w-[9.25rem] rounded-2xl bg-[#ff385c] px-6 text-lg font-bold text-white shadow-sm hover:bg-[#e73353]"
+            className="h-12 min-w-[7.75rem] rounded-xl bg-[#ff385c] px-5 text-base font-semibold text-white shadow-sm hover:bg-[#e73353]"
             onClick={() => {
               document.getElementById("tour-booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
           >
-            {t("common.reserve", "Reserve")}
+            Book
           </Button>
         </div>
       </div>
