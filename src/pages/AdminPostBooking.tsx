@@ -402,65 +402,65 @@ export default function AdminPostBooking() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-10 pb-24 space-y-8">
-        <section className="rounded-2xl border border-border bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 lg:p-8 text-white">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/80">
+      <div className="container mx-auto px-4 lg:px-8 py-8 pb-24 space-y-6">
+        <section className="rounded-xl border border-border bg-card p-5 lg:p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1.5">
+              <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                 <ShieldAlert className="w-3.5 h-3.5" />
-                Admin Post-Booking Console
+                Admin Post-Booking
               </p>
-              <h1 className="text-2xl lg:text-3xl font-semibold">Charges, Changes, Alternatives, and Disputes</h1>
-              <p className="text-white/80 max-w-3xl text-sm lg:text-base">
-                Manage post-booking financial events with server-validated calculations and role-guarded controls.
+              <h1 className="text-xl lg:text-2xl font-semibold text-foreground">Charges and disputes</h1>
+              <p className="text-muted-foreground text-sm">
+                Review and manage post-booking events with quick actions.
               </p>
             </div>
-            <Button variant="secondary" onClick={() => void loadOverview(false)} disabled={refreshing}>
+            <Button variant="outline" onClick={() => void loadOverview(false)} disabled={refreshing}>
               <RefreshCcw className="w-4 h-4 mr-2" />
-              {refreshing ? "Refreshing..." : "Refresh queue"}
+              {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription className="flex items-center gap-2 text-rose-600">
+          <Card className="border-border/70 shadow-none">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
                 <FileWarning className="w-4 h-4" />
                 Pending Charges
               </CardDescription>
-              <CardTitle className="text-2xl">{pendingChargesCount}</CardTitle>
+              <CardTitle className="text-2xl font-semibold">{pendingChargesCount}</CardTitle>
             </CardHeader>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription className="flex items-center gap-2 text-amber-600">
+          <Card className="border-border/70 shadow-none">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
                 <Gavel className="w-4 h-4" />
                 Open Disputes
               </CardDescription>
-              <CardTitle className="text-2xl">{openDisputesCount}</CardTitle>
+              <CardTitle className="text-2xl font-semibold">{openDisputesCount}</CardTitle>
             </CardHeader>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription className="flex items-center gap-2 text-blue-600">
+          <Card className="border-border/70 shadow-none">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-muted-foreground">
                 <ArrowUpDown className="w-4 h-4" />
                 Pending Modifications
               </CardDescription>
-              <CardTitle className="text-2xl">{pendingModificationsCount}</CardTitle>
+              <CardTitle className="text-2xl font-semibold">{pendingModificationsCount}</CardTitle>
             </CardHeader>
           </Card>
         </section>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
-            <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="create-charge">Add Charge</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="modifications">Modify Booking</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="alternatives">Alternative Offer</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="disputes">Disputes</TabsTrigger>
+          <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-lg border border-border bg-muted/40 p-1 pr-16 md:pr-2">
+            <TabsTrigger className="shrink-0 rounded-md data-[state=active]:shadow-none" value="charges">Charges</TabsTrigger>
+            <TabsTrigger className="shrink-0 rounded-md data-[state=active]:shadow-none" value="create-charge">Add Charge</TabsTrigger>
+            <TabsTrigger className="shrink-0 rounded-md data-[state=active]:shadow-none" value="modifications">Modify Booking</TabsTrigger>
+            <TabsTrigger className="shrink-0 rounded-md data-[state=active]:shadow-none" value="alternatives">Alternative Offer</TabsTrigger>
+            <TabsTrigger className="shrink-0 rounded-md data-[state=active]:shadow-none" value="disputes">Disputes</TabsTrigger>
           </TabsList>
 
           <TabsContent value="charges" className="mt-6 space-y-4">
@@ -476,22 +476,22 @@ export default function AdminPostBooking() {
                 };
 
                 return (
-                  <Card key={charge.id}>
-                    <CardContent className="pt-6 space-y-4">
+                  <Card key={charge.id} className="border-border/70 shadow-none">
+                    <CardContent className="pt-5 space-y-3">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={statusTone(charge.status)}>{charge.status}</Badge>
+                            <Badge className={`${statusTone(charge.status)} border border-transparent`}>{charge.status}</Badge>
                             <Badge variant="outline">{humanizeLabel(charge.charge_type)}</Badge>
                             <span className="text-xs text-muted-foreground">Booking {charge.booking_id.slice(0, 8).toUpperCase()}</span>
                           </div>
-                          <p className="font-medium">{charge.description}</p>
-                          <p className="text-xl font-semibold text-rose-600">{formatMoney(charge.amount, charge.currency)}</p>
+                          <p className="font-medium text-sm">{charge.description}</p>
+                          <p className="text-lg font-semibold text-foreground">{formatMoney(charge.amount, charge.currency)}</p>
                         </div>
                         <span className="text-xs text-muted-foreground">{new Date(charge.created_at).toLocaleString()}</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                         {[
                           "pending",
                           "paid",
@@ -501,8 +501,13 @@ export default function AdminPostBooking() {
                         ].map((status) => (
                           <Button
                             key={status}
-                            variant={charge.status === status ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
+                            className={
+                              charge.status === status
+                                ? "capitalize border-foreground/20 bg-foreground text-background hover:bg-foreground/90"
+                                : "capitalize border-border bg-background text-foreground hover:bg-muted"
+                            }
                             onClick={() => void updateChargeStatus(charge.id, status)}
                             disabled={processingChargeId === charge.id}
                           >
@@ -511,9 +516,9 @@ export default function AdminPostBooking() {
                         ))}
                       </div>
 
-                      <div className="rounded-lg border border-border p-3 space-y-3">
-                        <p className="text-sm font-medium">Adjust charge</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="rounded-md border border-border/80 bg-muted/20 p-3 space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Adjust charge</p>
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
                           <Input
                             value={draft.amount}
                             onChange={(event) => setAdjustChargeDrafts((prev) => ({
@@ -533,6 +538,7 @@ export default function AdminPostBooking() {
                           <Button
                             onClick={() => void adjustCharge(charge)}
                             disabled={processingChargeId === charge.id}
+                            variant="outline"
                           >
                             {processingChargeId === charge.id ? "Saving..." : "Apply adjustment"}
                           </Button>
