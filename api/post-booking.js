@@ -14,6 +14,25 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
 
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://merry360x.com";
 
+function normalizeAppBaseUrl(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return "https://merry360x.com";
+
+  if (/^https?:\/\//i.test(raw)) {
+    return raw.replace(/\/+$/, "");
+  }
+
+  // Accept env values like "merry360x.com" and force a valid absolute URL.
+  return `https://${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+}
+
+const APP_ORIGIN = normalizeAppBaseUrl(APP_BASE_URL);
+
+function appUrl(path = "/") {
+  const cleanPath = String(path || "/").startsWith("/") ? String(path || "/") : `/${String(path || "")}`;
+  return `${APP_ORIGIN}${cleanPath}`;
+}
+
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -247,7 +266,7 @@ async function notifyChargeCreated({ adminClient, booking, charge, userEmail }) 
       { label: "Description", value: escapeHtml(String(charge.description || "")) },
     ]),
     ctaText: "Open Post-Booking Center",
-    ctaUrl: `${APP_BASE_URL}/post-booking`,
+    ctaUrl: appUrl("/post-booking"),
   });
 
   await sendEmailNotification({
@@ -295,7 +314,7 @@ async function notifyModification({ adminClient, booking, modification, userEmai
       { label: "Message", value: escapeHtml(String(modification.proposal_message || "")) },
     ]),
     ctaText: "Review Change",
-    ctaUrl: `${APP_BASE_URL}/post-booking`,
+    ctaUrl: appUrl("/post-booking"),
   });
 
   await sendEmailNotification({
@@ -1055,7 +1074,7 @@ async function payCharge({ auth, body }) {
 
   // Optional convenience: initialize provider in one call if enough details are supplied.
   if (method === "card" && body.initialize === true) {
-    const flwResp = await fetch(`${APP_BASE_URL}/api/flutterwave`, {
+    const flwResp = await fetch(appUrl("/api/flutterwave"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1067,7 +1086,7 @@ async function payCharge({ auth, body }) {
         payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
         phoneNumber: safeStr(profile?.phone || "", 40),
         description: `Post-booking charge ${charge.id}`,
-        redirectUrl: `${APP_BASE_URL}/payment-pending?checkoutId=${encodeURIComponent(checkout.id)}&provider=flutterwave`,
+        redirectUrl: appUrl(`/payment-pending?checkoutId=${encodeURIComponent(checkout.id)}&provider=flutterwave`),
       }),
     }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
       .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "flutterwave_init_failed" } }));
@@ -1080,7 +1099,7 @@ async function payCharge({ auth, body }) {
     const phoneNumber = safeStr(body.phone_number || body.phone, 32);
 
     if (provider && phoneNumber) {
-      const mpResp = await fetch(`${APP_BASE_URL}/api/pawapay-create-payment`, {
+      const mpResp = await fetch(appUrl("/api/pawapay-create-payment"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
