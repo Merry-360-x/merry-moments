@@ -24,17 +24,11 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
   List<Map<String, dynamic>> _charges = const [];
   List<Map<String, dynamic>> _modifications = const [];
   List<Map<String, dynamic>> _disputes = const [];
-  Map<String, dynamic>? _walletAccount;
-  List<Map<String, dynamic>> _walletTransactions = const [];
-
-  bool _walletConsent = false;
-  String _walletCurrency = 'USD';
-  bool _savingWallet = false;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _loadOverview();
   }
 
@@ -53,8 +47,6 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           _charges = const [];
           _modifications = const [];
           _disputes = const [];
-          _walletAccount = null;
-          _walletTransactions = const [];
         });
       }
       return;
@@ -71,15 +63,10 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
       final data = await widget.session.fetchUserPostBookingOverview();
       if (!mounted) return;
 
-      final wallet = _asMap(data['wallet_account']);
       setState(() {
         _charges = _asMapList(data['charges']);
         _modifications = _asMapList(data['booking_modifications']);
         _disputes = _asMapList(data['disputes']);
-        _walletAccount = wallet;
-        _walletTransactions = _asMapList(data['wallet_transactions']);
-        _walletConsent = (wallet?['auto_charge_consent'] == true);
-        _walletCurrency = (wallet?['currency'] ?? 'USD').toString();
       });
     } catch (error) {
       if (mounted) {
@@ -199,33 +186,9 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
     detailsCtrl.dispose();
   }
 
-  Future<void> _saveWalletSettings() async {
-    setState(() => _savingWallet = true);
-    try {
-      await widget.session.postBookingAction(
-        'set-auto-charge-consent',
-        body: {
-          'auto_charge_consent': _walletConsent,
-          'currency': _walletCurrency,
-        },
-      );
-      if (!mounted) return;
-      AppSnackBar.success(context, 'Wallet settings updated.');
-      await _loadOverview(showSpinner: false);
-    } catch (error) {
-      if (mounted) {
-        AppSnackBar.error(context, _cleanError(error));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _savingWallet = false);
-      }
-    }
-  }
-
   Future<void> _showPayChargeSheet(Map<String, dynamic> charge) async {
     final phoneCtrl = TextEditingController();
-    String method = 'wallet';
+    String method = 'card';
     String provider = 'MTN';
     bool processing = false;
 
@@ -277,25 +240,93 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: method,
-                      decoration: const InputDecoration(),
-                      items: const [
-                        DropdownMenuItem(value: 'wallet', child: Text('Wallet')),
-                        DropdownMenuItem(value: 'card', child: Text('Card (Flutterwave)')),
-                        DropdownMenuItem(value: 'mobile_money', child: Text('Mobile Money (PawaPay)')),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: processing ? null : () => setLocal(() => method = 'mobile_money'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: method == 'mobile_money' ? const Color(0xFFF2F8FF) : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: method == 'mobile_money' ? AppColors.rausch : const Color(0xFFE7E7EC),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.smartphone, size: 18, color: AppColors.black),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Mobile Money',
+                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'MTN, Airtel, M-Pesa',
+                                    style: TextStyle(fontSize: 11, color: AppColors.foggy),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: processing ? null : () => setLocal(() => method = 'card'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: method == 'card' ? const Color(0xFFF2F8FF) : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: method == 'card' ? AppColors.rausch : const Color(0xFFE7E7EC),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.credit_card, size: 18, color: AppColors.black),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Card',
+                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Visa, Mastercard, Amex',
+                                    style: TextStyle(fontSize: 11, color: AppColors.foggy),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
-                      onChanged: processing
-                          ? null
-                          : (value) {
-                              if (value == null) return;
-                              setLocal(() => method = value);
-                            },
                     ),
                     if (method == 'mobile_money') ...[
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
-                        value: provider,
+                        initialValue: provider,
                         decoration: const InputDecoration(labelText: 'Provider'),
                         items: const [
                           DropdownMenuItem(value: 'MTN', child: Text('MTN Mobile Money')),
@@ -348,7 +379,14 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                                   setLocal(() => processing = false);
                                 }
                               },
-                        child: Text(processing ? 'Processing...' : 'Pay now'),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(method == 'mobile_money' ? Icons.smartphone : Icons.credit_card),
+                            const SizedBox(width: 8),
+                            Text(processing ? 'Processing...' : 'Pay now'),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -373,24 +411,14 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
       final body = <String, dynamic>{
         'charge_id': chargeId,
         'method': method,
+        'initialize': true,
       };
-      if (method != 'wallet') {
-        body['initialize'] = true;
-      }
       if (method == 'mobile_money') {
         body['provider'] = provider;
         body['phone_number'] = phoneNumber;
       }
 
       final result = await widget.session.postBookingAction('pay-charge', body: body);
-
-      if (method == 'wallet') {
-        if (mounted) {
-          AppSnackBar.success(context, 'Charge paid from wallet.');
-        }
-        await _loadOverview(showSpinner: false);
-        return true;
-      }
 
       if (method == 'card') {
         final redirectUrl = _extractRedirectUrl(result);
@@ -492,11 +520,16 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
       );
     }
 
-    final pendingTotal = _charges
-        .where((c) => (c['status'] ?? '').toString() == 'pending')
-        .fold<double>(0, (sum, c) => sum + _num(c['amount']));
-    final walletBalance = _num(_walletAccount?['balance']);
-    final walletCurrency = (_walletAccount?['currency'] ?? 'USD').toString();
+    final pendingByCurrency = <String, double>{};
+    for (final charge in _charges) {
+      if ((charge['status'] ?? '').toString() != 'pending') continue;
+      final currency = (charge['currency'] ?? 'USD').toString();
+      pendingByCurrency[currency] = (pendingByCurrency[currency] ?? 0) + _num(charge['amount']);
+    }
+    final pendingSummary = pendingByCurrency.entries
+        .map((entry) => _money(entry.value, entry.key))
+        .join(' • ');
+    final pendingCount = _charges.where((c) => (c['status'] ?? '').toString() == 'pending').length;
     final openDisputes = _disputes.where((d) {
       final status = (d['status'] ?? '').toString();
       return status == 'open' || status == 'in_review';
@@ -535,7 +568,6 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
             Tab(text: 'Charges'),
             Tab(text: 'Changes'),
             Tab(text: 'Disputes'),
-            Tab(text: 'Wallet'),
           ],
         ),
       ),
@@ -548,7 +580,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                 Expanded(
                   child: _StatTile(
                     label: 'Pending',
-                    value: _money(pendingTotal, walletCurrency),
+                    value: pendingSummary.isEmpty ? 'None' : pendingSummary,
                     color: const Color(0xFFE11D48),
                   ),
                 ),
@@ -563,8 +595,8 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: _StatTile(
-                    label: 'Wallet',
-                    value: _money(walletBalance, walletCurrency),
+                    label: 'Charges',
+                    value: '$pendingCount pending',
                     color: const Color(0xFF0284C7),
                   ),
                 ),
@@ -578,7 +610,6 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                 _buildChargesTab(),
                 _buildModificationsTab(),
                 _buildDisputesTab(),
-                _buildWalletTab(),
               ],
             ),
           ),
@@ -947,166 +978,6 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildWalletTab() {
-    final currency = (_walletAccount?['currency'] ?? 'USD').toString();
-    final balance = _num(_walletAccount?['balance']);
-
-    return RefreshIndicator(
-      color: AppColors.rausch,
-      onRefresh: () => _loadOverview(showSpinner: false),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Wallet Settings',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Manage auto-charge consent and wallet currency.',
-                  style: TextStyle(fontSize: 12, color: AppColors.foggy),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F8FA),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Balance: ${_money(balance, currency)}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.black),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _walletCurrency,
-                  decoration: const InputDecoration(labelText: 'Wallet currency'),
-                  items: const [
-                    DropdownMenuItem(value: 'USD', child: Text('USD')),
-                    DropdownMenuItem(value: 'RWF', child: Text('RWF')),
-                    DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                    DropdownMenuItem(value: 'KES', child: Text('KES')),
-                    DropdownMenuItem(value: 'UGX', child: Text('UGX')),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _walletCurrency = value);
-                  },
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Auto-charge consent'),
-                  subtitle: const Text(
-                    'Allow approved post-booking fees to be deducted from wallet.',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  value: _walletConsent,
-                  onChanged: (value) => setState(() => _walletConsent = value),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _savingWallet ? null : _saveWalletSettings,
-                    child: Text(_savingWallet ? 'Saving...' : 'Save settings'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Wallet Activity',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                if (_walletTransactions.isEmpty)
-                  const Text(
-                    'No wallet transactions yet.',
-                    style: TextStyle(fontSize: 12, color: AppColors.foggy),
-                  )
-                else
-                  ..._walletTransactions.take(25).map((tx) {
-                    final direction = (tx['direction'] ?? 'out').toString();
-                    final amount = _num(tx['amount']);
-                    final after = _num(tx['balance_after']);
-                    return Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F8FA),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _label((tx['tx_type'] ?? 'transaction').toString()),
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _fmtDate(tx['created_at']?.toString() ?? ''),
-                                  style: const TextStyle(fontSize: 11, color: AppColors.foggy),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${direction == 'in' ? '+' : '-'}${_money(amount, currency)}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: direction == 'in' ? AppColors.babu : AppColors.rausch,
-                                ),
-                              ),
-                              Text(
-                                'Balance ${_money(after, currency)}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.foggy),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

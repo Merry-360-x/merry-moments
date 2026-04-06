@@ -20,6 +20,7 @@ import {
   ArrowRightLeft,
   CreditCard,
   ShieldAlert,
+  Smartphone,
   Sparkles,
   CheckCircle2,
   XCircle,
@@ -84,6 +85,12 @@ const mobileProviders = [
   { value: "MPESA", label: "M-Pesa" },
   { value: "VODACOM", label: "Vodacom M-Pesa" },
   { value: "ORANGE", label: "Orange Money" },
+];
+
+const CARD_BRAND_LOGOS = [
+  { src: "/payment-icons/visa.svg", alt: "Visa" },
+  { src: "/payment-icons/mastercard.svg", alt: "Mastercard" },
+  { src: "/payment-icons/amex.svg", alt: "American Express" },
 ];
 
 async function getAccessToken() {
@@ -534,20 +541,59 @@ export default function PostBookingCenter() {
                       {charge.status === "pending" && (
                         <div className="rounded-lg border border-border p-3 space-y-3">
                           <Label className="text-sm font-medium">Choose payment method</Label>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                            <select
-                              value={selectedMethod}
-                              onChange={(event) => {
-                                const next = event.target.value;
-                                setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: next }));
-                              }}
-                              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "mobile_money" }))}
+                              className={`border-2 rounded-lg md:rounded-xl p-3 text-left transition-all ${
+                                selectedMethod === "mobile_money"
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/50"
+                              }`}
                             >
-                              <option value="card">Card (Flutterwave)</option>
-                              <option value="mobile_money">Mobile Money (PawaPay)</option>
-                            </select>
+                              <div className="flex items-center gap-2 md:gap-3">
+                                <div className="w-9 h-9 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
+                                  <Smartphone className="w-4 h-4 text-foreground" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">Mobile Money</p>
+                                  <p className="text-xs text-muted-foreground">MTN, Airtel, M-Pesa, Orange</p>
+                                </div>
+                              </div>
+                            </button>
 
-                            {selectedMethod === "mobile_money" && (
+                            <button
+                              type="button"
+                              onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "card" }))}
+                              className={`border-2 rounded-lg md:rounded-xl p-3 text-left transition-all ${
+                                selectedMethod === "card"
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 md:gap-3">
+                                <div className="w-9 h-9 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
+                                  <CreditCard className="w-4 h-4 text-foreground" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">Card</p>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    {CARD_BRAND_LOGOS.map((brand) => (
+                                      <span
+                                        key={brand.alt}
+                                        className="h-5 rounded-sm border border-border/70 bg-white px-1.5 py-0.5 flex items-center justify-center"
+                                      >
+                                        <img src={brand.src} alt={brand.alt} className="h-3 w-auto" loading="lazy" />
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+
+                          {selectedMethod === "mobile_money" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <select
                                 value={mobileProviderByCharge[charge.id] || "MTN"}
                                 onChange={(event) => {
@@ -562,9 +608,7 @@ export default function PostBookingCenter() {
                                   </option>
                                 ))}
                               </select>
-                            )}
 
-                            {selectedMethod === "mobile_money" && (
                               <Input
                                 value={mobilePhoneByCharge[charge.id] || ""}
                                 onChange={(event) => {
@@ -573,18 +617,21 @@ export default function PostBookingCenter() {
                                 }}
                                 placeholder="Phone number"
                               />
-                            )}
+                            </div>
+                          )}
 
-                            <Button
-                              onClick={() => void handlePayCharge(charge)}
-                              disabled={processingChargeId === charge.id}
-                              className="w-full"
-                            >
+                          <Button
+                            onClick={() => void handlePayCharge(charge)}
+                            disabled={processingChargeId === charge.id}
+                            className="w-full"
+                          >
+                            {selectedMethod === "mobile_money" ? (
+                              <Smartphone className="w-4 h-4 mr-2" />
+                            ) : (
                               <CreditCard className="w-4 h-4 mr-2" />
-                              {processingChargeId === charge.id ? "Processing..." : "Pay now"}
-                            </Button>
-                          </div>
-
+                            )}
+                            {processingChargeId === charge.id ? "Processing..." : "Pay now"}
+                          </Button>
                           <div className="flex flex-wrap gap-2">
                             <Button
                               variant="outline"

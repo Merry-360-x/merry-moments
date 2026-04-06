@@ -102,7 +102,6 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
     final descriptionCtrl = TextEditingController();
     String chargeType = 'damage';
     String currency = 'USD';
-    bool autoChargeAllowed = false;
     bool submitting = false;
 
     await showDialog<void>(
@@ -125,7 +124,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      value: chargeType,
+                      initialValue: chargeType,
                       decoration: const InputDecoration(labelText: 'Charge type'),
                       items: const [
                         DropdownMenuItem(value: 'damage', child: Text('Damage')),
@@ -151,7 +150,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      value: currency,
+                      initialValue: currency,
                       decoration: const InputDecoration(labelText: 'Currency'),
                       items: const [
                         DropdownMenuItem(value: 'USD', child: Text('USD')),
@@ -175,15 +174,6 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                         labelText: 'Description',
                         hintText: 'Explain why this charge was added',
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Allow wallet auto-charge'),
-                      value: autoChargeAllowed,
-                      onChanged: submitting
-                          ? null
-                          : (value) => setLocal(() => autoChargeAllowed = value),
                     ),
                   ],
                 ),
@@ -215,7 +205,6 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                                 'amount': amount,
                                 'currency': currency,
                                 'description': description,
-                                'auto_charge_allowed': autoChargeAllowed,
                                 'proof_urls': const <String>[],
                               },
                             );
@@ -275,7 +264,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      value: modificationType,
+                      initialValue: modificationType,
                       decoration: const InputDecoration(labelText: 'Modification type'),
                       items: const [
                         DropdownMenuItem(value: 'date_change', child: Text('Date change')),
@@ -408,7 +397,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: status,
+                      initialValue: status,
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'in_review', child: Text('In review')),
