@@ -110,6 +110,86 @@ async function sendHostPayoutStatusEmail({ toEmail, toName, status, amount, curr
   return { sent: true };
 }
 
+async function ensureHostAdjustmentForPostBookingCharge(supabase, charge) {
+  if (!charge?.id || !charge?.booking_id) return;
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, host_id")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  if (!booking?.host_id) return;
+
+  const amount = Number(charge.amount || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  await supabase
+    .from("host_earnings_adjustments")
+    .upsert(
+      {
+        host_id: booking.host_id,
+        amount,
+        currency: safeStr(charge.currency || "USD", 12).toUpperCase(),
+        reason: `Post-booking charge paid (${String(charge.id).slice(0, 8)})`,
+        reference_key: `post_booking_charge_paid_${charge.id}`,
+        created_by: null,
+      },
+      { onConflict: "reference_key", ignoreDuplicates: true },
+    );
+}
+
+async function sendPostBookingGuestPaidEmail(supabase, charge, checkoutData) {
+  if (!BREVO_API_KEY || !charge?.booking_id) return;
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, guest_email, guest_name")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  const fallbackEmail = safeStr(checkoutData?.email || "", 160);
+  const targetEmail = safeStr(booking?.guest_email || fallbackEmail, 160);
+  const recipient = validateRecipientEmail(targetEmail);
+  if (!recipient.ok) return;
+
+  const guestName = safeStr(booking?.guest_name || checkoutData?.name || "Guest", 120) || "Guest";
+  const amountLabel = formatMoney(charge.amount, charge.currency || "USD");
+  const htmlContent = renderMinimalEmail({
+    eyebrow: "Payment Receipt",
+    title: "Post-booking payment received",
+    subtitle: "Your additional mobile-money payment has been confirmed.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: "Mobile Money (PawaPay)" },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Status", value: "Paid" },
+    ]),
+    ctaText: "Open Post-Booking Center",
+    ctaUrl: "https://merry360x.com/post-booking",
+  });
+
+  await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": BREVO_API_KEY,
+    },
+    body: JSON.stringify(
+      buildBrevoSmtpPayload({
+        senderName: "Merry 360 Experiences",
+        senderEmail: "support@merry360x.com",
+        to: [{ email: recipient.email, name: guestName }],
+        subject: `Payment received - ${amountLabel}`,
+        htmlContent,
+        tags: ["post-booking", "payment-confirmation", "pawapay"],
+      })
+    ),
+  }).catch(() => null);
+}
+
 async function syncPostBookingChargeFromCheckout(supabase, checkoutData, paymentStatus) {
   const chargeId = checkoutData?.metadata?.post_booking_charge_id;
   if (!chargeId) return { handled: false };
@@ -118,7 +198,7 @@ async function syncPostBookingChargeFromCheckout(supabase, checkoutData, payment
 
   const { data: charge } = await supabase
     .from("charges")
-    .select("id, user_id, booking_id, status")
+    .select("id, user_id, booking_id, status, amount, currency")
     .eq("id", chargeId)
     .maybeSingle();
 
@@ -178,6 +258,18 @@ async function syncPostBookingChargeFromCheckout(supabase, checkoutData, payment
       });
     } catch (_) {
       // Notification is best effort.
+    }
+
+    try {
+      await ensureHostAdjustmentForPostBookingCharge(supabase, charge);
+    } catch (_) {
+      // Host adjustment is best effort.
+    }
+
+    try {
+      await sendPostBookingGuestPaidEmail(supabase, charge, checkoutData);
+    } catch (_) {
+      // Guest email is best effort.
     }
 
     return { handled: true, updated: true, chargeId: charge.id, bookingModificationId: linkedModification?.id || null };

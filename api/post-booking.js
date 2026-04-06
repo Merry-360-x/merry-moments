@@ -375,6 +375,179 @@ async function tryAutoChargeFromWallet({ adminClient, charge }) {
   return { autoCharged: true, charge: updatedCharge };
 }
 
+function paymentMethodLabel(method) {
+  const m = safeStr(method, 64).toLowerCase();
+  if (m === "mobile_money" || m === "mobile") return "Mobile Money";
+  if (m === "card" || m === "flutterwave") return "Card";
+  return "Payment";
+}
+
+async function ensureHostAdjustmentForPostBookingCharge({ adminClient, charge }) {
+  if (!charge?.id || !charge?.booking_id) return;
+
+  const { data: booking } = await adminClient
+    .from("bookings")
+    .select("id, host_id")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  if (!booking?.host_id) return;
+
+  const amount = safeAmount(charge.amount);
+  if (amount <= 0) return;
+
+  await adminClient
+    .from("host_earnings_adjustments")
+    .upsert(
+      {
+        host_id: booking.host_id,
+        amount,
+        currency: safeStr(charge.currency || "USD", 12).toUpperCase(),
+        reason: `Post-booking charge paid (${String(charge.id).slice(0, 8)})`,
+        reference_key: `post_booking_charge_paid_${charge.id}`,
+        created_by: null,
+      },
+      { onConflict: "reference_key", ignoreDuplicates: true },
+    );
+
+  await createInAppNotification(adminClient, {
+    userId: booking.host_id,
+    title: "Post-booking payment received",
+    body: `A guest paid ${readableMoney(charge.amount, charge.currency)} for a post-booking charge.`,
+    type: "post_booking_payment_received",
+    channel: "in_app",
+    data: { charge_id: charge.id, booking_id: charge.booking_id },
+  });
+}
+
+async function sendGuestPostBookingPaidEmail({ adminClient, charge, method }) {
+  const { data: booking } = await adminClient
+    .from("bookings")
+    .select("id, guest_email, guest_name")
+    .eq("id", charge.booking_id)
+    .maybeSingle();
+
+  const targetEmail = safeStr(booking?.guest_email, 160);
+  if (!targetEmail) return;
+
+  const amountLabel = readableMoney(charge.amount, charge.currency || "USD");
+  const html = renderMinimalEmail({
+    eyebrow: "Payment Receipt",
+    title: "Post-booking payment received",
+    subtitle: "Your additional payment has been confirmed successfully.",
+    bodyHtml: keyValueRows([
+      { label: "Amount Paid", value: escapeHtml(amountLabel) },
+      { label: "Payment Method", value: escapeHtml(paymentMethodLabel(method)) },
+      { label: "Charge ID", value: escapeHtml(String(charge.id).slice(0, 12).toUpperCase()) },
+      { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
+      { label: "Status", value: "Paid" },
+    ]),
+    ctaText: "Open Post-Booking Center",
+    ctaUrl: appUrl("/post-booking"),
+  });
+
+  await sendEmailNotification({
+    toEmail: targetEmail,
+    toName: safeStr(booking?.guest_name || "Guest", 120) || "Guest",
+    subject: `Payment received - ${amountLabel}`,
+    html,
+    tags: ["post-booking", "payment-confirmation"],
+  });
+}
+
+async function reconcileChargesFromCheckout({ adminClient, charges }) {
+  const rows = Array.isArray(charges) ? charges : [];
+  if (!rows.length) return rows;
+
+  const maybeSync = rows.filter((charge) => {
+    const ref = safeStr(charge?.payment_reference, 120);
+    const status = safeStr(charge?.status, 32).toLowerCase();
+    return Boolean(ref && (status === "pending" || status === "processing" || status === "failed"));
+  });
+
+  if (!maybeSync.length) return rows;
+
+  const checkoutIds = [...new Set(maybeSync.map((charge) => safeStr(charge.payment_reference, 120)).filter(Boolean))];
+  if (!checkoutIds.length) return rows;
+
+  const { data: checkoutRows } = await adminClient
+    .from("checkout_requests")
+    .select("id, payment_status, payment_method")
+    .in("id", checkoutIds);
+
+  const checkoutById = new Map((checkoutRows || []).map((row) => [String(row.id), row]));
+  const updatedChargeById = new Map();
+  const nowIso = new Date().toISOString();
+
+  for (const charge of maybeSync) {
+    const checkout = checkoutById.get(String(charge.payment_reference || ""));
+    if (!checkout) continue;
+
+    const paymentStatus = safeStr(checkout.payment_status, 32).toLowerCase();
+    const chargeStatus = safeStr(charge.status, 32).toLowerCase();
+    const method = safeStr(checkout.payment_method || charge.payment_method || charge.payment_provider, 64).toLowerCase();
+
+    if (paymentStatus === "paid" && chargeStatus !== "paid") {
+      const provider = method === "mobile_money" ? "pawapay" : method === "card" ? "flutterwave" : (safeStr(charge.payment_provider, 64) || null);
+
+      const { data: updated } = await adminClient
+        .from("charges")
+        .update({
+          status: "paid",
+          payment_method: method || charge.payment_method || null,
+          payment_provider: provider,
+          payment_reference: String(checkout.id),
+          paid_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", charge.id)
+        .select("*")
+        .single();
+
+      if (updated) {
+        updatedChargeById.set(updated.id, updated);
+
+        await createInAppNotification(adminClient, {
+          userId: updated.user_id,
+          title: "Payment successful",
+          body: `Your post-booking payment of ${readableMoney(updated.amount, updated.currency)} was confirmed.`,
+          type: "payment_success",
+          channel: "in_app",
+          data: { charge_id: updated.id, booking_id: updated.booking_id, checkout_id: checkout.id },
+        }).catch(() => null);
+
+        await ensureHostAdjustmentForPostBookingCharge({ adminClient, charge: updated }).catch(() => null);
+        await sendGuestPostBookingPaidEmail({ adminClient, charge: updated, method }).catch(() => null);
+      }
+      continue;
+    }
+
+    if (["failed", "rejected", "cancelled"].includes(paymentStatus) && chargeStatus === "pending") {
+      const { data: updated } = await adminClient
+        .from("charges")
+        .update({
+          status: "failed",
+          payment_method: method || charge.payment_method || null,
+          payment_provider: method === "mobile_money" ? "pawapay" : method === "card" ? "flutterwave" : (safeStr(charge.payment_provider, 64) || null),
+          payment_reference: String(checkout.id),
+          failed_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", charge.id)
+        .select("*")
+        .single();
+
+      if (updated) {
+        updatedChargeById.set(updated.id, updated);
+      }
+    }
+  }
+
+  if (!updatedChargeById.size) return rows;
+
+  return rows.map((charge) => updatedChargeById.get(charge.id) || charge);
+}
+
 async function listUserOverview({ adminClient, userId }) {
   const [
     chargesRes,
@@ -408,8 +581,13 @@ async function listUserOverview({ adminClient, userId }) {
       .limit(100),
   ]);
 
-  return {
+  const reconciledCharges = await reconcileChargesFromCheckout({
+    adminClient,
     charges: chargesRes.data || [],
+  });
+
+  return {
+    charges: reconciledCharges,
     booking_modifications: modificationsRes.data || [],
     disputes: disputesRes.data || [],
     wallet_account: null,
@@ -437,8 +615,13 @@ async function listAdminOverview({ adminClient }) {
       .limit(500),
   ]);
 
-  return {
+  const reconciledCharges = await reconcileChargesFromCheckout({
+    adminClient,
     charges: chargesRes.data || [],
+  });
+
+  return {
+    charges: reconciledCharges,
     booking_modifications: modificationsRes.data || [],
     disputes: disputesRes.data || [],
   };

@@ -143,6 +143,13 @@ type Metrics = {
   revenue_by_currency: Array<{ currency: string; amount: number }>;
 };
 
+type PaidPostBookingCharge = {
+  id: string;
+  amount: number;
+  currency: string | null;
+  status: string;
+};
+
 let runtimeStaffFxToRwf: Record<string, number> = { ...DEFAULT_FX_RATES };
 
 const setRuntimeStaffFxToRwf = (rates: Record<string, number>) => {
@@ -286,6 +293,28 @@ export default function StaffDashboard() {
     staleTime: 0,
   });
 
+  const { data: paidPostBookingCharges = [] } = useQuery({
+    queryKey: ["staff_post_booking_paid_charges"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("charges")
+        .select("id, amount, currency, status")
+        .eq("status", "paid");
+      if (error) throw error;
+      return (data ?? []) as PaidPostBookingCharge[];
+    },
+    enabled: tab === "overview",
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+  const postBookingRevenueRwf = useMemo(() => {
+    return paidPostBookingCharges.reduce((sum, charge) => {
+      return sum + toRwfAmount(Number(charge.amount || 0), String(charge.currency || "RWF"));
+    }, 0);
+  }, [paidPostBookingCharges]);
+
   const { data: adminUsers = [] } = useQuery({
     queryKey: ["staff_list_users", userSearch],
     queryFn: async () => {
@@ -425,12 +454,13 @@ export default function StaffDashboard() {
 
   const revenueLabel = useMemo(() => {
     const list = metrics?.revenue_by_currency ?? [];
-    if (!list.length) return "—";
-    const totalRwf = list.reduce((sum, item) => {
+    const bookingRevenueRwf = list.reduce((sum, item) => {
       return sum + toRwfAmount(Number(item.amount || 0), String(item.currency || "RWF"));
     }, 0);
+    const totalRwf = bookingRevenueRwf + postBookingRevenueRwf;
+    if (!Number.isFinite(totalRwf) || totalRwf <= 0) return "—";
     return formatMoney(totalRwf, "RWF");
-  }, [metrics?.revenue_by_currency]);
+  }, [metrics?.revenue_by_currency, postBookingRevenueRwf]);
 
   const filteredRecentBookings = useMemo(() => {
     const query = bookingIdSearch.trim().toLowerCase();
@@ -718,6 +748,9 @@ For support, contact: support@merry360x.com
           <Card className="p-5 border-primary/20">
             <div className="text-sm text-muted-foreground">Revenue (gross)</div>
             <div className="text-2xl font-bold text-foreground mt-1">{revenueLabel}</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              Includes {formatMoney(postBookingRevenueRwf, "RWF")} from paid post-booking charges
+            </div>
           </Card>
           <Card className="p-5">
             <div className="text-sm text-muted-foreground">Bookings</div>
