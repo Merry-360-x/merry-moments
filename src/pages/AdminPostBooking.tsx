@@ -152,7 +152,6 @@ export default function AdminPostBooking() {
     amount: "",
     description: "",
     proof_urls: "",
-    auto_charge_allowed: false,
     currency: "USD",
   });
 
@@ -240,7 +239,6 @@ export default function AdminPostBooking() {
         amount: Number(chargeForm.amount),
         description: chargeForm.description.trim(),
         currency: chargeForm.currency,
-        auto_charge_allowed: chargeForm.auto_charge_allowed,
         proof_urls: chargeForm.proof_urls
           .split(",")
           .map((url) => url.trim())
@@ -623,16 +621,6 @@ export default function AdminPostBooking() {
                     placeholder="https://.../image1.jpg, https://.../invoice.pdf"
                   />
                 </div>
-
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={chargeForm.auto_charge_allowed}
-                    onChange={(event) => setChargeForm((prev) => ({ ...prev, auto_charge_allowed: event.target.checked }))}
-                    className="h-4 w-4 rounded border-input"
-                  />
-                  Allow wallet auto-charge if user consented
-                </label>
 
                 <Button onClick={() => void createCharge()} disabled={creatingCharge}>
                   {creatingCharge ? "Creating..." : "Create charge"}

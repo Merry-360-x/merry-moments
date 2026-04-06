@@ -20,7 +20,6 @@ import {
   ArrowRightLeft,
   CreditCard,
   ShieldAlert,
-  Wallet,
   Sparkles,
   CheckCircle2,
   XCircle,
@@ -67,31 +66,10 @@ type Dispute = {
   created_at: string;
 };
 
-type WalletAccount = {
-  user_id: string;
-  balance: number;
-  currency: string;
-  auto_charge_consent: boolean;
-};
-
-type WalletTransaction = {
-  id: string;
-  tx_type: string;
-  direction: "in" | "out";
-  amount: number;
-  balance_before: number;
-  balance_after: number;
-  created_at: string;
-  reference_type?: string | null;
-  notes?: string | null;
-};
-
 type PostBookingOverview = {
   charges: Charge[];
   booking_modifications: BookingModification[];
   disputes: Dispute[];
-  wallet_account: WalletAccount | null;
-  wallet_transactions: WalletTransaction[];
 };
 
 type DisputeDialogState = {
@@ -148,8 +126,6 @@ async function fetchUserOverview() {
     charges: payload.charges || [],
     booking_modifications: payload.booking_modifications || [],
     disputes: payload.disputes || [],
-    wallet_account: payload.wallet_account || null,
-    wallet_transactions: payload.wallet_transactions || [],
   } as PostBookingOverview;
 }
 
@@ -173,18 +149,12 @@ export default function PostBookingCenter() {
     charges: [],
     booking_modifications: [],
     disputes: [],
-    wallet_account: null,
-    wallet_transactions: [],
   });
 
   const [payMethodByCharge, setPayMethodByCharge] = useState<Record<string, string>>({});
   const [mobileProviderByCharge, setMobileProviderByCharge] = useState<Record<string, string>>({});
   const [mobilePhoneByCharge, setMobilePhoneByCharge] = useState<Record<string, string>>({});
   const [processingChargeId, setProcessingChargeId] = useState<string | null>(null);
-
-  const [walletConsent, setWalletConsent] = useState(false);
-  const [walletCurrency, setWalletCurrency] = useState("USD");
-  const [savingWalletSettings, setSavingWalletSettings] = useState(false);
 
   const [disputeDialog, setDisputeDialog] = useState<DisputeDialogState>({
     open: false,
@@ -196,9 +166,6 @@ export default function PostBookingCenter() {
   const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
-
-  const walletBalance = safeNumber(overview.wallet_account?.balance);
-  const walletBalanceCurrency = overview.wallet_account?.currency || "USD";
 
   const pendingChargeTotals = useMemo(() => {
     const totals = new Map<string, number>();
@@ -216,7 +183,7 @@ export default function PostBookingCenter() {
 
   const pendingChargesHeadline = useMemo(() => {
     if (pendingChargeTotals.length === 0) {
-      return formatMoney(0, walletBalanceCurrency);
+      return formatMoney(0, "USD");
     }
 
     if (pendingChargeTotals.length === 1) {
@@ -225,7 +192,7 @@ export default function PostBookingCenter() {
     }
 
     return `${pendingChargeTotals.length} currencies`;
-  }, [pendingChargeTotals, walletBalanceCurrency]);
+  }, [pendingChargeTotals]);
 
   const pendingChargesBreakdown = useMemo(() => {
     if (pendingChargeTotals.length <= 1) return "";
@@ -250,8 +217,6 @@ export default function PostBookingCenter() {
     try {
       const data = await fetchUserOverview();
       setOverview(data);
-      setWalletConsent(Boolean(data.wallet_account?.auto_charge_consent));
-      setWalletCurrency(data.wallet_account?.currency || "USD");
     } catch (error) {
       toast({
         variant: "destructive",
@@ -280,7 +245,7 @@ export default function PostBookingCenter() {
   }, [overview.charges]);
 
   async function handlePayCharge(charge: Charge) {
-    const method = payMethodByCharge[charge.id] || "wallet";
+    const method = payMethodByCharge[charge.id] || "card";
     const provider = mobileProviderByCharge[charge.id] || "MTN";
     const phone = mobilePhoneByCharge[charge.id] || "";
 
@@ -299,11 +264,8 @@ export default function PostBookingCenter() {
       const payload: Record<string, unknown> = {
         charge_id: charge.id,
         method,
+        initialize: true,
       };
-
-      if (method !== "wallet") {
-        payload.initialize = true;
-      }
 
       if (method === "mobile_money") {
         payload.provider = provider;
@@ -311,15 +273,6 @@ export default function PostBookingCenter() {
       }
 
       const result = await postBookingRequest("pay-charge", payload);
-
-      if (method === "wallet") {
-        toast({
-          title: "Payment successful",
-          description: "Charge was paid from your wallet.",
-        });
-        await loadOverview(false);
-        return;
-      }
 
       if (method === "card") {
         const redirectUrl =
@@ -453,31 +406,6 @@ export default function PostBookingCenter() {
     }
   }
 
-  async function saveWalletPreferences() {
-    setSavingWalletSettings(true);
-    try {
-      await postBookingRequest("set-auto-charge-consent", {
-        auto_charge_consent: walletConsent,
-        currency: walletCurrency,
-      });
-
-      toast({
-        title: "Wallet settings saved",
-        description: "Auto-charge preferences were updated.",
-      });
-
-      await loadOverview(false);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Could not save wallet settings",
-        description: error instanceof Error ? error.message : "Please try again.",
-      });
-    } finally {
-      setSavingWalletSettings(false);
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -510,7 +438,7 @@ export default function PostBookingCenter() {
               </p>
               <h1 className="text-2xl lg:text-3xl font-semibold">Payments, Changes, and Resolution</h1>
               <p className="text-white/80 max-w-2xl text-sm lg:text-base">
-                Review extra charges, approve booking changes, settle disputes, and manage wallet preferences in one secure flow.
+                Review extra charges, approve booking changes, and settle disputes in one secure flow.
               </p>
             </div>
             <Button
@@ -525,7 +453,7 @@ export default function PostBookingCenter() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription className="flex items-center gap-2 text-rose-600">
@@ -549,15 +477,6 @@ export default function PostBookingCenter() {
             </CardHeader>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription className="flex items-center gap-2 text-emerald-600">
-                <Wallet className="w-4 h-4" />
-                Wallet Balance
-              </CardDescription>
-              <CardTitle className="text-2xl">{formatMoney(walletBalance, walletBalanceCurrency)}</CardTitle>
-            </CardHeader>
-          </Card>
         </section>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -565,7 +484,6 @@ export default function PostBookingCenter() {
             <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
             <TabsTrigger className="shrink-0" value="modifications">Modifications</TabsTrigger>
             <TabsTrigger className="shrink-0" value="disputes">Resolution Center</TabsTrigger>
-            <TabsTrigger className="shrink-0" value="wallet">Wallet</TabsTrigger>
           </TabsList>
 
           <TabsContent value="charges" className="mt-6 space-y-4">
@@ -577,7 +495,7 @@ export default function PostBookingCenter() {
               </Card>
             ) : (
               overview.charges.map((charge) => {
-                const selectedMethod = payMethodByCharge[charge.id] || "wallet";
+                const selectedMethod = payMethodByCharge[charge.id] || "card";
                 const linkedDispute = overview.disputes.find((d) => d.charge_id === charge.id);
                 return (
                   <Card key={charge.id} className="border-border/70">
@@ -625,7 +543,6 @@ export default function PostBookingCenter() {
                               }}
                               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                             >
-                              <option value="wallet">Wallet</option>
                               <option value="card">Card (Flutterwave)</option>
                               <option value="mobile_money">Mobile Money (PawaPay)</option>
                             </select>
@@ -821,93 +738,6 @@ export default function PostBookingCenter() {
             )}
           </TabsContent>
 
-          <TabsContent value="wallet" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5" />
-                  Wallet Settings
-                </CardTitle>
-                <CardDescription>
-                  Manage refund credits and optionally allow auto-charge for approved post-booking fees.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-border bg-muted/30 p-4">
-                    <p className="text-xs text-muted-foreground">Current balance</p>
-                    <p className="text-2xl font-semibold">{formatMoney(walletBalance, walletBalanceCurrency)}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-                    <p className="text-xs text-muted-foreground">Wallet currency</p>
-                    <select
-                      value={walletCurrency}
-                      onChange={(event) => setWalletCurrency(event.target.value)}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="RWF">RWF</option>
-                      <option value="EUR">EUR</option>
-                      <option value="KES">KES</option>
-                      <option value="UGX">UGX</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">Auto-charge consent</p>
-                      <p className="text-sm text-muted-foreground">Allow wallet auto-deduction for approved extra charges.</p>
-                    </div>
-                    <label className="inline-flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={walletConsent}
-                        onChange={(event) => setWalletConsent(event.target.checked)}
-                        className="h-4 w-4 rounded border-input"
-                      />
-                      Enabled
-                    </label>
-                  </div>
-
-                  <Button onClick={() => void saveWalletPreferences()} disabled={savingWalletSettings}>
-                    {savingWalletSettings ? "Saving..." : "Save wallet preferences"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Wallet Activity</CardTitle>
-                <CardDescription>Latest credits, debits, and refunds.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {overview.wallet_transactions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No wallet activity yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {overview.wallet_transactions.slice(0, 25).map((tx) => (
-                      <div key={tx.id} className="rounded-md border border-border bg-muted/20 p-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium capitalize">{humanizeLabel(tx.tx_type)}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleString()}</p>
-                          {tx.notes && <p className="text-xs text-muted-foreground mt-1">{tx.notes}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p className={`text-sm font-semibold ${tx.direction === "in" ? "text-emerald-600" : "text-rose-600"}`}>
-                            {tx.direction === "in" ? "+" : "-"}{formatMoney(tx.amount, walletBalanceCurrency)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Balance {formatMoney(tx.balance_after, walletBalanceCurrency)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
 

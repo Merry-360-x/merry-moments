@@ -380,8 +380,6 @@ async function listUserOverview({ adminClient, userId }) {
     chargesRes,
     modificationsRes,
     disputesRes,
-    walletRes,
-    walletTxRes,
     notificationsRes,
   ] = await Promise.all([
     adminClient
@@ -403,17 +401,6 @@ async function listUserOverview({ adminClient, userId }) {
       .order("created_at", { ascending: false })
       .limit(200),
     adminClient
-      .from("wallet_accounts")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    adminClient
-      .from("wallet_transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(300),
-    adminClient
       .from("notifications")
       .select("*")
       .eq("user_id", userId)
@@ -425,8 +412,8 @@ async function listUserOverview({ adminClient, userId }) {
     charges: chargesRes.data || [],
     booking_modifications: modificationsRes.data || [],
     disputes: disputesRes.data || [],
-    wallet_account: walletRes.data || null,
-    wallet_transactions: walletTxRes.data || [],
+    wallet_account: null,
+    wallet_transactions: [],
     notifications: notificationsRes.data || [],
   };
 }
@@ -467,7 +454,6 @@ async function createCharge({ auth, body }) {
   const currency = safeStr(body.currency || "USD", 12).toUpperCase();
   const proofUrls = normalizeList(body.proof_urls || body.proof || []);
   const dueAt = body.due_at ? new Date(body.due_at).toISOString() : null;
-  const autoChargeAllowed = Boolean(body.auto_charge_allowed);
 
   if (!bookingId || !chargeType || amount <= 0 || !description) {
     throw Object.assign(new Error("booking_id, charge_type, amount, and description are required"), { status: 400 });
@@ -487,7 +473,6 @@ async function createCharge({ auth, body }) {
       description,
       proof_urls: proofUrls,
       status: "pending",
-      auto_charge_allowed: autoChargeAllowed,
       due_at: dueAt,
       metadata: {
         source: "post_booking_admin",
@@ -501,20 +486,17 @@ async function createCharge({ auth, body }) {
     throw Object.assign(new Error(error?.message || "Failed to create charge"), { status: 400 });
   }
 
-  const autoCharge = await tryAutoChargeFromWallet({ adminClient: auth.adminClient, charge });
-  const finalCharge = autoCharge.charge || charge;
-
   await notifyChargeCreated({
     adminClient: auth.adminClient,
     booking,
-    charge: finalCharge,
+    charge,
     userEmail: booking.guest_email,
   });
 
   return {
-    charge: finalCharge,
-    auto_charge_applied: Boolean(autoCharge.autoCharged),
-    auto_charge_error: autoCharge.autoChargeError || null,
+    charge,
+    auto_charge_applied: false,
+    auto_charge_error: "wallet_system_removed",
   };
 }
 
@@ -931,7 +913,7 @@ async function payCharge({ auth, body }) {
     throw Object.assign(new Error("charge_id and payment method are required"), { status: 400 });
   }
 
-  if (!["wallet", "card", "mobile_money"].includes(method)) {
+  if (!["card", "mobile_money"].includes(method)) {
     throw Object.assign(new Error("Unsupported payment method"), { status: 400 });
   }
 
@@ -941,62 +923,6 @@ async function payCharge({ auth, body }) {
   }
 
   const nowIso = new Date().toISOString();
-
-  if (method === "wallet") {
-    const { error: txErr } = await auth.adminClient.rpc("wallet_apply_transaction", {
-      p_user_id: auth.userId,
-      p_tx_type: "charge_payment",
-      p_direction: "out",
-      p_amount: safeAmount(charge.amount),
-      p_reference_type: "charge",
-      p_reference_id: charge.id,
-      p_notes: "Post-booking charge payment",
-      p_metadata: {
-        charge_id: charge.id,
-        booking_id: charge.booking_id,
-      },
-    });
-
-    if (txErr) {
-      throw Object.assign(new Error(txErr.message || "Wallet payment failed"), { status: 400 });
-    }
-
-    const { data: paidCharge, error: updErr } = await auth.adminClient
-      .from("charges")
-      .update({
-        status: "paid",
-        payment_method: "wallet",
-        payment_provider: "wallet",
-        payment_reference: `wallet-${charge.id}`,
-        paid_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq("id", charge.id)
-      .eq("user_id", auth.userId)
-      .select("*")
-      .single();
-
-    if (updErr || !paidCharge) {
-      throw Object.assign(new Error(updErr?.message || "Failed to update charge status"), { status: 400 });
-    }
-
-    await applyAcceptedModificationIfPayable({ adminClient: auth.adminClient, chargeId: charge.id });
-
-    await createInAppNotification(auth.adminClient, {
-      userId: auth.userId,
-      title: "Payment successful",
-      body: `Charge payment of ${readableMoney(paidCharge.amount, paidCharge.currency)} was successful.`,
-      type: "payment_success",
-      channel: "in_app",
-      data: { charge_id: paidCharge.id, booking_id: paidCharge.booking_id },
-    });
-
-    return {
-      payment_status: "paid",
-      charge: paidCharge,
-      provider: "wallet",
-    };
-  }
 
   // Card/mobile money flow initialization through existing checkout + payment endpoints.
   // Server computes/locks amount so the client cannot tamper with charge value.
@@ -1188,20 +1114,7 @@ async function respondModification({ auth, body }) {
       }
     }
   } else if (safeAmount(mod.difference) < 0) {
-    // Refund as wallet credit
-    await auth.adminClient.rpc("wallet_apply_transaction", {
-      p_user_id: auth.userId,
-      p_tx_type: "refund",
-      p_direction: "in",
-      p_amount: Math.abs(safeAmount(mod.difference)),
-      p_reference_type: "booking_modification",
-      p_reference_id: mod.id,
-      p_notes: "Booking modification refund credit",
-      p_metadata: {
-        booking_modification_id: mod.id,
-        booking_id: mod.booking_id,
-      },
-    });
+    // Wallet system removed: mark as refunded without wallet credit transaction.
     paymentStatus = "refunded";
   } else {
     paymentStatus = "not_required";
@@ -1252,30 +1165,7 @@ async function respondModification({ auth, body }) {
 }
 
 async function setAutoChargeConsent({ auth, body }) {
-  const consent = Boolean(body.auto_charge_consent);
-  const currency = safeStr(body.currency || "USD", 12).toUpperCase();
-
-  await auth.adminClient.rpc("ensure_wallet_account", {
-    p_user_id: auth.userId,
-    p_currency: currency,
-  });
-
-  const { data, error } = await auth.adminClient
-    .from("wallet_accounts")
-    .update({
-      auto_charge_consent: consent,
-      currency,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", auth.userId)
-    .select("*")
-    .single();
-
-  if (error || !data) {
-    throw Object.assign(new Error(error?.message || "Failed to update wallet preferences"), { status: 400 });
-  }
-
-  return { wallet_account: data };
+  throw Object.assign(new Error("Wallet system has been removed"), { status: 410 });
 }
 
 export default async function handler(req, res) {
@@ -1333,8 +1223,6 @@ export default async function handler(req, res) {
       result = await payCharge({ auth, body });
     } else if (action === "respond-modification") {
       result = await respondModification({ auth, body });
-    } else if (action === "set-auto-charge-consent") {
-      result = await setAutoChargeConsent({ auth, body });
     } else {
       return json(res, 400, { ok: false, error: `Unsupported action: ${action}` });
     }
