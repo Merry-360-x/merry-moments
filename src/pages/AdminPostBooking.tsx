@@ -404,7 +404,7 @@ export default function AdminPostBooking() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-10 space-y-8">
+      <div className="container mx-auto px-4 lg:px-8 py-10 pb-24 space-y-8">
         <section className="rounded-2xl border border-border bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 lg:p-8 text-white">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
@@ -457,12 +457,12 @@ export default function AdminPostBooking() {
         </section>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="charges">Charges</TabsTrigger>
-            <TabsTrigger value="create-charge">Add Charge</TabsTrigger>
-            <TabsTrigger value="modifications">Modify Booking</TabsTrigger>
-            <TabsTrigger value="alternatives">Alternative Offer</TabsTrigger>
-            <TabsTrigger value="disputes">Disputes</TabsTrigger>
+          <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
+            <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="create-charge">Add Charge</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="modifications">Modify Booking</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="alternatives">Alternative Offer</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="disputes">Disputes</TabsTrigger>
           </TabsList>
 
           <TabsContent value="charges" className="mt-6 space-y-4">

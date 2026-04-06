@@ -197,12 +197,41 @@ export default function PostBookingCenter() {
 
   const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
 
-  const pendingChargeAmount = useMemo(
-    () => overview.charges
+  const pendingChargeTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+
+    overview.charges
       .filter((charge) => charge.status === "pending")
-      .reduce((sum, charge) => sum + Number(charge.amount || 0), 0),
-    [overview.charges]
-  );
+      .forEach((charge) => {
+        const currency = String(charge.currency || "USD").toUpperCase();
+        const current = totals.get(currency) || 0;
+        totals.set(currency, current + safeNumber(charge.amount));
+      });
+
+    return Array.from(totals.entries());
+  }, [overview.charges]);
+
+  const pendingChargesHeadline = useMemo(() => {
+    if (pendingChargeTotals.length === 0) {
+      return formatMoney(0, walletBalanceCurrency);
+    }
+
+    if (pendingChargeTotals.length === 1) {
+      const [currency, amount] = pendingChargeTotals[0];
+      return formatMoney(amount, currency);
+    }
+
+    return `${pendingChargeTotals.length} currencies`;
+  }, [pendingChargeTotals, walletBalanceCurrency]);
+
+  const pendingChargesBreakdown = useMemo(() => {
+    if (pendingChargeTotals.length <= 1) return "";
+
+    return pendingChargeTotals
+      .slice(0, 3)
+      .map(([currency, amount]) => formatMoney(amount, currency))
+      .join(" · ");
+  }, [pendingChargeTotals]);
 
   const openDisputesCount = useMemo(
     () => overview.disputes.filter((dispute) => ["open", "in_review"].includes(String(dispute.status))).length,
@@ -469,7 +498,7 @@ export default function PostBookingCenter() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-10 space-y-8">
+      <div className="container mx-auto px-4 lg:px-8 py-10 pb-24 space-y-8">
         <section className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 p-6 lg:p-8 text-white">
           <div className="absolute -top-16 -right-12 h-44 w-44 rounded-full bg-orange-400/25 blur-2xl" />
           <div className="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-rose-400/25 blur-2xl" />
@@ -503,7 +532,10 @@ export default function PostBookingCenter() {
                 <AlertCircle className="w-4 h-4" />
                 Pending Charges
               </CardDescription>
-              <CardTitle className="text-2xl">{formatMoney(pendingChargeAmount, walletBalanceCurrency)}</CardTitle>
+              <CardTitle className="text-2xl">{pendingChargesHeadline}</CardTitle>
+              {pendingChargesBreakdown ? (
+                <p className="text-xs text-muted-foreground pt-1">{pendingChargesBreakdown}</p>
+              ) : null}
             </CardHeader>
           </Card>
 
@@ -529,11 +561,11 @@ export default function PostBookingCenter() {
         </section>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="charges">Charges</TabsTrigger>
-            <TabsTrigger value="modifications">Modifications</TabsTrigger>
-            <TabsTrigger value="disputes">Resolution Center</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet</TabsTrigger>
+          <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
+            <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="modifications">Modifications</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="disputes">Resolution Center</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="wallet">Wallet</TabsTrigger>
           </TabsList>
 
           <TabsContent value="charges" className="mt-6 space-y-4">
