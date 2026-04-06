@@ -975,6 +975,9 @@ export default function HostDashboard() {
               byId.set(row.id, row);
             }
           }
+
+          // Stop after the first valid owner column to avoid noisy 400 probes on non-existent columns.
+          break;
         }
         return Array.from(byId.values());
       };

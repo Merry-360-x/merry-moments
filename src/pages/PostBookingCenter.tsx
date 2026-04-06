@@ -197,6 +197,9 @@ export default function PostBookingCenter() {
 
   const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
 
+  const walletBalance = safeNumber(overview.wallet_account?.balance);
+  const walletBalanceCurrency = overview.wallet_account?.currency || "USD";
+
   const pendingChargeTotals = useMemo(() => {
     const totals = new Map<string, number>();
 
@@ -237,9 +240,6 @@ export default function PostBookingCenter() {
     () => overview.disputes.filter((dispute) => ["open", "in_review"].includes(String(dispute.status))).length,
     [overview.disputes]
   );
-
-  const walletBalance = safeNumber(overview.wallet_account?.balance);
-  const walletBalanceCurrency = overview.wallet_account?.currency || "USD";
 
   const loadOverview = useCallback(async (withSpinner = true) => {
     if (!user?.id) return;
