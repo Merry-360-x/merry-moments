@@ -18,10 +18,8 @@ import {
   ShieldAlert,
   RefreshCcw,
   PlusCircle,
-  FileWarning,
   ArrowUpDown,
   Handshake,
-  Gavel,
 } from "lucide-react";
 
 type Charge = {
@@ -167,6 +165,7 @@ export default function AdminPostBooking() {
   });
 
   const [processingChargeId, setProcessingChargeId] = useState<string | null>(null);
+  const [statusDrafts, setStatusDrafts] = useState<Record<string, string>>({});
   const [adjustChargeDrafts, setAdjustChargeDrafts] = useState<Record<string, { amount: string; description: string }>>({});
 
   const [resolveDialog, setResolveDialog] = useState<ResolveDialogState>({
@@ -182,10 +181,6 @@ export default function AdminPostBooking() {
     () => roles.some((role) => ["admin", "financial_staff", "operations_staff", "customer_support"].includes(role)),
     [roles]
   );
-
-  const pendingChargesCount = overview.charges.filter((charge) => charge.status === "pending").length;
-  const openDisputesCount = overview.disputes.filter((dispute) => ["open", "in_review"].includes(dispute.status)).length;
-  const pendingModificationsCount = overview.booking_modifications.filter((modification) => modification.status === "pending").length;
 
   const loadOverview = useCallback(async (withSpinner = true) => {
     if (!user) return;
@@ -402,7 +397,7 @@ export default function AdminPostBooking() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-8 pb-24 space-y-6">
+      <div className="container mx-auto px-4 lg:px-8 py-8 pb-24 space-y-5">
         <section className="rounded-xl border border-border bg-card p-5 lg:p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1.5">
@@ -410,48 +405,16 @@ export default function AdminPostBooking() {
                 <ShieldAlert className="w-3.5 h-3.5" />
                 Admin Post-Booking
               </p>
-              <h1 className="text-xl lg:text-2xl font-semibold text-foreground">Charges and disputes</h1>
+              <h1 className="text-xl lg:text-2xl font-semibold text-foreground">Post-Booking Console</h1>
               <p className="text-muted-foreground text-sm">
-                Review and manage post-booking events with quick actions.
+                Manage charges, booking changes, alternative offers, and disputes.
               </p>
             </div>
-            <Button variant="outline" onClick={() => void loadOverview(false)} disabled={refreshing}>
+            <Button onClick={() => void loadOverview(false)} disabled={refreshing}>
               <RefreshCcw className="w-4 h-4 mr-2" />
               {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-muted-foreground">
-                <FileWarning className="w-4 h-4" />
-                Pending Charges
-              </CardDescription>
-              <CardTitle className="text-2xl font-semibold">{pendingChargesCount}</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-muted-foreground">
-                <Gavel className="w-4 h-4" />
-                Open Disputes
-              </CardDescription>
-              <CardTitle className="text-2xl font-semibold">{openDisputesCount}</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-muted-foreground">
-                <ArrowUpDown className="w-4 h-4" />
-                Pending Modifications
-              </CardDescription>
-              <CardTitle className="text-2xl font-semibold">{pendingModificationsCount}</CardTitle>
-            </CardHeader>
-          </Card>
         </section>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -470,6 +433,7 @@ export default function AdminPostBooking() {
               </Card>
             ) : (
               overview.charges.map((charge) => {
+                const nextStatus = statusDrafts[charge.id] || charge.status;
                 const draft = adjustChargeDrafts[charge.id] || {
                   amount: String(charge.amount || ""),
                   description: charge.description || "",
@@ -478,42 +442,43 @@ export default function AdminPostBooking() {
                 return (
                   <Card key={charge.id} className="border-border/70 shadow-none">
                     <CardContent className="pt-5 space-y-3">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-1.5">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="space-y-1.5 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge className={`${statusTone(charge.status)} border border-transparent`}>{charge.status}</Badge>
                             <Badge variant="outline">{humanizeLabel(charge.charge_type)}</Badge>
                             <span className="text-xs text-muted-foreground">Booking {charge.booking_id.slice(0, 8).toUpperCase()}</span>
                           </div>
-                          <p className="font-medium text-sm">{charge.description}</p>
-                          <p className="text-lg font-semibold text-foreground">{formatMoney(charge.amount, charge.currency)}</p>
+                          <p className="font-medium text-sm break-words">{charge.description}</p>
                         </div>
-                        <span className="text-xs text-muted-foreground">{new Date(charge.created_at).toLocaleString()}</span>
+                        <div className="md:text-right">
+                          <p className="text-lg font-semibold text-rose-600">{formatMoney(charge.amount, charge.currency)}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(charge.created_at).toLocaleString()}</p>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                        {[
-                          "pending",
-                          "paid",
-                          "failed",
-                          "disputed",
-                          "cancelled",
-                        ].map((status) => (
-                          <Button
-                            key={status}
-                            variant="outline"
-                            size="sm"
-                            className={
-                              charge.status === status
-                                ? "capitalize border-foreground/20 bg-foreground text-background hover:bg-foreground/90"
-                                : "capitalize border-border bg-background text-foreground hover:bg-muted"
-                            }
-                            onClick={() => void updateChargeStatus(charge.id, status)}
+                      <div className="rounded-md border border-border/80 p-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Status</Label>
+                          <select
+                            value={nextStatus}
+                            onChange={(event) => setStatusDrafts((prev) => ({ ...prev, [charge.id]: event.target.value }))}
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             disabled={processingChargeId === charge.id}
                           >
-                            {status}
-                          </Button>
-                        ))}
+                            <option value="pending">pending</option>
+                            <option value="paid">paid</option>
+                            <option value="failed">failed</option>
+                            <option value="disputed">disputed</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                        </div>
+                        <Button
+                          onClick={() => void updateChargeStatus(charge.id, nextStatus)}
+                          disabled={processingChargeId === charge.id || nextStatus === charge.status}
+                        >
+                          {processingChargeId === charge.id ? "Saving..." : "Update status"}
+                        </Button>
                       </div>
 
                       <div className="rounded-md border border-border/80 bg-muted/20 p-3 space-y-2">
@@ -538,7 +503,6 @@ export default function AdminPostBooking() {
                           <Button
                             onClick={() => void adjustCharge(charge)}
                             disabled={processingChargeId === charge.id}
-                            variant="outline"
                           >
                             {processingChargeId === charge.id ? "Saving..." : "Apply adjustment"}
                           </Button>
