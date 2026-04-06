@@ -1018,29 +1018,65 @@ async function payCharge({ auth, body }) {
       .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "flutterwave_init_failed" } }));
 
     response.flutterwave = flwResp;
+
+    const flwBody = flwResp?.body || {};
+    const flwRedirectUrl =
+      flwBody?.redirectUrl ||
+      flwBody?.link ||
+      flwBody?.data?.link ||
+      null;
+
+    if (!flwResp.ok || flwBody?.success === false || !flwRedirectUrl) {
+      throw Object.assign(
+        new Error(
+          safeStr(
+            flwBody?.error || flwBody?.message || "Unable to initialize card payment",
+            300,
+          ) || "Unable to initialize card payment",
+        ),
+        { status: 502 },
+      );
+    }
   }
 
   if (method === "mobile_money" && body.initialize === true) {
     const provider = safeStr(body.provider, 80);
     const phoneNumber = safeStr(body.phone_number || body.phone, 32);
 
-    if (provider && phoneNumber) {
-      const mpResp = await fetch(appUrl("/api/pawapay-create-payment"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checkoutId: checkout.id,
-          amount: checkout.total_amount,
-          phoneNumber,
-          payerName: safeStr(profile?.full_name || "Guest", 120),
-          payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
-          provider,
-          description: `Post-booking charge ${charge.id}`,
-        }),
-      }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
-        .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "pawapay_init_failed" } }));
+    if (!provider || !phoneNumber) {
+      throw Object.assign(new Error("provider and phone_number are required for mobile money"), { status: 400 });
+    }
 
-      response.mobile_money = mpResp;
+    const mpResp = await fetch(appUrl("/api/pawapay-create-payment"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        checkoutId: checkout.id,
+        amount: checkout.total_amount,
+        phoneNumber,
+        payerName: safeStr(profile?.full_name || "Guest", 120),
+        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
+        provider,
+        description: `Post-booking charge ${charge.id}`,
+      }),
+    }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
+      .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "pawapay_init_failed" } }));
+
+    response.mobile_money = mpResp;
+
+    const mpBody = mpResp?.body || {};
+    const depositId = mpBody?.depositId || mpBody?.data?.depositId || null;
+
+    if (!mpResp.ok || mpBody?.success === false || !depositId) {
+      throw Object.assign(
+        new Error(
+          safeStr(
+            mpBody?.error || mpBody?.message || "Unable to initialize mobile money payment",
+            300,
+          ) || "Unable to initialize mobile money payment",
+        ),
+        { status: 502 },
+      );
     }
   }
 

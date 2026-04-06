@@ -1175,15 +1175,22 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
           onPageStarted: (_) => setState(() => _loading = true),
           onPageFinished: (_) => setState(() => _loading = false),
           onNavigationRequest: (request) {
-            final url = request.url;
-            if (url.contains('merry360x.com/payment-pending')) {
-              Navigator.of(context).pop('success');
-              return NavigationDecision.prevent;
-            }
-            if (url.contains('merry360x.com/payment-failed')) {
+            final parsed = Uri.tryParse(request.url);
+            final host = (parsed?.host ?? '').toLowerCase();
+            final path = parsed?.path ?? '';
+
+            if ((host == 'merry360x.com' || host.endsWith('.merry360x.com')) && path == '/payment-failed') {
               Navigator.of(context).pop('failed');
               return NavigationDecision.prevent;
             }
+
+            if ((host == 'merry360x.com' || host.endsWith('.merry360x.com')) &&
+                path == '/my-bookings' &&
+                parsed?.queryParameters['payment'] == 'confirmed') {
+              Navigator.of(context).pop('success');
+              return NavigationDecision.prevent;
+            }
+
             return NavigationDecision.navigate;
           },
         ),

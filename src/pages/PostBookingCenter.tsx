@@ -282,6 +282,14 @@ export default function PostBookingCenter() {
       const result = await postBookingRequest("pay-charge", payload);
 
       if (method === "card") {
+        if (result?.flutterwave?.ok === false) {
+          const message =
+            result?.flutterwave?.body?.error ||
+            result?.flutterwave?.body?.message ||
+            "Could not initialize card payment.";
+          throw new Error(String(message));
+        }
+
         const redirectUrl =
           result?.flutterwave?.body?.redirectUrl ||
           result?.flutterwave?.body?.link ||
@@ -299,13 +307,21 @@ export default function PostBookingCenter() {
       }
 
       if (method === "mobile_money") {
+        if (result?.mobile_money?.ok === false) {
+          const message =
+            result?.mobile_money?.body?.error ||
+            result?.mobile_money?.body?.message ||
+            "Could not initialize mobile money payment.";
+          throw new Error(String(message));
+        }
+
         const depositId =
           result?.mobile_money?.body?.depositId ||
           result?.mobile_money?.body?.data?.depositId;
 
         if (result.checkout_id && depositId) {
           navigate(
-            `/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&depositId=${encodeURIComponent(String(depositId))}`
+            `/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&depositId=${encodeURIComponent(String(depositId))}&provider=pawapay`
           );
           return;
         }
