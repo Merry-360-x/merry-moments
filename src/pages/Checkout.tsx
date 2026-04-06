@@ -2419,7 +2419,7 @@ export default function CheckoutNew() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-28 md:pb-12">
         {/* Header */}
         <div className="mb-8">
           <Link to="/trip-cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -2610,7 +2610,7 @@ export default function CheckoutNew() {
                     <p className="text-xs md:text-sm text-muted-foreground">{t("checkout.payment.subtitle")}</p>
                   </div>
 
-                  <div className={cn("grid gap-2 md:gap-3", isAfricanRegion === false ? "grid-cols-2" : "grid-cols-3")}>
+                  <div className={cn("grid gap-2 md:gap-3", isAfricanRegion === false ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3")}>
                     {/* Mobile Money tab — only shown in African PawaPay regions */}
                     {isAfricanRegion === true && (
                     <button
@@ -2626,17 +2626,17 @@ export default function CheckoutNew() {
                         setShowContactModal(false);
                       }}
                       className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-3 md:p-4 text-left transition-all",
                         isMobileMoneyMethod ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                       )}
                     >
                       <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
                           <Smartphone className="w-4 h-4 md:w-5 md:h-5 text-foreground" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">Mobile Money</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">MTN, Airtel, M-Pesa, Zamtel</p>
+                          <p className="font-medium text-sm md:text-base truncate">Mobile Money</p>
+                          <p className="text-xs text-muted-foreground hidden sm:block">MTN, Airtel, M-Pesa, Zamtel</p>
                         </div>
                       </div>
                     </button>
@@ -2650,18 +2650,18 @@ export default function CheckoutNew() {
                         setShowContactModal(false);
                       }}
                       className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-3 md:p-4 text-left transition-all",
                         paymentMethod === 'card'
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       )}
                     >
                       <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
                           <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-foreground" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.card")}</p>
+                          <p className="font-medium text-sm md:text-base truncate">{t("checkout.payment.card")}</p>
                           <div className="hidden sm:flex items-center gap-1.5 mt-1">
                             {CARD_BRAND_LOGOS.map((brand) => (
                               <span
@@ -2684,19 +2684,19 @@ export default function CheckoutNew() {
                         setShowContactModal(true);
                       }}
                       className={cn(
-                        "border-2 rounded-lg md:rounded-xl p-2.5 md:p-4 text-left transition-all",
+                        "border-2 rounded-lg md:rounded-xl p-3 md:p-4 text-left transition-all",
                         paymentMethod === 'bank'
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       )}
                     >
                       <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg border border-border bg-background flex items-center justify-center flex-shrink-0">
                           <Building2 className="w-4 h-4 md:w-5 md:h-5 text-foreground" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-xs md:text-base truncate">{t("checkout.payment.bankTransfer")}</p>
-                          <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.bankTransferDesc")}</p>
+                          <p className="font-medium text-sm md:text-base truncate">{t("checkout.payment.bankTransfer")}</p>
+                          <p className="text-xs text-muted-foreground hidden sm:block">{t("checkout.payment.bankTransferDesc")}</p>
                         </div>
                       </div>
                     </button>
@@ -2746,7 +2746,7 @@ export default function CheckoutNew() {
                                   )}
                                 </div>
                                 {savedMethod.is_default && (
-                                  <span className="inline-flex mt-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                  <span className="inline-flex mt-2 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                                     Default
                                   </span>
                                 )}
@@ -2793,7 +2793,7 @@ export default function CheckoutNew() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium">{formatMoney(convertedTotal, currency)}</p>
-                              <p className="text-[10px] text-muted-foreground">{currency}</p>
+                              <p className="text-xs text-muted-foreground">{currency}</p>
                             </div>
                           </div>
                           
@@ -2822,7 +2822,7 @@ export default function CheckoutNew() {
                                     "w-10 h-10 rounded-lg mx-auto flex items-center justify-center",
                                     method.color
                                   )}>
-                                    <span className={cn("font-bold text-[10px]", method.textColor)}>
+                                    <span className={cn("font-bold text-xs", method.textColor)}>
                                       {method.shortName}
                                     </span>
                                   </div>
@@ -2916,7 +2916,7 @@ export default function CheckoutNew() {
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="billingCity">City</Label>
                             <Input
@@ -2939,7 +2939,7 @@ export default function CheckoutNew() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="billingCountry">Billing country</Label>
                             <select
@@ -2983,8 +2983,8 @@ export default function CheckoutNew() {
                     <>
                       <div>
                         <Label htmlFor="phone">{t("checkout.payment.phoneNumber")}</Label>
-                        <div className="flex gap-2 mt-1.5">
-                          <div className="h-11 px-3 rounded-lg border bg-muted/50 flex items-center text-sm">
+                        <div className="flex flex-col sm:flex-row gap-2 mt-1.5">
+                          <div className="h-11 px-3 rounded-lg border bg-muted/50 flex items-center text-sm w-fit">
                             {countryCode}
                           </div>
                           <div className="relative flex-1">
@@ -3025,7 +3025,7 @@ export default function CheckoutNew() {
                     </>
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       variant="outline" 
                       size="lg"
@@ -3252,7 +3252,7 @@ export default function CheckoutNew() {
                     </div>
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       variant="outline" 
                       size="lg"
@@ -3527,6 +3527,40 @@ export default function CheckoutNew() {
           </div>
         </div>
       </div>
+
+      {cartItems.length > 0 && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+          <div
+            className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-base font-semibold text-foreground truncate">{formatMoney(payableAmount, displayCurrency)}</p>
+            </div>
+
+            {currentStep === 'details' ? (
+              <Button className="h-11 px-4 min-w-[10rem]" onClick={() => goToStep('payment')} disabled={!isDetailsValid}>
+                {t("checkout.contact.continue")}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : currentStep === 'payment' ? (
+              <Button className="h-11 px-4 min-w-[10rem]" onClick={() => goToStep('confirm')} disabled={!isPaymentValid}>
+                {t("checkout.payment.reviewBooking")}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                className="h-11 px-4 min-w-[10rem]"
+                onClick={handlePayment}
+                disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
+              >
+                {isProcessing ? "Processing..." : `Pay ${formatMoney(payableAmount, displayCurrency)}`}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Contact Modal for Bank Transfer only */}
       {showContactModal && paymentMethod === 'bank' && (

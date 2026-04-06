@@ -313,7 +313,7 @@ export default function TourDetails() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 lg:px-8 py-8 pb-28 lg:pb-8 max-w-7xl">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -632,7 +632,7 @@ export default function TourDetails() {
           {/* Right column - Booking & Host (1/3 width, sticky) */}
           <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             {/* Booking card */}
-            <div className="bg-card rounded-xl shadow-lg border p-6">
+            <div id="tour-booking-card" className="bg-card rounded-xl shadow-lg border p-6">
               <div className="mb-6">
                 <div className="text-3xl font-bold text-primary">
                   {displayMoney(Number(effectiveTourPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
@@ -875,6 +875,30 @@ export default function TourDetails() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur-xl shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+        <div
+          className="container mx-auto px-4 py-3 flex items-center justify-between gap-3"
+          style={{ paddingBottom: "max(0.9rem, env(safe-area-inset-bottom))" }}
+        >
+          <div className="min-w-0 leading-tight">
+            <p className="text-2xl font-extrabold tracking-tight text-foreground truncate">
+              {displayMoney(Number(effectiveTourPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
+            </p>
+            <p className="text-sm font-semibold text-muted-foreground">
+              / {getTourPriceSuffix(pricingModel).replace(/^per\s+/i, "")}
+            </p>
+          </div>
+          <Button
+            className="h-14 min-w-[9.25rem] rounded-2xl bg-[#ff385c] px-6 text-lg font-bold text-white shadow-sm hover:bg-[#e73353]"
+            onClick={() => {
+              document.getElementById("tour-booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            {t("common.reserve", "Reserve")}
+          </Button>
         </div>
       </div>
 

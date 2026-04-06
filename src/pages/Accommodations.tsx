@@ -612,6 +612,7 @@ const Accommodations = () => {
     (locationFilter.trim() ? 1 : 0) +
     (guestCount > 0 ? 1 : 0) +
     (monthlyFilterMode !== "all" ? 1 : 0);
+  const totalPages = Math.ceil(properties.length / ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-background">
@@ -622,39 +623,44 @@ const Accommodations = () => {
         <div className="container mx-auto px-4 lg:px-8 py-5 sm:py-8">
           {/* Mobile: nicer pill */}
           <div className="sm:hidden">
-            <div className="bg-card rounded-full shadow-search border border-border px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <Search className="w-4 h-4 text-muted-foreground" />
+            <div className="bg-card rounded-2xl shadow-search border border-border p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-primary">Merry AI Search</div>
+                  <input
+                    type="text"
+                    placeholder="Ask Merry AI about stays in Rwanda"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") runSearch();
+                    }}
+                    className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+                  />
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-semibold text-primary">Merry AI Search</div>
-                <input
-                  type="text"
-                  placeholder="Ask Merry AI about stays in Rwanda"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") runSearch();
-                  }}
-                  className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
-                />
-              </div>
-              {query.trim() ? (
+
+              <div className="mt-3 flex items-center gap-2">
+                {query.trim() ? (
+                  <button
+                    type="button"
+                    className="h-10 px-4 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  className="text-xs px-3 py-2 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                  onClick={() => setQuery("")}
+                  className="h-10 flex-1 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+                  onClick={runSearch}
                 >
-                  Clear
+                  Search
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className="text-xs px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold"
-                onClick={runSearch}
-              >
-                Search
-              </button>
+              </div>
             </div>
           </div>
 
@@ -681,7 +687,7 @@ const Accommodations = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 lg:px-8 py-12">
+      <div className="container mx-auto px-4 lg:px-8 py-12 pb-24 lg:pb-12">
         <div className="mb-8">
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{t("accommodations.title")}</h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -771,11 +777,11 @@ const Accommodations = () => {
 
         {/* Mobile filters sheet */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <SheetContent side="bottom" className="p-0">
+          <SheetContent side="bottom" className="p-0 h-[88dvh] flex flex-col">
             <SheetHeader className="p-6 pb-2">
               <SheetTitle>{t("accommodations.filters")}</SheetTitle>
             </SheetHeader>
-            <div className="p-6 pt-4 max-h-[70vh] overflow-y-auto">
+            <div className="flex-1 min-h-0 p-6 pt-4 overflow-y-auto">
               <Accordion type="multiple" defaultValue={["price", "type"]}>
                 <AccordionItem value="price">
                   <AccordionTrigger>{t("accommodations.priceRange")}</AccordionTrigger>
@@ -872,7 +878,7 @@ const Accommodations = () => {
                 <AccordionItem value="rental-type">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
                         { value: "all", label: "All rentals" },
                         { value: "monthly_only", label: "Monthly only" },
@@ -898,7 +904,7 @@ const Accommodations = () => {
                 <AccordionItem value="amenities">
                   <AccordionTrigger>{t("accommodations.amenities")}</AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {amenities.map((a) => {
                         const Icon = a.icon;
                         const active = selectedAmenities.includes(a.value);
@@ -930,7 +936,7 @@ const Accommodations = () => {
                 </AccordionItem>
               </Accordion>
             </div>
-            <div className="p-6 pt-0 border-t border-border flex items-center justify-between gap-3">
+            <div className="p-4 border-t border-border bg-background flex items-center justify-between gap-3">
               <Button
                 type="button"
                 variant="outline"
@@ -1284,12 +1290,12 @@ const Accommodations = () => {
               <>
                 {/* Pagination Info */}
                 <div className="col-span-full flex items-center justify-between mb-4">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, properties.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, properties.length)} of {properties.length} properties
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
                   {properties
                     .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
                     .map((property) => (
@@ -1329,7 +1335,7 @@ const Accommodations = () => {
 
                 {/* Pagination Controls */}
                 {properties.length > ITEMS_PER_PAGE && (
-                  <div className="col-span-full flex items-center justify-center gap-2 mt-8">
+                  <div className="col-span-full flex flex-wrap items-center justify-center gap-2 mt-8">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1340,11 +1346,14 @@ const Accommodations = () => {
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
+
+                    <span className="sm:hidden text-sm text-muted-foreground px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
                     
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.ceil(properties.length / ITEMS_PER_PAGE) }, (_, i) => i + 1)
+                    <div className="hidden sm:flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
                         .filter(page => {
-                          const totalPages = Math.ceil(properties.length / ITEMS_PER_PAGE);
                           // Show first, last, current, and pages around current
                           if (page === 1 || page === totalPages) return true;
                           if (Math.abs(page - currentPage) <= 1) return true;
@@ -1371,8 +1380,8 @@ const Accommodations = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(properties.length / ITEMS_PER_PAGE), p + 1))}
-                      disabled={currentPage >= Math.ceil(properties.length / ITEMS_PER_PAGE)}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
                       className="gap-1"
                     >
                       Next

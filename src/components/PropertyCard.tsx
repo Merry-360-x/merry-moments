@@ -144,7 +144,7 @@ const PropertyCard = ({
   }, [checkFavorite, id, isFavorited]);
 
   const content = (
-    <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
+    <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
         {gallery.length ? (
@@ -172,14 +172,14 @@ const PropertyCard = ({
               if (ok) setFav((v) => !v);
             })();
           }}
-          className="absolute top-1.5 md:top-3 right-1.5 md:right-3 p-1 md:p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
+          className="absolute top-2 right-2 p-1.5 md:p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
           aria-label={t("actions.favorites")}
         >
           <Heart
-            className={`w-3 h-3 md:w-4 md:h-4 ${fav ? "fill-primary text-primary" : "text-foreground"}`}
+            className={`w-3.5 h-3.5 md:w-4 md:h-4 ${fav ? "fill-primary text-primary" : "text-foreground"}`}
           />
         </button>
-        <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium flex items-center gap-1">
+        <span className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-background/90 backdrop-blur-sm text-[11px] md:text-xs font-medium flex items-center gap-1">
           {type}
           {hostVerified && (
             <BadgeCheck className="w-3 h-3 md:w-4 md:h-4 text-primary" />
@@ -188,24 +188,24 @@ const PropertyCard = ({
       </div>
 
       {/* Content */}
-      <div className="p-2 md:p-4">
-        <div className="flex items-start justify-between gap-1 md:gap-2 mb-1 md:mb-2">
-          <h3 className="font-semibold text-[10px] md:text-base text-foreground line-clamp-1">{title}</h3>
+      <div className="p-3 md:p-4">
+        <div className="flex items-start justify-between gap-2 mb-1.5 md:mb-2">
+          <h3 className="font-semibold text-[13px] md:text-base text-foreground line-clamp-1">{title}</h3>
           <div className="hidden md:flex items-center gap-1 shrink-0">
             <Star className="w-4 h-4 fill-primary text-primary" />
             <span className="text-sm font-medium">{rating}</span>
             <span className="text-sm text-muted-foreground">({reviews})</span>
           </div>
           {/* Mobile: compact rating */}
-          <div className="flex md:hidden items-center gap-0.5 shrink-0">
-            <Star className="w-2.5 h-2.5 fill-primary text-primary" />
-            <span className="text-[8px] font-medium">{rating}</span>
+          <div className="flex md:hidden items-center gap-1 shrink-0">
+            <Star className="w-3.5 h-3.5 fill-primary text-primary" />
+            <span className="text-xs font-medium">{rating}</span>
           </div>
         </div>
-        <p className="text-[8px] md:text-sm text-muted-foreground mb-0.5 md:mb-1 line-clamp-1">{extractNeighborhood(location)}</p>
+        <p className="text-xs md:text-sm text-muted-foreground mb-1 md:mb-1 line-clamp-1">{extractNeighborhood(location)}</p>
         {/* Mobile: Show beds compact */}
         {(beds || bedrooms) && (
-          <p className="md:hidden text-[8px] text-muted-foreground mb-1">
+          <p className="md:hidden text-xs text-muted-foreground mb-1">
             {beds ? `${beds} bed${beds > 1 ? 's' : ''}` : bedrooms ? `${bedrooms} bedroom${bedrooms > 1 ? 's' : ''}` : ''}
           </p>
         )}
@@ -274,11 +274,11 @@ const PropertyCard = ({
           ) : null}
         </div>
         <div className="space-y-0.5 md:space-y-1">
-          <div className="flex items-baseline gap-0.5 md:gap-1">
-            <span className="text-[10px] md:text-lg font-bold text-foreground">
+          <div className="flex items-baseline gap-1 md:gap-1">
+            <span className="text-base md:text-lg font-bold text-foreground">
               {displayMoney(price, originalCurrency || "RWF")}
             </span>
-            <span className="text-[8px] md:text-sm text-muted-foreground">
+            <span className="text-xs md:text-sm text-muted-foreground">
               {pricePeriod === "month" ? t("common.perMonth", "per month") : t("common.perNight")}
             </span>
           </div>

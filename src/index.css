@@ -94,6 +94,14 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
   * {
     @apply border-border;
   }
@@ -101,6 +109,8 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Poppins', sans-serif;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 

@@ -52,6 +52,13 @@ interface CartItem {
   transport_vehicle_id?: string;
 }
 
+const getLocalDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function TripCart() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -72,6 +79,7 @@ export default function TripCart() {
   const [editCheckIn, setEditCheckIn] = useState("");
   const [editCheckOut, setEditCheckOut] = useState("");
   const [editGuests, setEditGuests] = useState(1);
+  const todayLocal = getLocalDateInputValue();
   
   // Track unavailable items
   const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
@@ -483,7 +491,7 @@ export default function TripCart() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-28 md:pb-12">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-light tracking-tight">{t("tripCartPage.title")}</h1>
@@ -590,7 +598,7 @@ export default function TripCart() {
                           {item.item_type === 'property' && (
                             <div className="mt-1.5 md:mt-2">
                               {item.metadata?.check_in && item.metadata?.check_out ? (
-                                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-[10px] md:text-xs text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                     {new Date(item.metadata.check_in).toLocaleDateString('en-US', {month:'short', day:'numeric'})} - {new Date(item.metadata.check_out).toLocaleDateString('en-US', {month:'short', day:'numeric'})}
@@ -637,22 +645,22 @@ export default function TripCart() {
                             <div className="flex items-center border rounded-lg">
                               <button 
                                 onClick={() => updateQuantity?.(item.id, Math.max(1, item.quantity - 1))}
-                                className="p-1.5 md:p-2 hover:bg-muted transition-colors"
+                                className="h-9 w-9 flex items-center justify-center hover:bg-muted transition-colors"
                                 disabled={item.quantity <= 1}
                               >
                                 <Minus className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
-                              <span className="px-2 md:px-3 text-xs md:text-sm font-medium">{item.quantity}</span>
+                              <span className="w-8 text-center text-xs md:text-sm font-medium">{item.quantity}</span>
                               <button 
                                 onClick={() => updateQuantity?.(item.id, item.quantity + 1)}
-                                className="p-1.5 md:p-2 hover:bg-muted transition-colors"
+                                className="h-9 w-9 flex items-center justify-center hover:bg-muted transition-colors"
                               >
                                 <Plus className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
                             </div>
                             <button 
                               onClick={() => removeFromCart(item.id)}
-                              className="p-1.5 md:p-2 text-muted-foreground hover:text-destructive transition-colors"
+                              className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             </button>
@@ -663,7 +671,7 @@ export default function TripCart() {
                               {formatMoney(itemPrice, displayCurrency)}
                             </p>
                             {isAccommodation && item.metadata?.nights && (
-                              <p className="text-[10px] md:text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground">
                                 {formatMoney(pricePerUnit, displayCurrency)}/night × {nights}n
                                 {item.metadata?.breakfast_included ? (
                                   <>
@@ -684,7 +692,7 @@ export default function TripCart() {
 
             {/* Booking Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-2xl border border-border/50 p-6 sticky top-24">
+              <div className="bg-card rounded-2xl border border-border/50 p-4 md:p-6 sticky top-24">
                 <h2 className="text-lg font-semibold mb-6">{t("tripCartPage.bookingSummary")}</h2>
                 
                 {/* Discount Code */}
@@ -693,7 +701,7 @@ export default function TripCart() {
                     {t("checkout.summary.discountCode")}
                   </label>
                   {!appliedDiscount ? (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Input
                         placeholder={t("checkout.summary.enterCode")}
                         value={discountCode}
@@ -706,7 +714,7 @@ export default function TripCart() {
                         onClick={applyDiscountCode} 
                         disabled={!discountCode.trim() || validatingCode}
                         variant="outline"
-                        className="h-10 px-4"
+                        className="h-10 px-4 w-full sm:w-auto"
                       >
                         {validatingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.apply")}
                       </Button>
@@ -825,6 +833,24 @@ export default function TripCart() {
         )}
       </div>
 
+      {cartItems.length > 0 && (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+          <div
+            className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-base font-semibold text-foreground truncate">{formatMoney(total, displayCurrency)}</p>
+            </div>
+            <Button className="h-11 px-4 min-w-[10rem]" onClick={handleProceedToCheckout}>
+              {t("tripCartPage.proceedPayment")}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Edit Dates Modal */}
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -858,7 +884,7 @@ export default function TripCart() {
               </div>
               
               {/* Date Inputs */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="check-in">{t("tripCartPage.checkIn")}</Label>
                   <Input
@@ -866,7 +892,7 @@ export default function TripCart() {
                     type="date"
                     value={editCheckIn}
                     onChange={(e) => setEditCheckIn(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={todayLocal}
                     className="w-full"
                   />
                 </div>
@@ -877,7 +903,7 @@ export default function TripCart() {
                     type="date"
                     value={editCheckOut}
                     onChange={(e) => setEditCheckOut(e.target.value)}
-                    min={editCheckIn || new Date().toISOString().split('T')[0]}
+                    min={editCheckIn || todayLocal}
                     className="w-full"
                   />
                 </div>
@@ -889,7 +915,7 @@ export default function TripCart() {
                 <div className="flex items-center border rounded-lg w-fit">
                   <button 
                     onClick={() => setEditGuests(Math.max(1, editGuests - 1))}
-                    className="p-2 hover:bg-muted transition-colors"
+                    className="h-11 w-11 flex items-center justify-center hover:bg-muted transition-colors"
                     disabled={editGuests <= 1}
                   >
                     <Minus className="w-4 h-4" />
@@ -897,7 +923,7 @@ export default function TripCart() {
                   <span className="px-4 text-sm font-medium">{editGuests}</span>
                   <button 
                     onClick={() => setEditGuests(editGuests + 1)}
-                    className="p-2 hover:bg-muted transition-colors"
+                    className="h-11 w-11 flex items-center justify-center hover:bg-muted transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                   </button>

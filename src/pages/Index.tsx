@@ -315,13 +315,13 @@ const Index = () => {
           </div>
 
           {isStoryCirclesLoading ? (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="shrink-0 h-12 w-12 rounded-full bg-muted animate-pulse" />
+                <div key={i} className="shrink-0 snap-start h-12 w-12 rounded-full bg-muted animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
               {storyCircles.slice(0, 12).map((story, index) => {
                 const isFresh = storyFreshness.get(story.storyId) ?? false;
                 const fallbackText = story.displayName.slice(0, 1).toUpperCase();
@@ -330,7 +330,7 @@ const Index = () => {
                     key={story.storyId}
                     type="button"
                     onClick={() => openStoryModal(index)}
-                    className="group shrink-0"
+                    className="group shrink-0 snap-start"
                     aria-label={`Open stories by ${story.displayName}`}
                   >
                     <Avatar className={`h-12 w-12 ${isFresh ? "border-[3px] border-primary" : "border border-border/50"}`}>
@@ -391,7 +391,7 @@ const Index = () => {
 
             {/* Content */}
             <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 text-center">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-8 italic animate-fade-in">
                 {t("index.heroTitle")}
               </h1>
 
@@ -404,7 +404,7 @@ const Index = () => {
                   onClick={() => navigate('/affiliate-signup')}
                   variant="outline"
                   size="lg"
-                  className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
+                  className="w-full max-w-[22rem] sm:w-auto bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:text-white transition-all shadow-lg"
                 >
                   <TrendingUp className="w-5 h-5 mr-2" />
                   Refer an Operator & Earn 10%
@@ -451,7 +451,7 @@ const Index = () => {
       </section>
 
       <section className="container mx-auto px-4 pb-16">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">Popular Tours</h2>
             <p className="text-sm text-muted-foreground mt-1">Top picks travelers are booking now</p>

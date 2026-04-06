@@ -1326,7 +1326,7 @@ export default function PropertyDetails() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 lg:px-8 py-10">
+      <div className="container mx-auto px-4 lg:px-8 py-10 pb-28 lg:pb-10">
         <div className="flex items-center justify-between gap-4 mb-6">
           <button
             type="button"
@@ -2093,7 +2093,7 @@ export default function PropertyDetails() {
               </div>
 
               {/* Booking */}
-              <div className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
+              <div id="property-booking-card" className="booking-sticky-card mt-8 bg-card rounded-xl shadow-card p-5 lg:sticky lg:top-24 lg:z-20 border border-border/60 transition-all duration-300 hover:shadow-xl">
                 <h2 className="text-lg font-semibold text-foreground mb-4">
                   {isMonthlyOnlyListing ? "Book this monthly stay" : t("propertyDetails.bookThisStay")}
                 </h2>
@@ -2542,6 +2542,35 @@ export default function PropertyDetails() {
           </div>
         ) : null}
       </div>
+
+      {data ? (
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur-xl shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+          <div
+            className="container mx-auto px-4 py-3 flex items-center justify-between gap-3"
+            style={{ paddingBottom: "max(0.9rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="min-w-0 leading-tight">
+              <p className="text-2xl font-extrabold tracking-tight text-foreground truncate">
+                {displayMoney(
+                  Number(isMonthlyOnlyListing ? data.price_per_month ?? 0 : data.price_per_night ?? 0),
+                  String(data.currency ?? "RWF")
+                )}
+              </p>
+              <p className="text-sm font-semibold text-muted-foreground">
+                {isMonthlyOnlyListing ? "/ month" : "/ night"}
+              </p>
+            </div>
+            <Button
+              className="h-14 min-w-[9.25rem] rounded-2xl bg-[#ff385c] px-6 text-lg font-bold text-white shadow-sm hover:bg-[#e73353]"
+              onClick={() => {
+                document.getElementById("property-booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {t("common.reserve", "Reserve")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <Footer />
     </div>

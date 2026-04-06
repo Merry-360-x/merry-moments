@@ -191,20 +191,13 @@ const Footer = () => {
             ))}
           </div>
           <div className="mb-4 flex justify-center">
-            <HoverCard openDelay={120} closeDelay={120}>
-              <HoverCardTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/50"
-                >
-                  <Bell className="h-3.5 w-3.5" />
-                  Updates
-                </button>
-              </HoverCardTrigger>
-              <HoverCardContent align="center" side="top" className="w-72 border-primary/20 bg-background/85 backdrop-blur-xl p-3 shadow-xl">
-                {renderUpdatesContent(true)}
-              </HoverCardContent>
-            </HoverCard>
+            <Link
+              to="/announcements"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/50"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Updates
+            </Link>
           </div>
           {/* Copyright */}
           <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border">

@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart,
   ChevronDown,
+  ShoppingBag,
   Moon,
   Sun,
   LogOut,
@@ -91,6 +92,18 @@ const Navbar = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
   const { t } = useTranslation();
   const { language, setLanguage, currency, setCurrency, resolvedTheme, setTheme } = usePreferences();
 
@@ -278,7 +291,7 @@ const Navbar = () => {
                 <span className="inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary shrink-0">
                   <Megaphone className="w-3 h-3 md:w-4 md:h-4" />
                 </span>
-                <span className="text-[11px] md:text-sm font-semibold text-foreground line-clamp-1">
+                <span className="text-xs md:text-sm font-semibold text-foreground line-clamp-1">
                   {(activeAd?.message ?? fallbackAd.message) as string}
                 </span>
                 {activeAd?.cta_label && activeAd?.cta_url && (
@@ -286,7 +299,7 @@ const Navbar = () => {
                     <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-muted-foreground/40" />
                     <a
                       href={activeAd.cta_url}
-                      className="text-[11px] md:text-sm font-semibold text-primary hover:underline underline-offset-4 whitespace-nowrap"
+                      className="text-xs md:text-sm font-semibold text-primary hover:underline underline-offset-4 whitespace-nowrap"
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -583,7 +596,7 @@ const Navbar = () => {
 
         {/* Mobile Menu (clean + minimal) */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-border">
+          <div className="lg:hidden border-t border-border max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
             <div className="space-y-4 px-1 py-4 sm:px-0">
               {/* Quick actions */}
               <div className="flex flex-wrap items-center justify-between gap-2 px-1">
@@ -635,7 +648,8 @@ const Navbar = () => {
                     </button>
                   </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0">
+                    <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0 h-10 px-3 gap-1.5">
+                      <ShoppingBag className="w-4 h-4 shrink-0" />
                       {t("actions.tripCart")}
                       {tripCartCount > 0 ? (
                         <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -648,7 +662,7 @@ const Navbar = () => {
               </div>
 
               {/* Main navigation */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[
                   { to: "/", label: t("nav.home"), icon: Home },
                   { to: "/accommodations", label: t("nav.accommodations"), icon: Building2 },
@@ -706,7 +720,7 @@ const Navbar = () => {
                       </div>
                       <div className="text-xs text-muted-foreground">{user.email}</div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Button
                         variant="outline"
                         size="sm"

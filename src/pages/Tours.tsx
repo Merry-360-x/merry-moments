@@ -308,8 +308,8 @@ const Tours = () => {
 
       {/* Search */}
       <div className="container mx-auto px-4 lg:px-8 mb-12">
-        <div className="bg-card rounded-xl shadow-card p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
-          <div className="flex-1 flex items-center gap-2 px-4">
+        <div className="bg-card rounded-xl shadow-card p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4 max-w-3xl mx-auto">
+          <div className="flex-1 flex items-center gap-2 px-1 sm:px-4">
             <div className="w-full">
               <div className="mb-1 text-xs font-semibold text-primary">Merry AI Search</div>
               <div className="flex items-center gap-2">
@@ -324,9 +324,9 @@ const Tours = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <select
-              className="bg-transparent text-sm text-muted-foreground focus:outline-none"
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
             >
@@ -335,7 +335,7 @@ const Tours = () => {
               <option value="Full Day">{t("tours.duration.fullDay")}</option>
               <option value="Multi-Day">{t("tours.duration.multiDay")}</option>
             </select>
-            <Button variant="search" className="gap-2" type="button" onClick={runSearch}>
+            <Button variant="search" className="gap-2 w-full sm:w-auto" type="button" onClick={runSearch}>
               <Search className="w-4 h-4" />
               {t("common.search")}
             </Button>
@@ -345,7 +345,7 @@ const Tours = () => {
 
       {/* Category Filters */}
       <div className="container mx-auto px-4 lg:px-8 mb-12">
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-3 sm:overflow-visible sm:px-0">
           {categories.map((category) => (
             <button
               key={category.value}
@@ -358,7 +358,7 @@ const Tours = () => {
                 const qs = params.toString();
                 navigate(qs ? `/tours?${qs}` : "/tours");
               }}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`shrink-0 px-4 sm:px-5 py-2 rounded-full text-sm font-medium transition-colors ${
                 activeCategory === category.value
                   ? "bg-primary text-primary-foreground"
                   : "bg-card border border-border text-foreground hover:border-primary"
@@ -371,7 +371,7 @@ const Tours = () => {
       </div>
 
       {/* Tours */}
-      <div className="container mx-auto px-4 lg:px-8 py-10">
+      <div className="container mx-auto px-4 lg:px-8 py-10 pb-24 lg:pb-10">
         {isError ? (
           <div className="py-20 text-center">
             <p className="text-muted-foreground">{t("tours.errorLoading")}</p>
@@ -381,7 +381,7 @@ const Tours = () => {
             <p className="text-muted-foreground">{t("tours.noResults")}</p>
           </div>
         ) : !toursLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {rankedTours.map((tour) => (
               <div
                 key={tour.id}
@@ -415,11 +415,11 @@ const Tours = () => {
                     <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
                       <h3 className="font-semibold text-sm md:text-base text-foreground line-clamp-1">{tour.title}</h3>
                       {tour.source === "tour_packages" ? (
-                        <Badge variant="outline" className="text-[10px] md:text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0 px-1.5 py-0.5">
+                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 shrink-0 px-1.5 py-0.5">
                           {t("tours.badge.package")}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] md:text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0 px-1.5 py-0.5">
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 shrink-0 px-1.5 py-0.5">
                           {t("tours.badge.tour")}
                         </Badge>
                       )}
@@ -427,15 +427,15 @@ const Tours = () => {
                     <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
                       <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-primary text-primary" />
                       <span className="text-xs md:text-sm font-medium">{Number(tour.rating ?? 0).toFixed(1)}</span>
-                      <span className="text-xs md:text-sm text-muted-foreground">({tour.review_count ?? 0})</span>
+                      <span className="hidden sm:inline text-xs md:text-sm text-muted-foreground">({tour.review_count ?? 0})</span>
                     </div>
                   </div>
 
                   <p className="text-xs md:text-sm text-muted-foreground mb-1.5 md:mb-2">{extractNeighborhood(tour.location)}</p>
                   {tour.business_name && (
-                    <p className="text-[10px] md:text-xs text-primary/80 font-medium mb-1 truncate">{tour.business_name}</p>
+                    <p className="text-xs text-primary/80 font-medium mb-1 truncate">{tour.business_name}</p>
                   )}
-                  <p className="text-[10px] md:text-xs text-muted-foreground mb-2 md:mb-3">
+                  <p className="text-xs text-muted-foreground mb-2 md:mb-3">
                     {tour.difficulty} · {tour.duration_days} {tour.duration_days === 1 ? t("common.day") : t("common.days")}
                   </p>
 
@@ -456,9 +456,9 @@ const Tours = () => {
                           return formatMoney(converted ?? amt, converted !== null ? preferredCurrency : from);
                         })()}
                       </span>
-                      <span className="text-[10px] md:text-sm text-muted-foreground"> {getTourPriceSuffix(pricingModel)}</span>
+                      <span className="text-xs md:text-sm text-muted-foreground"> {getTourPriceSuffix(pricingModel)}</span>
                       {pricingDurationValue > 0 && pricingDurationUnit && (
-                        <span className="text-[10px] md:text-sm text-muted-foreground"> · {pricingDurationValue} {pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}</span>
+                        <span className="text-xs md:text-sm text-muted-foreground"> · {pricingDurationValue} {pricingDurationValue === 1 ? pricingDurationUnit : `${pricingDurationUnit}s`}</span>
                       )}
                           </>
                         );
@@ -467,7 +467,7 @@ const Tours = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      className="text-xs h-8 px-2.5 md:px-3"
+                      className="text-xs h-9 px-3 rounded-lg"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(tour);
