@@ -22,6 +22,7 @@ import {
   PLATFORM_FEES,
 } from "@/lib/fees";
 import { getFriendlyPaymentErrorMessage } from "@/lib/ui-errors";
+import { clearQueuedPromoPrefillCode, readQueuedPromoPrefillCode } from "@/lib/promoPrefill";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -593,6 +594,13 @@ export default function CheckoutNew() {
     return parsed;
   };
 
+  const addDaysToDateOnly = (dateOnly: string, days: number) => {
+    const parsed = parseDateValue(dateOnly);
+    if (!parsed) return dateOnly;
+    parsed.setDate(parsed.getDate() + days);
+    return formatDateOnlyLocal(parsed);
+  };
+
   const updateCheckoutDates = (nextCheckIn: string, nextCheckOut: string) => {
     if (!nextCheckIn || !nextCheckOut) return;
     const start = parseDateValue(nextCheckIn);
@@ -610,6 +618,29 @@ export default function CheckoutNew() {
     nextParams.set("checkIn", nextCheckIn);
     nextParams.set("checkOut", nextCheckOut);
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const [draftStayDates, setDraftStayDates] = useState({
+    checkIn: checkInParam,
+    checkOut: checkOutParam,
+  });
+
+  useEffect(() => {
+    setDraftStayDates({
+      checkIn: checkInParam,
+      checkOut: checkOutParam,
+    });
+  }, [checkInParam, checkOutParam]);
+
+  const commitDraftStayDates = (nextDraft = draftStayDates) => {
+    if (!isDirectPropertyCheckout) return;
+
+    const nextCheckIn = nextDraft.checkIn;
+    const nextCheckOut = nextDraft.checkOut;
+    if (!nextCheckIn || !nextCheckOut) return;
+    if (nextCheckIn === checkInParam && nextCheckOut === checkOutParam) return;
+
+    updateCheckoutDates(nextCheckIn, nextCheckOut);
   };
 
   // When geo-detection resolves, update payment defaults (only once, before user interacts)
@@ -933,27 +964,45 @@ export default function CheckoutNew() {
 
   // Load discount from localStorage or URL
   useEffect(() => {
+    let cancelled = false;
+
     const discountCode = searchParams.get("discountCode");
     const savedDiscount = localStorage.getItem("applied_discount");
+    const queuedPromoCode = readQueuedPromoPrefillCode();
+    const bootstrapCode = discountCode || queuedPromoCode;
     
-    if (discountCode) {
-      // Validate discount code from URL
+    if (bootstrapCode) {
+      const normalizedCode = bootstrapCode.toUpperCase().trim();
+      setDiscountCodeInput(normalizedCode);
+
+      // Validate discount code from URL or queued promo prefill
       ((supabase
         .from("discount_codes")
         .select("*") as any)
-        .eq("code", discountCode.toUpperCase())
+        .eq("code", normalizedCode)
         .eq("is_active", true)
         .single())
         .then(({ data }: any) => {
-          if (data) setAppliedDiscount(data);
+          if (cancelled || !data) return;
+          setAppliedDiscount(data);
+          localStorage.setItem("applied_discount", JSON.stringify(data));
+          clearQueuedPromoPrefillCode();
         });
     } else if (savedDiscount) {
       try {
-        setAppliedDiscount(JSON.parse(savedDiscount));
+        const parsed = JSON.parse(savedDiscount);
+        setAppliedDiscount(parsed);
+        if (parsed?.code) {
+          setDiscountCodeInput(String(parsed.code).toUpperCase());
+        }
       } catch {
         localStorage.removeItem("applied_discount");
       }
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   // Fetch cart items
@@ -1480,7 +1529,8 @@ export default function CheckoutNew() {
       
       setAppliedDiscount(data);
       localStorage.setItem("applied_discount", JSON.stringify(data));
-      setDiscountCodeInput("");
+      setDiscountCodeInput(discountCodeInput.trim().toUpperCase());
+      clearQueuedPromoPrefillCode();
       toast({
         title: "Discount applied!",
         description: data.discount_type === 'percentage'
@@ -1758,12 +1808,7 @@ export default function CheckoutNew() {
     return formatDateOnlyLocal(parsed);
   };
 
-  const addDays = (dateOnly: string, days: number) => {
-    const parsed = parseDateValue(dateOnly);
-    if (!parsed) return dateOnly;
-    parsed.setDate(parsed.getDate() + days);
-    return formatDateOnlyLocal(parsed);
-  };
+  const addDays = (dateOnly: string, days: number) => addDaysToDateOnly(dateOnly, days);
 
   const getDefaultBookingDates = () => {
     const today = formatDateOnlyLocal(new Date());
@@ -2419,7 +2464,7 @@ export default function CheckoutNew() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-28 md:pb-12">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-40 md:pb-12">
         {/* Header */}
         <div className="mb-8">
           <Link to="/trip-cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -2491,6 +2536,7 @@ export default function CheckoutNew() {
                         size="sm"
                         onClick={() => {
                           if (isDetailsValid) {
+                            commitDraftStayDates();
                             goToStep('payment');
                             toast({ title: "Fast checkout enabled", description: "Your details are pre-filled" });
                           }
@@ -2517,19 +2563,35 @@ export default function CheckoutNew() {
                             <Input
                               id="checkInDate"
                               type="date"
-                              value={checkInParam}
+                              value={draftStayDates.checkIn}
                               min={formatDateOnlyLocal(new Date())}
                               onChange={(e) => {
                                 const nextCheckIn = e.target.value;
                                 if (!nextCheckIn) return;
 
-                                const currentOut = checkOutParam;
-                                if (!currentOut || currentOut <= nextCheckIn) {
-                                  updateCheckoutDates(nextCheckIn, addDays(nextCheckIn, 1));
-                                  return;
-                                }
+                                setDraftStayDates((prev) => {
+                                  const nextCheckOut = !prev.checkOut || prev.checkOut <= nextCheckIn
+                                    ? addDaysToDateOnly(nextCheckIn, 1)
+                                    : prev.checkOut;
 
-                                updateCheckoutDates(nextCheckIn, currentOut);
+                                  return {
+                                    checkIn: nextCheckIn,
+                                    checkOut: nextCheckOut,
+                                  };
+                                });
+                              }}
+                              onBlur={(e) => {
+                                const nextCheckIn = e.target.value;
+                                if (!nextCheckIn) return;
+
+                                const nextCheckOut = !draftStayDates.checkOut || draftStayDates.checkOut <= nextCheckIn
+                                  ? addDaysToDateOnly(nextCheckIn, 1)
+                                  : draftStayDates.checkOut;
+
+                                commitDraftStayDates({
+                                  checkIn: nextCheckIn,
+                                  checkOut: nextCheckOut,
+                                });
                               }}
                               className="mt-1.5"
                             />
@@ -2540,12 +2602,25 @@ export default function CheckoutNew() {
                             <Input
                               id="checkOutDate"
                               type="date"
-                              value={checkOutParam}
-                              min={checkInParam || formatDateOnlyLocal(new Date())}
+                              value={draftStayDates.checkOut}
+                              min={draftStayDates.checkIn || formatDateOnlyLocal(new Date())}
                               onChange={(e) => {
                                 const nextCheckOut = e.target.value;
-                                if (!nextCheckOut || !checkInParam) return;
-                                updateCheckoutDates(checkInParam, nextCheckOut);
+                                if (!nextCheckOut || !draftStayDates.checkIn) return;
+
+                                setDraftStayDates((prev) => ({
+                                  ...prev,
+                                  checkOut: nextCheckOut,
+                                }));
+                              }}
+                              onBlur={(e) => {
+                                const nextCheckOut = e.target.value;
+                                if (!nextCheckOut || !draftStayDates.checkIn) return;
+
+                                commitDraftStayDates({
+                                  checkIn: draftStayDates.checkIn,
+                                  checkOut: nextCheckOut,
+                                });
                               }}
                               className="mt-1.5"
                             />
@@ -2592,8 +2667,11 @@ export default function CheckoutNew() {
 
                   <Button 
                     size="lg" 
-                    className="w-full"
-                    onClick={() => goToStep('payment')}
+                    className="hidden md:flex w-full"
+                    onClick={() => {
+                      commitDraftStayDates();
+                      goToStep('payment');
+                    }}
                     disabled={!isDetailsValid}
                   >
                     {t("checkout.contact.continue")}
@@ -3025,7 +3103,7 @@ export default function CheckoutNew() {
                     </>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex md:flex-row gap-3">
                     <Button 
                       variant="outline" 
                       size="lg"
@@ -3036,7 +3114,7 @@ export default function CheckoutNew() {
                     </Button>
                     <Button 
                       size="lg" 
-                      className="flex-1"
+                      className="hidden md:flex flex-1"
                       onClick={() => goToStep('confirm')}
                       disabled={!isPaymentValid}
                     >
@@ -3252,7 +3330,7 @@ export default function CheckoutNew() {
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex md:flex-row gap-3">
                     <Button 
                       variant="outline" 
                       size="lg"
@@ -3264,7 +3342,7 @@ export default function CheckoutNew() {
                     </Button>
                     <Button 
                       size="lg" 
-                      className="flex-1"
+                      className="hidden md:flex flex-1"
                       onClick={handlePayment}
                       disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
                     >
@@ -3531,31 +3609,44 @@ export default function CheckoutNew() {
       {cartItems.length > 0 && (
         <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
           <div
-            className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3"
+            className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
-            <div className="min-w-0">
+            <div className="min-w-0 max-w-[48vw]">
               <p className="text-xs text-muted-foreground">Total</p>
               <p className="text-base font-semibold text-foreground truncate">{formatMoney(payableAmount, displayCurrency)}</p>
             </div>
 
             {currentStep === 'details' ? (
-              <Button className="h-11 px-4 min-w-[10rem]" onClick={() => goToStep('payment')} disabled={!isDetailsValid}>
+              <Button
+                className="h-11 px-3 whitespace-nowrap"
+                onClick={() => {
+                  commitDraftStayDates();
+                  goToStep('payment');
+                }}
+                disabled={!isDetailsValid}
+              >
                 {t("checkout.contact.continue")}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : currentStep === 'payment' ? (
-              <Button className="h-11 px-4 min-w-[10rem]" onClick={() => goToStep('confirm')} disabled={!isPaymentValid}>
-                {t("checkout.payment.reviewBooking")}
-                <ArrowRight className="w-4 h-4 ml-2" />
+              <Button className="h-11 px-3 whitespace-nowrap" onClick={() => goToStep('confirm')} disabled={!isPaymentValid}>
+                <span className="sm:hidden">Review</span>
+                <span className="hidden sm:inline">{t("checkout.payment.reviewBooking")}</span>
+                <ArrowRight className="w-4 h-4 ml-2 hidden sm:inline" />
               </Button>
             ) : (
               <Button
-                className="h-11 px-4 min-w-[10rem]"
+                className="h-11 px-3 whitespace-nowrap"
                 onClick={handlePayment}
                 disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
               >
-                {isProcessing ? "Processing..." : `Pay ${formatMoney(payableAmount, displayCurrency)}`}
+                {isProcessing ? "Processing..." : (
+                  <>
+                    <span className="sm:hidden">Pay now</span>
+                    <span className="hidden sm:inline">Pay {formatMoney(payableAmount, displayCurrency)}</span>
+                  </>
+                )}
               </Button>
             )}
           </div>

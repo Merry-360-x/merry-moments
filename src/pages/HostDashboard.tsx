@@ -724,6 +724,43 @@ export default function HostDashboard() {
     conference_room_min_rooms_required: null as number | null,
     conference_room_equipment: [] as string[],
   });
+
+  const normalizeImageList = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    const normalized: string[] = [];
+    const seen = new Set<string>();
+    for (const item of value) {
+      if (typeof item !== "string") continue;
+      const trimmed = item.trim();
+      if (!trimmed || seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      normalized.push(trimmed);
+    }
+    return normalized;
+  };
+
+  const withCoverFirst = (images: unknown, mainImage: unknown): string[] => {
+    const normalizedImages = normalizeImageList(images);
+    const cover = typeof mainImage === "string" ? mainImage.trim() : "";
+    if (!cover) return normalizedImages;
+    return [cover, ...normalizedImages.filter((img) => img !== cover)];
+  };
+
+  const preserveCoverOnImageChange = (currentImages: string[], nextImages: string[]): string[] => {
+    const normalizedNext = normalizeImageList(nextImages);
+    const currentCover = currentImages[0];
+    if (!currentCover || !normalizedNext.includes(currentCover)) return normalizedNext;
+    return [currentCover, ...normalizedNext.filter((img) => img !== currentCover)];
+  };
+
+  const moveImageToCover = (images: string[], index: number): string[] => {
+    if (index <= 0 || index >= images.length) return images;
+    const reordered = [...images];
+    const [selected] = reordered.splice(index, 1);
+    if (!selected) return images;
+    return [selected, ...reordered];
+  };
+
   const mapPropertyToForm = (property: Property | Record<string, any>) => ({
     ...createDefaultPropertyForm(),
     title: String((property as any).title || (property as any).name || ""),
@@ -746,7 +783,7 @@ export default function HostDashboard() {
     beds: Math.max(0, Number((property as any).beds || 1)),
     amenities: Array.isArray((property as any).amenities) ? (property as any).amenities : [],
     cancellation_policy: String((property as any).cancellation_policy || "fair"),
-    images: Array.isArray((property as any).images) ? (property as any).images : [],
+    images: withCoverFirst((property as any).images, (property as any).main_image),
     weekly_discount: Number((property as any).weekly_discount || 0),
     monthly_discount: Number((property as any).monthly_discount || 0),
     available_for_monthly_rental: Boolean((property as any).available_for_monthly_rental),
@@ -6108,6 +6145,15 @@ export default function HostDashboard() {
                             Cover
                           </div>
                         )}
+                        {idx !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPropertyForm((f) => ({ ...f, images: moveImageToCover(f.images, idx) }))}
+                            className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-black/80"
+                          >
+                            Set as cover
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -6120,7 +6166,12 @@ export default function HostDashboard() {
                   multiple
                   maxFiles={10}
                   value={propertyForm.images}
-                  onChange={(urls) => setPropertyForm((f) => ({ ...f, images: urls }))}
+                  onChange={(urls) => {
+                    setPropertyForm((f) => ({
+                      ...f,
+                      images: preserveCoverOnImageChange(f.images, urls),
+                    }));
+                  }}
                   buttonLabel={propertyForm.images.length > 0 ? `Add More Photos (${propertyForm.images.length})` : "Upload Photos"}
                 />
               </div>
@@ -7400,6 +7451,15 @@ export default function HostDashboard() {
                               Cover
                             </div>
                           )}
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setPropertyForm((f) => ({ ...f, images: moveImageToCover(f.images, idx) }))}
+                              className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white hover:bg-black/80"
+                            >
+                              Set as cover
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -7415,7 +7475,10 @@ export default function HostDashboard() {
                   autoStart={true}
                   value={propertyForm.images}
                   onChange={(urls) => {
-                    setPropertyForm((f) => ({ ...f, images: urls }));
+                    setPropertyForm((f) => ({
+                      ...f,
+                      images: preserveCoverOnImageChange(f.images, urls),
+                    }));
                   }}
                   open={uploadDialogOpen}
                   onOpenChange={setUploadDialogOpen}
