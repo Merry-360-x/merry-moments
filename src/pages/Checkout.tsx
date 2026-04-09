@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
@@ -532,6 +532,22 @@ export default function CheckoutNew() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentType, setPaymentType] = useState<'group' | 'individual'>('group');
+  const checkoutStepTopRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const anchor = checkoutStepTopRef.current;
+      if (!anchor) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        return;
+      }
+
+      const top = anchor.getBoundingClientRect().top + window.scrollY - 10;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentStep]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -2465,6 +2481,7 @@ export default function CheckoutNew() {
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-40 md:pb-12">
+        <div ref={checkoutStepTopRef} />
         {/* Header */}
         <div className="mb-8">
           <Link to="/trip-cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -3149,7 +3166,7 @@ export default function CheckoutNew() {
                       const guests = searchParams.get("guests");
                       
                       return (
-                        <div key={item.id} className="flex gap-4 p-4">
+                        <div key={item.id} className="flex gap-4 p-4 min-w-0 overflow-hidden">
                           <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
                             {item.image ? (
                               <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
@@ -3161,15 +3178,15 @@ export default function CheckoutNew() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium truncate">{item.title}</h4>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground truncate">
                               {mode === 'booking' && checkIn && checkOut && item.item_type === 'property' 
                                 ? `${formatDateForDisplay(checkIn)} - ${formatDateForDisplay(checkOut)} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
                                 : `Qty: ${item.quantity}`
                               }
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-medium">{formatMoney(itemPrice, displayCurrency)}</p>
+                          <div className="text-right shrink-0">
+                            <p className="font-medium whitespace-nowrap text-sm md:text-base">{formatMoney(itemPrice, displayCurrency)}</p>
                           </div>
                         </div>
                       );
@@ -3396,7 +3413,7 @@ export default function CheckoutNew() {
                   const itemPrice = convertAmount(rawItemTotal, item.currency, displayCurrency, usdRates) ?? rawItemTotal;
                   
                   return (
-                    <div key={item.id} className="flex items-center gap-3">
+                    <div key={item.id} className="flex items-start gap-3 min-w-0 overflow-hidden">
                       <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden shrink-0">
                         {item.image ? (
                           <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
@@ -3410,10 +3427,10 @@ export default function CheckoutNew() {
                         <p className="text-sm font-medium truncate">{item.title}</p>
                         {isProperty && item.metadata?.check_in && item.metadata?.check_out ? (
                           <>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {new Date(item.metadata.check_in).toLocaleDateString()} - {new Date(item.metadata.check_out).toLocaleDateString()} ({nights} {nights === 1 ? 'night' : 'nights'})
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {item.metadata?.breakfast_included ? 'With breakfast' : 'Without breakfast'}
                             </p>
                           </>
@@ -3421,7 +3438,7 @@ export default function CheckoutNew() {
                           <p className="text-xs text-muted-foreground">×{item.quantity}</p>
                         )}
                       </div>
-                      <p className="text-sm font-medium">{formatMoney(itemPrice, displayCurrency)}</p>
+                      <p className="text-xs sm:text-sm font-medium text-right whitespace-nowrap shrink-0">{formatMoney(itemPrice, displayCurrency)}</p>
                     </div>
                   );
                 })}
@@ -3585,9 +3602,9 @@ export default function CheckoutNew() {
                 </div>
               )}
 
-              <div className="flex justify-between items-baseline py-4 mt-4 border-t">
-                <span className="font-semibold">{paymentType === 'individual' && hasGroupBooking ? t("checkout.youPay", "You Pay") : t("common.total")}</span>
-                <span className="text-2xl font-bold">{formatMoney(payableAmount, displayCurrency)}</span>
+              <div className="flex justify-between items-baseline py-4 mt-4 border-t gap-3 min-w-0">
+                <span className="font-semibold shrink-0">{paymentType === 'individual' && hasGroupBooking ? t("checkout.youPay", "You Pay") : t("common.total")}</span>
+                <span className="text-xl sm:text-2xl font-bold text-right leading-tight break-words">{formatMoney(payableAmount, displayCurrency)}</span>
               </div>
 
               {/* Trust Badges */}
