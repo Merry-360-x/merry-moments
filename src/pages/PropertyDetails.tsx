@@ -188,6 +188,9 @@ export default function PropertyDetails() {
   const params = useParams();
   const propertyId = params.id;
   const [searchParams] = useSearchParams();
+  const checkInParam = searchParams.get("start") || searchParams.get("checkIn");
+  const checkOutParam = searchParams.get("end") || searchParams.get("checkOut");
+  const hasExplicitStayDates = Boolean(checkInParam || checkOutParam);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -198,16 +201,13 @@ export default function PropertyDetails() {
   const { usdRates } = useFxRates();
 
   const [checkIn, setCheckIn] = useState<Date | undefined>(() => {
-    const param = searchParams.get("start") || searchParams.get("checkIn");
-    if (!param) return new Date();
-    const parsed = parseDateParamLocal(param);
+    if (!checkInParam) return new Date();
+    const parsed = parseDateParamLocal(checkInParam);
     return parsed ?? new Date();
   });
   const [checkOut, setCheckOut] = useState<Date | undefined>(() => {
-    const startParam = searchParams.get("start") || searchParams.get("checkIn");
-    const endParam = searchParams.get("end") || searchParams.get("checkOut");
-    const start = parseDateParamLocal(startParam) ?? new Date();
-    const end = parseDateParamLocal(endParam);
+    const start = parseDateParamLocal(checkInParam) ?? new Date();
+    const end = parseDateParamLocal(checkOutParam);
 
     if (end && !Number.isNaN(end.getTime()) && end > start) return end;
 
@@ -842,6 +842,38 @@ export default function PropertyDetails() {
     return { months };
   }, [nights]);
 
+  const suggestedCustomStay = useMemo(() => {
+    if (isMonthlyOnlyListing || customPrices.length === 0) return null;
+
+    const today = parseDateParamLocal(isoToday());
+    if (!today) return null;
+
+    for (const customPrice of customPrices) {
+      const rangeStart = parseDateParamLocal(customPrice.start_date);
+      const rangeEnd = parseDateParamLocal(customPrice.end_date);
+      if (!rangeStart || !rangeEnd) continue;
+
+      const suggestedCheckIn = rangeStart < today ? new Date(today) : new Date(rangeStart);
+      if (suggestedCheckIn > rangeEnd) continue;
+
+      const suggestedCheckOut = new Date(suggestedCheckIn);
+      suggestedCheckOut.setDate(suggestedCheckOut.getDate() + 1);
+
+      return {
+        checkIn: suggestedCheckIn,
+        checkOut: suggestedCheckOut,
+      };
+    }
+
+    return null;
+  }, [customPrices, isMonthlyOnlyListing]);
+
+  const isDefaultGuestStay = useMemo(() => {
+    if (hasExplicitStayDates || !checkIn || !checkOut) return false;
+
+    return formatDateOnlyLocal(checkIn) === isoToday() && formatDateOnlyLocal(checkOut) === isoTomorrow();
+  }, [hasExplicitStayDates, checkIn, checkOut]);
+
   const effectiveDisplayPrice = useMemo(() => {
     if (!data) return 0;
 
@@ -849,10 +881,19 @@ export default function PropertyDetails() {
       return Number(data.price_per_month ?? 0);
     }
 
-    const displayDate = checkIn ?? new Date();
+    const displayDate = isDefaultGuestStay && suggestedCustomStay
+      ? suggestedCustomStay.checkIn
+      : (checkIn ?? new Date());
     const customPrice = getCustomPriceForDate(displayDate);
     return customPrice ?? Number(data.price_per_night ?? 0);
-  }, [data, isMonthlyOnlyListing, checkIn, getCustomPriceForDate]);
+  }, [data, isMonthlyOnlyListing, checkIn, getCustomPriceForDate, isDefaultGuestStay, suggestedCustomStay]);
+
+  useEffect(() => {
+    if (!isDefaultGuestStay || !suggestedCustomStay) return;
+
+    setCheckIn(suggestedCustomStay.checkIn);
+    setCheckOut(suggestedCustomStay.checkOut);
+  }, [isDefaultGuestStay, suggestedCustomStay]);
 
   useEffect(() => {
     if (!isMonthlyOnlyListing || !checkIn) return;
