@@ -669,7 +669,7 @@ const Navbar = () => {
         {/* Mobile Menu (clean + minimal) */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-border max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
-            <div className="space-y-4 px-3 py-4">
+            <div className="space-y-4 px-3 py-4 pb-28">
               <div className="rounded-2xl border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -934,11 +934,11 @@ const Navbar = () => {
                   <p className="pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     {t("common.workspaces", "Workspaces")}
                   </p>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {isHost ? (
                       <Button
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="col-span-2 w-full justify-start gap-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/host-dashboard");
@@ -950,7 +950,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="col-span-2 w-full justify-start gap-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/become-host");
@@ -964,7 +964,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="min-h-11 w-full justify-start gap-2 px-3"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/admin?tab=overview");
@@ -977,7 +977,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="min-h-11 w-full justify-start gap-2 px-3"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/financial-dashboard");
@@ -990,7 +990,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="min-h-11 w-full justify-start gap-2 px-3"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/operations-dashboard");
@@ -1003,7 +1003,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="min-h-11 w-full justify-start gap-2 px-3"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/customer-support-dashboard");
@@ -1016,7 +1016,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full justify-start gap-2"
+                        className="col-span-2 w-full justify-start gap-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/admin/post-booking");
