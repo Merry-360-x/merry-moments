@@ -114,6 +114,7 @@ const readTypingPreset = (): TypingSpeedPreset => {
 
 const SUPPORT_TYPING_PRESET = readTypingPreset();
 const SUPPORT_TYPING_TIMEOUT_MS = TYPING_TIMEOUT_MS_BY_PRESET[SUPPORT_TYPING_PRESET];
+const MOBILE_MENU_VISIBILITY_EVENT = "merry-mobile-menu-visibility";
 
 const AI_STARTER_OPTIONS = [
   {
@@ -332,6 +333,10 @@ export default function SupportCenterLauncher() {
   const [supportLastSeenAt, setSupportLastSeenAt] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.body.dataset.mobileMenuOpen === "true";
+  });
   const lastSeenMessageIdRef = useRef<string | null>(null);
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
@@ -384,6 +389,27 @@ export default function SupportCenterLauncher() {
       void window.Notification.requestPermission().catch(() => {});
     }
   }, [open, step]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleMobileMenuVisibility = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setMobileMenuVisible(Boolean(customEvent.detail?.open));
+    };
+
+    window.addEventListener(MOBILE_MENU_VISIBILITY_EVENT, handleMobileMenuVisibility as EventListener);
+
+    return () => {
+      window.removeEventListener(MOBILE_MENU_VISIBILITY_EVENT, handleMobileMenuVisibility as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mobileMenuVisible) {
+      setOpen(false);
+    }
+  }, [mobileMenuVisible]);
   // Get user's display name
   useEffect(() => {
     const fetchName = async () => {
@@ -1371,7 +1397,7 @@ export default function SupportCenterLauncher() {
     location.pathname.startsWith("/secure-card-handoff") ||
     location.pathname.startsWith("/payment-");
 
-  if (hideLauncherOnRoute) {
+  if (hideLauncherOnRoute || mobileMenuVisible) {
     return null;
   }
 

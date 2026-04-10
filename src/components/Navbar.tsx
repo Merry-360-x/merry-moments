@@ -66,6 +66,7 @@ const bookingDecisionSeenKey = (userId?: string | null) =>
   `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
 
 const BOOKING_DECISION_SEEN_EVENT = "guest-booking-decisions-seen";
+const MOBILE_MENU_VISIBILITY_EVENT = "merry-mobile-menu-visibility";
 
 const getLatestBookingDecisionTimestamp = (
   bookings: Array<{ confirmation_status?: string | null; confirmed_at?: string | null; rejected_at?: string | null }>
@@ -127,6 +128,24 @@ const Navbar = () => {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent(MOBILE_MENU_VISIBILITY_EVENT, {
+          detail: { open: mobileMenuOpen },
+        })
+      );
+    }
+
+    if (typeof document !== "undefined") {
+      if (mobileMenuOpen) {
+        document.body.dataset.mobileMenuOpen = "true";
+      } else {
+        delete document.body.dataset.mobileMenuOpen;
+      }
+    }
   }, [mobileMenuOpen]);
 
   const { t } = useTranslation();
@@ -933,11 +952,11 @@ const Navbar = () => {
                   <p className="pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     {t("common.workspaces", "Workspaces")}
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[560px]:grid-cols-2">
                     {isHost ? (
                       <Button
                         size="sm"
-                        className="col-span-2 w-full justify-start gap-2"
+                        className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/host-dashboard");
@@ -949,7 +968,7 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="col-span-2 w-full justify-start gap-2"
+                        className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/become-host");
@@ -963,59 +982,63 @@ const Navbar = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-11 w-full justify-start gap-2 px-3"
+                        className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/admin?tab=overview");
                         }}
                       >
-                        <Shield className="w-4 h-4" /> {t("actions.adminDashboard")}
+                        <Shield className="mt-0.5 w-4 h-4 shrink-0" />
+                        <span className="block leading-snug">{t("actions.adminDashboard")}</span>
                       </Button>
                     ) : null}
                     {isFinancialStaff ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-11 w-full justify-start gap-2 px-3"
+                        className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/financial-dashboard");
                         }}
                       >
-                        <DollarSign className="w-4 h-4" /> Financial Dashboard
+                        <DollarSign className="mt-0.5 w-4 h-4 shrink-0" />
+                        <span className="block leading-snug">Financial Dashboard</span>
                       </Button>
                     ) : null}
                     {isOperationsStaff ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-11 w-full justify-start gap-2 px-3"
+                        className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/operations-dashboard");
                         }}
                       >
-                        <Settings className="w-4 h-4" /> Operations Dashboard
+                        <Settings className="mt-0.5 w-4 h-4 shrink-0" />
+                        <span className="block leading-snug">Operations Dashboard</span>
                       </Button>
                     ) : null}
                     {isCustomerSupport ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-11 w-full justify-start gap-2 px-3"
+                        className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/customer-support-dashboard");
                         }}
                       >
-                        <MessageSquare className="w-4 h-4" /> Support Dashboard
+                        <MessageSquare className="mt-0.5 w-4 h-4 shrink-0" />
+                        <span className="block leading-snug">Support Dashboard</span>
                       </Button>
                     ) : null}
                     {(isAdmin || isFinancialStaff || isOperationsStaff || isCustomerSupport) ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="col-span-2 w-full justify-start gap-2"
+                        className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
                           setMobileMenuOpen(false);
                           navigate("/admin/post-booking");
