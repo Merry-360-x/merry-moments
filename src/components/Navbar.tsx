@@ -37,7 +37,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
-import tripCartIcon from "../../merry360x_flutter/assets/nav/tripcart.png";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -75,6 +74,24 @@ const getLatestBookingDecisionTimestamp = (
   .filter((value): value is string => Boolean(value))
   .sort()
   .at(-1) || "";
+
+const TripCartIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M8.5 6V4.75C8.5 3.78 9.28 3 10.25 3h3.5c.97 0 1.75.78 1.75 1.75V6" />
+    <rect x="2.5" y="6" width="19" height="14.5" rx="2.75" />
+    <path d="M6.5 8.75V17.75" />
+    <path d="M17.5 8.75V17.75" />
+  </svg>
+);
 
 const Navbar = () => {
   const location = useLocation();
@@ -491,7 +508,7 @@ const Navbar = () => {
 
             <Link to="/trip-cart">
               <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
-                <img src={tripCartIcon} alt="" aria-hidden="true" className="w-4 h-4 shrink-0 object-contain" />
+                <TripCartIcon className="w-4 h-4 shrink-0" />
                 <span className="hidden xl:inline">{t("actions.tripCart")}</span>
                 {tripCartCount > 0 ? (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -758,7 +775,7 @@ const Navbar = () => {
                   </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0 h-10 px-3 gap-1.5">
-                      <img src={tripCartIcon} alt="" aria-hidden="true" className="w-4 h-4 shrink-0 object-contain" />
+                      <TripCartIcon className="w-4 h-4 shrink-0" />
                       {t("actions.tripCart")}
                       {tripCartCount > 0 ? (
                         <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
