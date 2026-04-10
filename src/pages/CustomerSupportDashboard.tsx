@@ -121,6 +121,15 @@ export default function CustomerSupportDashboard() {
       .subscribe();
     channels.push(ticketsChannel);
 
+    // Subscribe to support message stream so mobile/web chat updates are visible in dashboard state.
+    const ticketMessagesChannel = supabase
+      .channel('support-ticket-messages-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_ticket_messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['support_tickets'] });
+      })
+      .subscribe();
+    channels.push(ticketMessagesChannel);
+
     // Subscribe to property_reviews changes (for user feedback)
     const reviewsChannel = supabase
       .channel('support-reviews-realtime')

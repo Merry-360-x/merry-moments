@@ -206,6 +206,23 @@ const Navbar = () => {
 
   const tripCartCount = user ? authedCartCount : guestCart.length;
 
+  const { data: unreadDirectMessagesCount = 0 } = useQuery({
+    queryKey: ["direct-messages-unread-count", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from("direct_messages")
+        .select("id", { head: true, count: "exact" })
+        .eq("recipient_id", user!.id)
+        .is("read_at", null);
+
+      if (error) return 0;
+      return Number(count ?? 0);
+    },
+    staleTime: 10_000,
+    refetchInterval: 20_000,
+  });
+
   // Query open support tickets count for admin/staff badge
   const { data: openTicketsCount = 0 } = useQuery({
     queryKey: ["open_support_tickets_count"],
@@ -484,6 +501,18 @@ const Navbar = () => {
               </Button>
             </Link>
 
+            <Link to="/messages">
+              <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden xl:inline">Messages</span>
+                {user && unreadDirectMessagesCount > 0 ? (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                    {unreadDirectMessagesCount > 99 ? "99+" : unreadDirectMessagesCount}
+                  </span>
+                ) : null}
+              </Button>
+            </Link>
+
             <Link to="/favorites">
               <button className="p-2 rounded-full hover:bg-muted transition-colors">
                 <Heart className="w-5 h-5 text-muted-foreground" />
@@ -528,6 +557,15 @@ const Navbar = () => {
                     {unreadBookingDecisionCount > 0 && (
                       <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold">
                         {unreadBookingDecisionCount > 99 ? "99+" : unreadBookingDecisionCount}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/messages")} className="relative">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Messages
+                    {unreadDirectMessagesCount > 0 && (
+                      <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                        {unreadDirectMessagesCount > 99 ? "99+" : unreadDirectMessagesCount}
                       </span>
                     )}
                   </DropdownMenuItem>
@@ -700,6 +738,20 @@ const Navbar = () => {
                       <Heart className="w-5 h-5 text-muted-foreground" />
                     </button>
                   </Link>
+                  <Link to="/messages" onClick={() => setMobileMenuOpen(false)}>
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 rounded-full border border-border bg-background flex items-center justify-center"
+                      aria-label="Messages"
+                    >
+                      <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                      {user && unreadDirectMessagesCount > 0 ? (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex min-w-[16px] h-[16px] px-1 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                          {unreadDirectMessagesCount > 9 ? "9+" : unreadDirectMessagesCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0 h-10 px-3 gap-1.5">
                       <ShoppingBag className="w-4 h-4 shrink-0" />
@@ -790,6 +842,22 @@ const Navbar = () => {
                             {unreadBookingDecisionCount > 99 ? "99+" : unreadBookingDecisionCount}
                           </span>
                         )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/messages");
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4" /> Messages
+                        {unreadDirectMessagesCount > 0 ? (
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                            {unreadDirectMessagesCount > 99 ? "99+" : unreadDirectMessagesCount}
+                          </span>
+                        ) : null}
                       </Button>
                       <Button
                         variant="outline"

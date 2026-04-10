@@ -67,7 +67,7 @@ class _LegalContentScreenState extends State<LegalContentScreen> {
         const <Map<String, dynamic>>[];
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         leading: const StageSafeLeadingButton(color: AppColors.black),
         title: Text(title),
@@ -83,7 +83,7 @@ class _LegalContentScreenState extends State<LegalContentScreen> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: const Color(0xFFE7E7EC)),
                     ),

@@ -12,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'package:merry360x_flutter/src/lib/fees.dart';
+import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _emailCtrl.text = widget.session.userEmail ?? '';
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
-    _phoneCtrl.text = '${_selectedMethod!.countryCode} ';
+    _phoneCtrl.clear();
     // Detect user region
     _detectRegion();
     // Load discount passed from trip cart
@@ -159,6 +160,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _appliedDiscount = widget.initialDiscount;
       _promoCtrl.text = widget.initialDiscountCode!;
       _recalcDiscount();
+      clearPendingPromoCode();
+    } else {
+      _bootstrapPendingPromoCode();
     }
   }
 
@@ -287,7 +291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final localMethod = _kPayMethods.where((m) => m.id == defaultId).firstOrNull;
         if (localMethod != null) {
           _selectedMethod = localMethod;
-          _phoneCtrl.text = '${localMethod.countryCode} ';
+          _phoneCtrl.clear();
         }
         _payTab = 0;
       } else {
@@ -357,6 +361,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
+  String _normalizedMobileMoneyPhone(String input) {
+    final raw = input.trim();
+    if (raw.isEmpty) return '';
+
+    final compact = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (compact.isEmpty) return '';
+    if (compact.startsWith('+')) return compact;
+
+    final cc = (_selectedMethod?.countryCode ?? '').trim();
+    if (cc.isEmpty) return compact;
+
+    final ccDigits = cc.replaceAll('+', '');
+    var local = compact;
+    if (local.startsWith(ccDigits)) {
+      return '+$local';
+    }
+
+    local = local.replaceFirst(RegExp(r'^0+'), '');
+    if (local.isEmpty) return '';
+
+    final normalizedCc = cc.startsWith('+') ? cc : '+$cc';
+    return '$normalizedCc$local';
+  }
+
+  Future<void> _bootstrapPendingPromoCode() async {
+    final pendingCode = await getPendingPromoCode();
+    if (!mounted || pendingCode == null || pendingCode.isEmpty) return;
+
+    _promoCtrl.text = pendingCode;
+    await _applyPromo(autoTriggered: true);
+  }
+
   void _recalcDiscount() {
     if (_appliedDiscount == null) {
       _discountAmount = 0;
@@ -374,7 +410,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_discountAmount > maxDiscount) _discountAmount = maxDiscount;
   }
 
-  Future<void> _applyPromo() async {
+  Future<void> _applyPromo({bool autoTriggered = false}) async {
     final code = _promoCtrl.text.trim();
     if (code.isEmpty) return;
     setState(() { _applyingPromo = true; _promoMsg = null; _promoSuccess = false; });
@@ -391,19 +427,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() {
           _appliedDiscount = null;
           _discountAmount = 0;
-          _promoMsg = result.error ?? 'Invalid or expired promo code.';
+          _promoMsg = autoTriggered ? null : (result.error ?? 'Invalid or expired promo code.');
           _promoSuccess = false;
         });
       } else {
         _appliedDiscount = result.data;
         _recalcDiscount();
+        final normalizedCode = normalizePromoCode(code);
+        _promoCtrl.text = normalizedCode;
+        await clearPendingPromoCode();
         setState(() {
           _promoMsg = 'Code applied! You save $_currency ${_discountAmount.toStringAsFixed(0)}';
           _promoSuccess = true;
         });
       }
     } catch (_) {
-      if (mounted) setState(() { _promoMsg = 'Error validating code.'; _promoSuccess = false; _discountAmount = 0; });
+      if (mounted) {
+        setState(() {
+          _promoMsg = autoTriggered ? null : 'Error validating code.';
+          _promoSuccess = false;
+          _discountAmount = 0;
+        });
+      }
     } finally {
       if (mounted) setState(() => _applyingPromo = false);
     }
@@ -441,8 +486,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           setState(() => _submitting = false);
           return;
         }
-        final phone = _phoneCtrl.text.trim();
-        if (phone.isEmpty || phone == _selectedMethod!.countryCode) {
+        final localPhone = _phoneCtrl.text.trim();
+        final phone = _normalizedMobileMoneyPhone(localPhone);
+        if (localPhone.isEmpty || phone.isEmpty) {
           _showSnack('Enter your mobile money number');
           setState(() => _submitting = false);
           return;
@@ -468,11 +514,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } else if (_payTab == 1) {
         // ── Card (Flutterwave) ──
         final api = AppDatabase();
+        final checkoutPhone = _normalizedMobileMoneyPhone(_phoneCtrl.text);
         final checkoutId = await api.createCheckoutRequest(
           userId: widget.session.userId,
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          phone: checkoutPhone.isEmpty ? null : checkoutPhone,
           totalAmount: _total,
           basePriceAmount: _subtotal,
           serviceFeeAmount: _serviceFee,
@@ -567,9 +614,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
         leading: StageSafeLeadingButton(
@@ -611,9 +658,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           padding: EdgeInsets.fromLTRB(18, 14, 18, MediaQuery.of(context).padding.bottom + 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -4)),
+              BoxShadow(color: AppColors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -4)),
             ],
           ),
           child: Row(
@@ -675,6 +722,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildDetailsStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final placeholderColor = AppColors.surfaceSubtle;
+    final placeholderIconColor = AppColors.hackberry;
+    final totalStripColor = isDark ? const Color(0xFF000000) : const Color(0xFFFFF0F2);
+    final promoAppliedBg = isDark ? const Color(0x1A4CAF50) : const Color(0xFFE8F5E9);
+    final promoAppliedBorder = isDark ? const Color(0x554CAF50) : const Color(0x4D4CAF50);
+    final promoAppliedText = isDark ? const Color(0xFF93DFA6) : const Color(0xFF2E7D32);
+
     final imageUrl = resolveListingImageUrl(item);
     final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
     final location = (item['location'] ?? item['city'] ?? '').toString();
@@ -686,9 +741,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
+            color: AppColors.surface,
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4)),
+              BoxShadow(color: AppColors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4)),
             ],
           ),
           child: ClipRRect(
@@ -703,9 +758,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       if (imageUrl != null)
                         Image.network(imageUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(color: const Color(0xFFE8E8E8)))
+                            errorBuilder: (_, _, _) => Container(color: placeholderColor))
                       else
-                        Container(color: const Color(0xFFE8E8E8), child: const Icon(Icons.image_outlined, size: 32, color: AppColors.foggy)),
+                        Container(color: placeholderColor, child: Icon(Icons.image_outlined, size: 32, color: placeholderIconColor)),
                       // Gradient overlay
                       Positioned.fill(
                         child: DecoratedBox(
@@ -713,7 +768,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
+                              colors: [Colors.transparent, AppColors.black.withValues(alpha: 0.55)],
                             ),
                           ),
                         ),
@@ -742,7 +797,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  color: Colors.white,
+                  color: AppColors.surface,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -788,7 +843,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFF0F0F0)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             children: [
@@ -843,8 +898,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFF0F2),
+                decoration: BoxDecoration(
+                  color: totalStripColor,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(13),
                     bottomRight: Radius.circular(13),
@@ -853,7 +908,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.black)),
                     Text('$_currency ${_total.toStringAsFixed(0)}',
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.rausch)),
                   ],
@@ -871,7 +926,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           decoration: BoxDecoration(
             color: AppColors.linnen,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFF0F0F0)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -883,9 +938,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: promoAppliedBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
+                    border: Border.all(color: promoAppliedBorder),
                   ),
                   child: Row(
                     children: [
@@ -894,12 +949,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Expanded(
                         child: Text(
                           '${_appliedDiscount!['code']}  •  -$_currency ${_discountAmount.toStringAsFixed(0)} off',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: promoAppliedText),
                         ),
                       ),
                       GestureDetector(
                         onTap: _removePromo,
-                        child: const Icon(Icons.close, size: 16, color: Color(0xFF757575)),
+                        child: const Icon(Icons.close, size: 16, color: AppColors.hackberry),
                       ),
                     ],
                   ),
@@ -914,16 +969,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       decoration: InputDecoration(
                         hintText: 'Enter code',
                         hintStyle: const TextStyle(fontSize: 13),
-                        filled: true, fillColor: Colors.white,
+                        filled: true, fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
                       ),
                       style: const TextStyle(fontSize: 13, letterSpacing: 1.2),
                     ),
@@ -983,9 +1032,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8E8E8)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -1006,9 +1055,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── 3-tab payment selector ──
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8E8E8)),
+            border: Border.all(color: AppColors.border),
           ),
           padding: const EdgeInsets.all(6),
           child: Row(
@@ -1063,7 +1112,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 onTap: () {
                   setState(() {
                     _selectedMethod = m;
-                    _phoneCtrl.text = '${m.countryCode} ';
+                    _phoneCtrl.clear();
                   });
                 },
               )).toList(),
@@ -1079,18 +1128,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\s+]'))],
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
-            prefixIcon: _selectedMethod != null
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    child: Text(_selectedMethod!.countryCode, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  )
-                : const Icon(Icons.phone_outlined),
-            hintText: '${_selectedMethod?.countryCode ?? ''} XXXX XXXX',
+            prefixText: _selectedMethod != null ? '${_selectedMethod!.countryCode} ' : '',
+            prefixStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black),
+            hintText: '7XX XXX XXX',
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AppColors.surface,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.black, width: 1.5)),
           ),
         ),
@@ -1103,6 +1148,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // ── Card Tab ──
   Widget _buildCardSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardInfoBg = isDark ? const Color(0xFF000000) : const Color(0xFFF8F9FF);
+    final cardInfoBorder = isDark ? const Color(0xFF2A3342) : const Color(0xFFDDE2F5);
+    final cardInfoText = isDark ? const Color(0xFFD8E1F2) : const Color(0xFF3D3D3D);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1125,19 +1174,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F9FF),
+            color: cardInfoBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFDDE2F5)),
+            border: Border.all(color: cardInfoBorder),
           ),
-          child: const Row(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.credit_card_outlined, size: 18, color: Color(0xFF3D5AFE)),
-              SizedBox(width: 10),
+              const Icon(Icons.credit_card_outlined, size: 18, color: Color(0xFF3D5AFE)),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'A secure Flutterwave payment sheet opens right here in the app. Enter your card details there — card only, no redirects.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF3D3D3D), height: 1.45),
+                  style: TextStyle(fontSize: 13, color: cardInfoText, height: 1.45),
                 ),
               ),
             ],
@@ -1158,9 +1207,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8E8E8)),
+            border: Border.all(color: AppColors.border),
           ),
           child: const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1189,9 +1238,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Container(
       width: 52, height: 34,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE8E8E8)),
+        border: Border.all(color: AppColors.border),
       ),
       child: const Center(
         child: Text(
@@ -1212,9 +1261,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Container(
       width: 52, height: 34,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE8E8E8)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -1276,137 +1325,186 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildSuccess() {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final topTone = isDark
+        ? (_paymentMethod == 'bank_transfer'
+            ? const Color(0xFF2A2412)
+            : _paymentMethod == 'card'
+                ? const Color(0xFF18223A)
+                : const Color(0xFF15261A))
+        : (_paymentMethod == 'bank_transfer'
+            ? const Color(0xFFFFF8E1)
+            : _paymentMethod == 'card'
+                ? const Color(0xFFF0F4FF)
+                : const Color(0xFFEDF7ED));
+    final bottomTone = isDark ? AppColors.surface : Colors.white;
+
+    final ringBg = isDark
+        ? (_paymentMethod == 'bank_transfer'
+            ? const Color(0xFF3A3116)
+            : _paymentMethod == 'card'
+                ? const Color(0xFF243359)
+                : const Color(0xFF1E3625))
+        : (_paymentMethod == 'bank_transfer'
+            ? const Color(0xFFFFF3C4)
+            : _paymentMethod == 'card'
+                ? const Color(0xFFDBE4FF)
+                : const Color(0xFFD4EDDA));
+
+    final ringGlow = (_paymentMethod == 'bank_transfer'
+            ? const Color(0xFFFFB300)
+            : _paymentMethod == 'card'
+                ? const Color(0xFF3B5BDB)
+                : const Color(0xFF4CAF50))
+        .withValues(alpha: isDark ? 0.28 : 0.18);
+
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            _paymentMethod == 'bank_transfer'
-                ? const Color(0xFFFFF8E1)
-                : _paymentMethod == 'card'
-                    ? const Color(0xFFF0F4FF)
-                    : const Color(0xFFEDF7ED),
-            Colors.white,
-          ],
-          stops: const [0.0, 0.45],
+          colors: [topTone, bottomTone],
+          stops: const [0.0, 0.55],
         ),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-        child: Column(
-          children: [
-            const SizedBox(height: 48),
-            // Animated ring + icon
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _paymentMethod == 'bank_transfer'
-                    ? const Color(0xFFFFF3C4)
-                    : _paymentMethod == 'card'
-                        ? const Color(0xFFDBE4FF)
-                        : const Color(0xFFD4EDDA),
-                boxShadow: [
-                  BoxShadow(
-                    color: (_paymentMethod == 'bank_transfer'
-                            ? const Color(0xFFFFB300)
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                0,
+                24,
+                24 + MediaQuery.of(context).padding.bottom,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 48),
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: ringBg,
+                        boxShadow: [
+                          BoxShadow(
+                            color: ringGlow,
+                            blurRadius: 28,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _paymentMethod == 'bank_transfer'
+                            ? Icons.schedule_rounded
+                            : _paymentMethod == 'card'
+                                ? Icons.open_in_browser_rounded
+                                : Icons.check_rounded,
+                        size: 48,
+                        color: _paymentMethod == 'bank_transfer'
+                            ? const Color(0xFFE65100)
                             : _paymentMethod == 'card'
                                 ? const Color(0xFF3B5BDB)
-                                : const Color(0xFF4CAF50))
-                        .withValues(alpha: 0.18),
-                    blurRadius: 28,
-                    spreadRadius: 6,
-                  ),
-                ],
-              ),
-              child: Icon(
-                _paymentMethod == 'bank_transfer'
-                    ? Icons.schedule_rounded
-                    : _paymentMethod == 'card'
-                        ? Icons.open_in_browser_rounded
-                        : Icons.check_rounded,
-                size: 48,
-                color: _paymentMethod == 'bank_transfer'
-                    ? const Color(0xFFE65100)
-                    : _paymentMethod == 'card'
-                        ? const Color(0xFF3B5BDB)
-                        : const Color(0xFF2E7D32),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              _paymentMethod == 'card'
-                  ? 'Payment initiated'
-                  : _paymentMethod == 'bank_transfer'
-                      ? 'Booking pending'
-                      : 'Booking confirmed',
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _paymentMethod == 'card'
-                  ? 'Complete your card payment in the browser.\nYour booking will be confirmed automatically.'
-                  : _paymentMethod == 'bank_transfer'
-                      ? 'Your booking is pending. Our team will\ncontact you to arrange bank transfer details.'
-                      : 'You\'ll receive an SMS to confirm payment\nvia ${_selectedMethod?.name ?? 'mobile money'}.',
-              style: const TextStyle(fontSize: 15, color: AppColors.foggy, height: 1.6),
-              textAlign: TextAlign.center,
-            ),
-            if (_bookingId != null) ...[
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFEBEBEB)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.foggy),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Ref: $_bookingId',
-                        style: const TextStyle(fontSize: 13, color: AppColors.hof, fontWeight: FontWeight.w600, fontFamily: 'monospace'),
-                        overflow: TextOverflow.ellipsis,
+                                : const Color(0xFF2E7D32),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      _paymentMethod == 'card'
+                          ? 'Payment initiated'
+                          : _paymentMethod == 'bank_transfer'
+                              ? 'Booking pending'
+                              : 'Booking confirmed',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: AppColors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _paymentMethod == 'card'
+                          ? 'Complete your card payment in the browser.\nYour booking will be confirmed automatically.'
+                          : _paymentMethod == 'bank_transfer'
+                              ? 'Your booking is pending. Our team will\ncontact you to arrange bank transfer details.'
+                              : 'You\'ll receive an SMS to confirm payment\nvia ${_selectedMethod?.name ?? 'mobile money'}.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: isDark ? AppColors.hof : AppColors.foggy,
+                        height: 1.6,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_bookingId != null) ...[
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.foggy),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Ref: $_bookingId',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.hof,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'monospace',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.rausch,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Back to home', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: isDark ? AppColors.surfaceSubtle : AppColors.surface,
+                          side: const BorderSide(color: AppColors.border),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text(
+                          'View my bookings',
+                          style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.rausch,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Back to home', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFDDDDDD)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('View my bookings', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.black)),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -1436,7 +1534,7 @@ class _StepBar extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: active ? AppColors.rausch : const Color(0xFFF0F0F0),
+                  color: active ? AppColors.rausch : AppColors.surfaceSubtle,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -1454,7 +1552,7 @@ class _StepBar extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(1),
-                      color: done ? AppColors.rausch : const Color(0xFFE8E8E8),
+                      color: done ? AppColors.rausch : AppColors.border,
                     ),
                   ),
                 ),
@@ -1489,11 +1587,11 @@ class _InfoTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: AppColors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -1564,15 +1662,15 @@ class _InputField extends StatelessWidget {
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1598,10 +1696,10 @@ class _MethodChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? AppColors.black : const Color(0xFFE8E8E8),
+            color: selected ? AppColors.rausch : AppColors.border,
             width: 1,
           ),
           boxShadow: null,
@@ -1619,7 +1717,7 @@ class _MethodChip extends StatelessWidget {
                 errorBuilder: (_, _, _) => Container(
                   width: 30, height: 30,
                   decoration: BoxDecoration(color: method.color, borderRadius: BorderRadius.circular(6)),
-                  child: Center(child: Text(method.id.split('_').first, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: method.textLight ? Colors.white : Colors.black))),
+                  child: Center(child: Text(method.id.split('_').first, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: method.textLight ? Colors.white : AppColors.black))),
                 ),
               ),
             ),
@@ -1653,6 +1751,8 @@ class _PayTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedBg = isDark ? const Color(0xFF000000) : const Color(0xFFF7F7F8);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1660,7 +1760,7 @@ class _PayTabButton extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFF7F7F8) : Colors.transparent,
+            color: selected ? selectedBg : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             boxShadow: null,
           ),
@@ -1730,7 +1830,7 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -1740,15 +1840,15 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
             Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
               decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+                color: AppColors.surface,
+                border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
               ),
               child: Row(
                 children: [
                   Container(
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDDDDDD),
+                        color: AppColors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),

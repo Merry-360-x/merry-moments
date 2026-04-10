@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
+import 'stories_screen.dart';
 import 'tours_screen.dart';
 import 'transport_screen.dart';
 
@@ -32,7 +35,8 @@ String? resolveListingImageUrl(Map<String, dynamic> item) {
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   if (raw.startsWith('//')) return 'https:$raw';
   if (raw.startsWith('res.cloudinary.com/')) return 'https://$raw';
-  return 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto,c_fill,w_900,h_600/$raw';
+  // Preserve source aspect ratio to avoid unexpected zoom/crop artifacts on cards.
+  return 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto:eco,dpr_auto,c_limit,w_1200/$raw';
 }
 
 // ── Price label helper ──
@@ -79,22 +83,178 @@ String _itemSubtitle(Map<String, dynamic> item) {
   }
 }
 
+String _titleCaseWords(String raw) {
+  final collapsed = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (collapsed.isEmpty) return '';
+  return collapsed
+      .split(' ')
+      .where((w) => w.isNotEmpty)
+      .map((word) {
+        final lower = word.toLowerCase();
+        if (lower.length == 1) return lower.toUpperCase();
+        return '${lower[0].toUpperCase()}${lower.substring(1)}';
+      })
+      .join(' ');
+}
+
+String? _knownCityLabel(String raw) {
+  final lower = raw.toLowerCase();
+
+  if (lower.contains('kigali')) return 'Kigali';
+  if (lower.contains('musanze')) return 'Musanze';
+  if (lower.contains('huye') || lower.contains('butare')) return 'Huye';
+  if (lower.contains('rubav') || lower.contains('gisenyi')) return 'Rubavu';
+  if (lower.contains('rusizi') || lower.contains('cyangugu')) return 'Rusizi';
+  if (lower.contains('karongi') || lower.contains('kibuye')) return 'Karongi';
+  if (lower.contains('nyagatare')) return 'Nyagatare';
+  if (lower.contains('nyanza')) return 'Nyanza';
+  if (lower.contains('rwamagana')) return 'Rwamagana';
+  if (lower.contains('kisenyi') || lower.contains('kisseni') || lower.contains('kiseni')) return 'Kisenyi';
+  if (lower.contains('kimihurura') || lower.contains('kimihura')) return 'Kimihurura';
+
+  return null;
+}
+
+bool _looksLikeStreetAddress(String raw) {
+  final lower = raw.toLowerCase();
+  if (RegExp(r'\d').hasMatch(lower)) return true;
+  return RegExp(r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|kg|plot|house|apt|apartment|cell|sector|block)\b')
+      .hasMatch(lower);
+}
+
+String _extractCityLabel(Map<String, dynamic> item) {
+  final cityRaw = (item['city'] ?? '').toString().trim();
+  final locationRaw = (item['location'] ?? '').toString().trim();
+  final locationParts = locationRaw
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+
+  final candidates = <String>[
+    if (cityRaw.isNotEmpty) cityRaw,
+    ...locationParts,
+  ];
+
+  for (final candidate in candidates) {
+    final known = _knownCityLabel(candidate);
+    if (known != null) return known;
+  }
+
+  for (final candidate in candidates) {
+    if (_looksLikeStreetAddress(candidate)) continue;
+    final clean = _titleCaseWords(candidate);
+    if (clean.isNotEmpty) return clean;
+  }
+
+  return 'Rwanda';
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // ExploreScreen
 // ══════════════════════════════════════════════════════════════════════
 
-class ExploreScreen extends StatelessWidget {
+class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key, required this.session});
 
   final SessionController session;
 
   @override
-  Widget build(BuildContext context) {
+  State<ExploreScreen> createState() => _ExploreScreenState();
+}
+
+class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserver {
+  bool _startupSheetsQueued = false;
+  bool _startupSheetsInProgress = false;
+  DateTime? _lastStartupSheetsAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _queueStartupBottomSheets();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _queueStartupBottomSheets(force: true);
+    }
+  }
+
+  void _queueStartupBottomSheets({bool force = false}) {
+    if (_startupSheetsInProgress) return;
+    if (!force && _startupSheetsQueued) return;
+
+    if (force) {
+      final now = DateTime.now();
+      final lastRun = _lastStartupSheetsAt;
+      if (lastRun != null && now.difference(lastRun) < const Duration(seconds: 2)) {
+        return;
+      }
+    }
+
+    _startupSheetsQueued = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _startupSheetsInProgress) return;
+      _showStartupBottomSheetsInSeries();
+    });
+  }
+
+  Future<void> _showStartupBottomSheetsInSeries() async {
+    if (_startupSheetsInProgress) return;
+
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    if (isTablet) return;
+
+    _startupSheetsInProgress = true;
+    _lastStartupSheetsAt = DateTime.now();
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _ExploreMomoBottomSheet(isTablet: isTablet),
+      );
+
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _ExplorePromoBottomSheet(isTablet: isTablet),
+      );
+    } finally {
+      _startupSheetsInProgress = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.session;
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final searchSurface = isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F7);
+    final searchIconColor = isDark ? const Color(0xFFA8B0BF) : const Color(0xFF808089);
+    final searchTitleColor = isDark ? const Color(0xFFEFF3FA) : const Color(0xFF3A3A42);
+    final searchMetaColor = isDark ? const Color(0xFF98A2B3) : const Color(0xFF8A8A94);
+
     final gridColumns = isTablet ? 3 : 2;
     final gridAspect = isTablet ? 0.85 : 0.76;
+
     final payload = session.payload;
     final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
+    final stories = payload?.stories ?? const <Map<String, dynamic>>[];
+    final hasStoriesStrip = session.isAuthenticated || stories.isNotEmpty;
 
     final properties = all.where((i) => i['item_type'] == 'property').toList();
     final tours = all.where((i) => i['item_type'] == 'tour' || i['item_type'] == 'tour_package').toList();
@@ -102,8 +262,7 @@ class ExploreScreen extends StatelessWidget {
 
     final propertySections = <String, List<Map<String, dynamic>>>{};
     for (final item in properties) {
-      final rawLocation = (item['location'] ?? item['city'] ?? '').toString().trim();
-      final city = rawLocation.isEmpty ? 'Rwanda' : rawLocation.split(',').first.trim();
+      final city = _extractCityLabel(item);
       propertySections.putIfAbsent(city, () => <Map<String, dynamic>>[]).add(item);
     }
     final sortedPropertySections = propertySections.entries.toList()
@@ -119,7 +278,6 @@ class ExploreScreen extends StatelessWidget {
           isTablet ? 24 : 16,
         ),
         children: [
-          // ── Search bar (taps to SearchScreen) ──
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -128,30 +286,55 @@ class ExploreScreen extends StatelessWidget {
                 transitionDuration: const Duration(milliseconds: 380),
                 reverseTransitionDuration: const Duration(milliseconds: 300),
                 transitionsBuilder: (_, animation, _, child) {
-                  final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
                   return SlideTransition(
-                    position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(curved),
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 1),
+                      end: Offset.zero,
+                    ).animate(curved),
                     child: child,
                   );
                 },
               ),
             ),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 18 : 14, vertical: isTablet ? 16 : 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 18 : 14,
+                vertical: isTablet ? 16 : 12,
+              ),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F7),
+                color: searchSurface,
                 borderRadius: BorderRadius.circular(isTablet ? 36 : 32),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.search, size: isTablet ? 28 : 20, color: const Color(0xFF808089)),
+                  Icon(Icons.search, size: isTablet ? 28 : 20, color: searchIconColor),
                   SizedBox(width: isTablet ? 14 : 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Search stays, tours, transport', style: TextStyle(fontWeight: FontWeight.w600, fontSize: isTablet ? 25 : 17)),
-                        Text('Anywhere · Any week · Add guests', style: TextStyle(fontSize: isTablet ? 18 : 12, color: const Color(0xFF8A8A94))),
+                        Text(
+                          'Search stays, tours, transport',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: isTablet ? 25 : 17,
+                            color: searchTitleColor,
+                          ),
+                        ),
+                        SizedBox(height: isTablet ? 4 : 2),
+                        Text(
+                          'Anywhere · Any week · Add guests',
+                          style: TextStyle(
+                            fontSize: isTablet ? 17 : 13,
+                            color: searchMetaColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -159,28 +342,92 @@ class ExploreScreen extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: isTablet ? 14 : 10),
-          _CategoryChips(isTablet: isTablet, session: session),
           SizedBox(height: isTablet ? 16 : 12),
+          if (hasStoriesStrip) ...[
+            SizedBox(
+              height: isTablet ? 96 : 82,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: (session.isAuthenticated ? 1 : 0) + stories.length,
+                separatorBuilder: (_, _) => SizedBox(width: isTablet ? 14 : 10),
+                itemBuilder: (_, i) {
+                  if (session.isAuthenticated && i == 0) {
+                    final profile = session.payload?.profile ?? const <String, dynamic>{};
+                    final myAvatar = (profile['avatar_url'] ?? profile['photo_url'] ?? profile['image'] ?? '')
+                        .toString();
+                    return _StoryItem(
+                      isTablet: isTablet,
+                      text: 'Your story',
+                      imageUrl: myAvatar,
+                      showAddBadge: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => StoriesScreen(session: session)),
+                        );
+                      },
+                    );
+                  }
 
-          // ── Content ──
+                  final index = session.isAuthenticated ? i - 1 : i;
+                  if (index < 0 || index >= stories.length) {
+                    return const SizedBox.shrink();
+                  }
+                  final story = stories[index];
+                  return _StoryItem(
+                    isTablet: isTablet,
+                    text: (story['username'] ?? 'story').toString(),
+                    imageUrl: (story['media_url'] ?? story['avatar_url'] ?? '').toString(),
+                    onTap: () {
+                      final storyId = (story['id'] ?? '').toString();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoriesScreen(
+                            session: session,
+                            initialStoryId: storyId.isEmpty ? null : storyId,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: isTablet ? 16 : 12),
+          ],
+          _CategoryChips(isTablet: isTablet, session: session),
+          SizedBox(height: isTablet ? 18 : 14),
           if (session.loading)
-            const Center(child: Padding(padding: EdgeInsets.only(top: 40), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (session.error != null)
             _ErrorCard(message: session.error!)
           else ...[
-            // Airbnb-style property sections: one horizontal row per city
-            ...sortedPropertySections.map(
-              (entry) => _CityStaySection(
-                city: entry.key,
-                items: entry.value,
+            if (sortedPropertySections.isNotEmpty)
+              _CityStayRail(
+                sections: sortedPropertySections,
                 session: session,
                 isTablet: isTablet,
+                gridColumns: gridColumns,
+                gridAspect: gridAspect,
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.only(top: 20, bottom: 8),
+                child: Center(
+                  child: Text(
+                    'No stays available yet',
+                    style: TextStyle(color: AppColors.foggy),
+                  ),
+                ),
               ),
-            ),
-
-            // Tours & packages
             if (tours.isNotEmpty) ...[
+              const SizedBox(height: 12),
               const _SectionHeader(title: 'Tours & experiences'),
               const SizedBox(height: 8),
               GridView.builder(
@@ -197,11 +444,9 @@ class ExploreScreen extends StatelessWidget {
                   return ListingCard(item: tours[index], session: session, compact: true);
                 },
               ),
-              const SizedBox(height: 12),
             ],
-
-            // Transport
             if (transport.isNotEmpty) ...[
+              const SizedBox(height: 14),
               const _SectionHeader(title: 'Transport'),
               const SizedBox(height: 8),
               GridView.builder(
@@ -218,15 +463,419 @@ class ExploreScreen extends StatelessWidget {
                   return ListingCard(item: transport[index], session: session, compact: true);
                 },
               ),
-              const SizedBox(height: 12),
             ],
-
             if (properties.isEmpty && tours.isEmpty && transport.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 40),
-                child: Center(child: Text('No listings yet', style: TextStyle(color: Color(0xFF9E9EA8)))),
+                child: Center(
+                  child: Text(
+                    'No listings yet',
+                    style: TextStyle(color: AppColors.foggy),
+                  ),
+                ),
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryItem extends StatelessWidget {
+  const _StoryItem({
+    required this.isTablet,
+    required this.text,
+    required this.imageUrl,
+    required this.onTap,
+    this.showAddBadge = false,
+  });
+
+  final bool isTablet;
+  final String text;
+  final String imageUrl;
+  final VoidCallback onTap;
+  final bool showAddBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = text.trim();
+    final fallback = trimmed.isEmpty ? 'S' : trimmed.substring(0, 1).toUpperCase();
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: isTablet ? 90 : 82,
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: isTablet ? 78 : 70,
+                  height: isTablet ? 78 : 70,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.rausch, width: 2),
+                  ),
+                  child: ClipOval(
+                    child: imageUrl.trim().isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _StoryFallback(fallback: fallback),
+                          )
+                        : _StoryFallback(fallback: fallback),
+                  ),
+                ),
+                if (showAddBadge)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: isTablet ? 22 : 20,
+                      height: isTablet ? 22 : 20,
+                      decoration: BoxDecoration(
+                        color: AppColors.rausch,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.surface, width: 2),
+                      ),
+                      child: const Icon(Icons.add, size: 12, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _StoryFallback extends StatelessWidget {
+  const _StoryFallback({required this.fallback});
+
+  final String fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFE8EDF5),
+      alignment: Alignment.center,
+      child: Text(
+        fallback,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF44506A),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExploreMomoBottomSheet extends StatelessWidget {
+  const _ExploreMomoBottomSheet({required this.isTablet});
+
+  final bool isTablet;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF000000) : const Color(0xFFF2F9F7);
+    final titleColor = isDark ? const Color(0xFFE9F6F3) : const Color(0xFF0F3A34);
+    final subtitleColor = isDark ? const Color(0xFFBAD7D1) : const Color(0xFF356A61);
+    final closeColor = isDark ? const Color(0xFFE3F0ED) : const Color(0xFF29554E);
+    final chipBg = isDark ? const Color(0xFF000000) : const Color(0xFFE0F1EC);
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(isTablet ? 24 : 12, 0, isTablet ? 24 : 12, isTablet ? 20 : 10),
+      padding: EdgeInsets.fromLTRB(isTablet ? 24 : 16, isTablet ? 14 : 10, isTablet ? 24 : 16, isTablet ? 18 : 14),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark ? const Color(0xFF315A54) : const Color(0xFFAAD6CA),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.pop(context),
+              color: closeColor,
+              splashRadius: 20,
+            ),
+          ),
+          SizedBox(height: isTablet ? 4 : 2),
+          Icon(Icons.account_balance_wallet_rounded, size: isTablet ? 42 : 36, color: scheme.primary),
+          SizedBox(height: isTablet ? 10 : 8),
+          Text(
+            'Pay with Mobile Money',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isTablet ? 27 : 21,
+              fontWeight: FontWeight.w800,
+              color: titleColor,
+              height: 1.15,
+            ),
+          ),
+          SizedBox(height: isTablet ? 8 : 6),
+          Text(
+            'Use MTN MoMo and other trusted wallets for a faster checkout experience.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isTablet ? 16 : 14,
+              fontWeight: FontWeight.w600,
+              color: subtitleColor,
+              height: 1.25,
+            ),
+          ),
+          SizedBox(height: isTablet ? 14 : 10),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MomoProviderChip(
+                label: 'MTN MoMo',
+                logoAssetPath: 'assets/payment/mtn-momo.png',
+                backgroundColor: chipBg,
+                textColor: subtitleColor,
+              ),
+              _MomoProviderChip(
+                label: 'Airtel Money',
+                logoAssetPath: 'assets/payment/airtel-money.png',
+                backgroundColor: chipBg,
+                textColor: subtitleColor,
+              ),
+              _MomoProviderChip(
+                label: 'M-Pesa',
+                logoAssetPath: 'assets/payment/mpesa.png',
+                backgroundColor: chipBg,
+                textColor: subtitleColor,
+              ),
+            ],
+          ),
+          SizedBox(height: isTablet ? 16 : 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: EdgeInsets.symmetric(vertical: isTablet ? 16 : 14),
+              ),
+              child: Text(
+                'Continue',
+                style: TextStyle(
+                  fontSize: isTablet ? 18 : 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MomoProviderChip extends StatelessWidget {
+  const _MomoProviderChip({
+    required this.label,
+    required this.logoAssetPath,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String label;
+  final String logoAssetPath;
+  final Color backgroundColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.asset(
+              logoAssetPath,
+              width: 18,
+              height: 18,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox(width: 18, height: 18),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplorePromoBottomSheet extends StatelessWidget {
+  const _ExplorePromoBottomSheet({
+    required this.isTablet,
+  });
+
+  final bool isTablet;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF000000) : const Color(0xFFF6F8FB);
+    final titleColor = isDark ? const Color(0xFFF4F6FA) : const Color(0xFF1E2A49);
+    final subtitleColor = isDark ? const Color(0xFFBAC4DA) : const Color(0xFF3D4D70);
+    final closeColor = isDark ? const Color(0xFFE5E9F2) : const Color(0xFF2C354A);
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(isTablet ? 24 : 12, 0, isTablet ? 24 : 12, isTablet ? 20 : 10),
+      padding: EdgeInsets.fromLTRB(isTablet ? 24 : 16, isTablet ? 14 : 10, isTablet ? 24 : 16, isTablet ? 18 : 14),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C3550) : const Color(0xFFC6D4EB),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.pop(context),
+              color: closeColor,
+              splashRadius: 20,
+            ),
+          ),
+          SizedBox(height: isTablet ? 6 : 4),
+          Text(
+            'SAVE10 on selected stays',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isTablet ? 28 : 21,
+              fontWeight: FontWeight.w800,
+              color: titleColor,
+              height: 1.15,
+            ),
+          ),
+          SizedBox(height: isTablet ? 8 : 6),
+          Text(
+            'Apply at checkout for an instant 10% off your selected stay.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isTablet ? 16 : 14,
+              fontWeight: FontWeight.w600,
+              color: subtitleColor,
+              height: 1.25,
+            ),
+          ),
+          SizedBox(height: isTablet ? 16 : 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () async {
+                await Clipboard.setData(const ClipboardData(text: kSaveTenPromoCode));
+                await setPendingPromoCode(kSaveTenPromoCode);
+                if (!context.mounted) return;
+                AppSnackBar.success(context, 'Promo code copied: $kSaveTenPromoCode');
+                Navigator.pop(context);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: EdgeInsets.symmetric(vertical: isTablet ? 16 : 14),
+              ),
+              child: Text(
+                'Copy code',
+                style: TextStyle(
+                  fontSize: isTablet ? 18 : 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CityStayRail extends StatelessWidget {
+  const _CityStayRail({
+    required this.sections,
+    required this.session,
+    required this.isTablet,
+    required this.gridColumns,
+    required this.gridAspect,
+  });
+
+  static const int _maxSections = 10;
+
+  final List<MapEntry<String, List<Map<String, dynamic>>>> sections;
+  final SessionController session;
+  final bool isTablet;
+  final int gridColumns;
+  final double gridAspect;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleSections = sections.where((entry) => entry.value.isNotEmpty).take(_maxSections).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...List.generate(visibleSections.length, (index) {
+            final entry = visibleSections[index];
+            final isLast = index == visibleSections.length - 1;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  child: _CityStaySection(
+                    city: entry.key,
+                    items: entry.value,
+                    session: session,
+                    isTablet: isTablet,
+                    gridColumns: gridColumns,
+                    gridAspect: gridAspect,
+                  ),
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -239,32 +888,49 @@ class _CityStaySection extends StatelessWidget {
     required this.items,
     required this.session,
     required this.isTablet,
+    required this.gridColumns,
+    required this.gridAspect,
   });
 
   final String city;
   final List<Map<String, dynamic>> items;
   final SessionController session;
   final bool isTablet;
-
-  static const int _previewCount = 8;
+  final int gridColumns;
+  final double gridAspect;
 
   @override
   Widget build(BuildContext context) {
-    final gridColumns = isTablet ? 3 : 2;
-    final gridAspect = isTablet ? 0.85 : 0.76;
-    final previewItems = items.take(_previewCount).toList();
-    final hasMore = items.length > previewItems.length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spacing = 12.0;
+        final availableWidth = constraints.maxWidth;
+        final cardWidth = (availableWidth - ((gridColumns - 1) * spacing)) / gridColumns;
+        final rowHeight = cardWidth / gridAspect;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: _SectionHeader(title: 'Stays in $city')),
-              if (hasMore)
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Stays in $city',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  ),
                   onPressed: () {
                     showModalBottomSheet<void>(
                       context: context,
@@ -281,27 +947,35 @@ class _CityStaySection extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Text('See all (${items.length})', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'See all',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: previewItems.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: gridColumns,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 10,
-              childAspectRatio: gridAspect,
+              ],
             ),
-            itemBuilder: (context, index) {
-              return ListingCard(item: previewItems[index], session: session, compact: true);
-            },
-          ),
-        ],
-      ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: rowHeight,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: items.length,
+                separatorBuilder: (context, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: ListingCard(
+                      item: items[index],
+                      session: session,
+                      compact: true,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -383,11 +1057,18 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
 // ══════════════════════════════════════════════════════════════════════
 
 class ListingCard extends StatelessWidget {
-  const ListingCard({super.key, required this.item, required this.session, this.compact = false});
+  const ListingCard({
+    super.key,
+    required this.item,
+    required this.session,
+    this.compact = false,
+    this.imageHeightOverride,
+  });
 
   final Map<String, dynamic> item;
   final SessionController session;
   final bool compact;
+  final double? imageHeightOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -408,8 +1089,12 @@ class ListingCard extends StatelessWidget {
     final subtitle = _itemSubtitle(item);
     final price = _priceLabel(item);
     final imageUrl = resolveListingImageUrl(item);
-    final rating = (item['rating'] ?? item['average_rating'])?.toString();
-    final imageHeight = compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0);
+    final ratingValue = double.tryParse((item['rating'] ?? item['average_rating'] ?? '').toString());
+    final showRating = ratingValue != null && ratingValue > 0;
+    final rating = ratingValue == null
+        ? ''
+        : (ratingValue % 1 == 0 ? ratingValue.toStringAsFixed(0) : ratingValue.toStringAsFixed(1));
+    final imageHeight = imageHeightOverride ?? (compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,24 +1110,6 @@ class ListingCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _ListingImage(imageUrl: imageUrl),
-
-                // "Guest favorite" badge
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2))],
-                    ),
-                    child: const Text(
-                      'Guest favorite',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
-                    ),
-                  ),
-                ),
 
                 // Heart / wishlist button
                 Positioned(
@@ -485,13 +1152,13 @@ class ListingCard extends StatelessWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: compact ? 13 : 15, color: const Color(0xFF222222)),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: compact ? 13 : 15, color: AppColors.black),
               ),
             ),
-            if (rating != null && rating != 'null') ...[
-              const Icon(Icons.star, size: 14, color: Color(0xFF222222)),
+            if (showRating) ...[
+              const Icon(Icons.star, size: 14, color: AppColors.black),
               const SizedBox(width: 3),
-              Text(rating, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF222222))),
+              Text(rating, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.black)),
             ],
           ],
         ),
@@ -503,7 +1170,7 @@ class ListingCard extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: compact ? 12 : 13, color: const Color(0xFF717171)),
+          style: TextStyle(fontSize: compact ? 12 : 13, color: AppColors.foggy),
         ),
 
         const SizedBox(height: 4),
@@ -511,8 +1178,8 @@ class ListingCard extends StatelessWidget {
         // ── Price ──
         Text.rich(
           TextSpan(children: [
-            TextSpan(text: price.split(' ').take(2).join(' '), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF222222))),
-            TextSpan(text: ' ${price.split(' ').skip(2).join(' ')}', style: const TextStyle(fontSize: 13, color: Color(0xFF717171))),
+            TextSpan(text: price.split(' ').take(2).join(' '), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.black)),
+            TextSpan(text: ' ${price.split(' ').skip(2).join(' ')}', style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
           ]),
         ),
       ],
@@ -532,6 +1199,11 @@ class _CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inactiveChipColor = isDark ? const Color(0xFF000000) : const Color(0xFFF0F0F3);
+    final activeChipColor = isDark ? AppColors.rausch : const Color(0xFFFFE8E9);
+    final inactiveTextColor = isDark ? const Color(0xFFD2DAE7) : const Color(0xFF565660);
+    final activeTextColor = isDark ? AppColors.white : AppColors.rausch;
     final chips = ['Stays', 'Tours', 'Cars', 'Events'];
     return SizedBox(
       height: isTablet ? 44 : 34,
@@ -568,15 +1240,16 @@ class _CategoryChips extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 12, vertical: isTablet ? 11 : 8),
               decoration: BoxDecoration(
-                color: active ? const Color(0xFFFFE8E9) : const Color(0xFFF0F0F3),
+                color: active ? activeChipColor : inactiveChipColor,
                 borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: isDark && !active ? AppColors.border : Colors.transparent),
               ),
               child: Text(
                 chips[index],
                 style: TextStyle(
                   fontSize: isTablet ? 16 : 12,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? AppColors.rausch : const Color(0xFF565660),
+                  color: active ? activeTextColor : inactiveTextColor,
                 ),
               ),
             ),
@@ -593,9 +1266,9 @@ class _EventsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -618,7 +1291,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF222222)));
+    return Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.black));
   }
 }
 
@@ -646,63 +1319,48 @@ class _ListingImage extends StatelessWidget {
 
   final String? imageUrl;
 
+  Widget _placeholder() {
+    return Container(
+      color: AppColors.surfaceSubtle,
+      child: const Center(child: Icon(Icons.image_outlined, color: AppColors.hackberry, size: 38)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null || imageUrl!.isEmpty) {
-      return Container(
-        color: const Color(0xFFF0F0F3),
-        child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFF8E8E98), size: 38)),
-      );
+      return _placeholder();
     }
 
-    return Image.network(
-      imageUrl!,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: const Color(0xFFF0F0F3),
-          child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFF8E8E98), size: 38)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final decodedWidth = (width * dpr).round().clamp(240, 1600);
+
+        return Image.network(
+          imageUrl!,
+          fit: BoxFit.cover,
+          cacheWidth: decodedWidth,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) {
+              return AnimatedOpacity(
+                opacity: 1,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                child: child,
+              );
+            }
+            return _placeholder();
+          },
+          errorBuilder: (context, error, stackTrace) => _placeholder(),
         );
       },
     );
   }
 }
 
-// ── Quick Nav Chip ─────────────────────────────────────────────────────────
-
-class _QuickNavChip extends StatelessWidget {
-  const _QuickNavChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    required this.isTablet,
-  });
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final bool isTablet;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = isTablet ? 86.0 : 68.0;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: color, size: isTablet ? 28 : 22),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: color, fontSize: isTablet ? 13 : 11, fontWeight: FontWeight.w600)),
-        ]),
-      ),
-    );
-  }
-}

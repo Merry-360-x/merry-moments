@@ -95,6 +95,26 @@ type Message = {
 
 const EMOJI_LIST = ["�", "🤣", "😆", "😄", "😁", "😊", "🥰", "😍", "🤩", "😎", "🥳", "🤪", "😜", "😝", "🤗", "🤭", "👍", "👎", "❤️", "💖", "💯", "🎉", "🎊", "🙌", "👏", "🙏", "✅", "❌", "⚠️", "📎", "💡", "🔥", "✨", "⭐", "💪", "👀", "🤔", "😮", "😢", "🥺"];
 
+type TypingSpeedPreset = "ultra" | "balanced" | "persistent";
+
+const TYPING_TIMEOUT_MS_BY_PRESET: Record<TypingSpeedPreset, number> = {
+  ultra: 500,
+  balanced: 900,
+  persistent: 1200,
+};
+
+const readTypingPreset = (): TypingSpeedPreset => {
+  if (typeof window === "undefined") return "balanced";
+  const raw = window.localStorage.getItem("support_typing_preset");
+  if (raw === "ultra" || raw === "balanced" || raw === "persistent") {
+    return raw;
+  }
+  return "balanced";
+};
+
+const SUPPORT_TYPING_PRESET = readTypingPreset();
+const SUPPORT_TYPING_TIMEOUT_MS = TYPING_TIMEOUT_MS_BY_PRESET[SUPPORT_TYPING_PRESET];
+
 const AI_STARTER_OPTIONS = [
   {
     id: "plan_trip",
@@ -308,11 +328,62 @@ export default function SupportCenterLauncher() {
   const [userName, setUserName] = useState<string>("Customer");
   const [staffTyping, setStaffTyping] = useState(false);
   const [activeSupportName, setActiveSupportName] = useState<string>("Support Team");
+  const [supportOnline, setSupportOnline] = useState(false);
+  const [supportLastSeenAt, setSupportLastSeenAt] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastSeenMessageIdRef = useRef<string | null>(null);
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
+
+  const maybeShowBackgroundNotification = useCallback((incoming: Message) => {
+    if (!incoming) return;
+    if (incoming.sender_type !== "staff") return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!("Notification" in window)) return;
+
+    const pageInactive = document.hidden || !document.hasFocus() || !open || step !== "chat";
+    if (!pageInactive) return;
+
+    const title = (incoming.sender_name || "Support Team").trim();
+    const bodyText = (incoming.message || "").trim();
+
+    const showNotification = () => {
+      try {
+        void new window.Notification(title || "Support", {
+          body: bodyText.length > 140 ? `${bodyText.slice(0, 137)}...` : (bodyText || "New support message"),
+          icon: "/brand/logo_dark.png",
+          tag: `support-${activeTicket?.id || "chat"}`,
+          renotify: true,
+        });
+      } catch (error) {
+        console.warn("[CustomerChat] Browser notification failed", error);
+      }
+    };
+
+    if (window.Notification.permission === "granted") {
+      showNotification();
+      return;
+    }
+
+    if (window.Notification.permission === "default") {
+      void window.Notification.requestPermission()
+        .then((permission) => {
+          if (permission === "granted") {
+            showNotification();
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeTicket?.id, open, step]);
+
+  useEffect(() => {
+    if (!open || step !== "chat") return;
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (window.Notification.permission === "default") {
+      void window.Notification.requestPermission().catch(() => {});
+    }
+  }, [open, step]);
   // Get user's display name
   useEffect(() => {
     const fetchName = async () => {
@@ -540,6 +611,9 @@ export default function SupportCenterLauncher() {
     if (lastStaffMessage?.sender_name) {
       setActiveSupportName(lastStaffMessage.sender_name);
     }
+    if (lastStaffMessage?.created_at) {
+      setSupportLastSeenAt(lastStaffMessage.created_at);
+    }
 
     setMessages(enriched);
   };
@@ -552,6 +626,9 @@ export default function SupportCenterLauncher() {
       if (newMsg.sender_type === "staff" && newMsg.sender_name) {
         setActiveSupportName(newMsg.sender_name);
       }
+      if (newMsg.sender_type === "staff") {
+        setSupportLastSeenAt(newMsg.created_at || new Date().toISOString());
+      }
 
       if (newMsg.sender_type === "staff") {
         if (!open || step !== "chat") {
@@ -562,6 +639,7 @@ export default function SupportCenterLauncher() {
             description: (newMsg.message || "").slice(0, 80),
           });
         }
+        maybeShowBackgroundNotification(newMsg);
       }
 
       const updated = [...prev, newMsg];
@@ -576,7 +654,7 @@ export default function SupportCenterLauncher() {
 
       return updated;
     });
-  }, [open, step, toast]);
+  }, [open, step, toast, maybeShowBackgroundNotification]);
 
   // Real-time subscription
   useEffect(() => {
@@ -632,18 +710,31 @@ export default function SupportCenterLauncher() {
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
+        const hasStaffPresence = Object.values(state).some((presences: any) => {
+          return presences.some((p: any) => p.user_type === 'staff');
+        });
+        setSupportOnline(hasStaffPresence);
         const staffPresence = Object.values(state).find((presences: any) => {
           return presences.some((p: any) => p.user_type === 'staff' && p.typing);
         });
         setStaffTyping(!!staffPresence);
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const hasStaffJoin = newPresences.some((p: any) => p.user_type === 'staff');
+        if (hasStaffJoin) {
+          setSupportOnline(true);
+          setSupportLastSeenAt(new Date().toISOString());
+        }
         const typing = newPresences.some((p: any) => p.user_type === 'staff' && p.typing);
         if (typing) setStaffTyping(true);
       })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const wasTyping = leftPresences.some((p: any) => p.user_type === 'staff' && p.typing);
-        if (wasTyping) setStaffTyping(false);
+      .on('presence', { event: 'leave' }, () => {
+        const state = presenceChannel.presenceState();
+        const hasStaffPresence = Object.values(state).some((presences: any) => {
+          return presences.some((p: any) => p.user_type === 'staff');
+        });
+        setSupportOnline(hasStaffPresence);
+        if (!hasStaffPresence) setStaffTyping(false);
       })
       .subscribe(async (status) => {
         console.log('[CustomerChat] Presence channel status:', status);
@@ -659,6 +750,14 @@ export default function SupportCenterLauncher() {
 
     return () => {
       console.log('[CustomerChat] Cleaning up channels');
+      if (user) {
+        void presenceChannel.track({
+          user_id: user.id,
+          user_type: 'customer',
+          typing: false,
+          online_at: new Date().toISOString(),
+        });
+      }
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
       messagesChannelRef.current = null;
@@ -695,6 +794,15 @@ export default function SupportCenterLauncher() {
     }
   }, [staffTyping]);
 
+  // Safety guard: clear typing if no fresh typing signal arrives.
+  useEffect(() => {
+    if (!staffTyping) return;
+    const timeout = window.setTimeout(() => {
+      setStaffTyping(false);
+    }, SUPPORT_TYPING_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [staffTyping, messages.length]);
+
   // Initialize chat when step changes
   useEffect(() => {
     if (step === "chat") {
@@ -716,6 +824,14 @@ export default function SupportCenterLauncher() {
     }
   };
 
+  const stopTyping = () => {
+    broadcastTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  };
+
   // Handle typing with faster response
   const handleTyping = (value: string) => {
     setDraft(value);
@@ -727,15 +843,12 @@ export default function SupportCenterLauncher() {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Faster timeout (1 second instead of 2)
+      // Stop typing shortly after input pauses.
       typingTimeoutRef.current = setTimeout(() => {
-        broadcastTyping(false);
-      }, 1000);
+        stopTyping();
+      }, SUPPORT_TYPING_TIMEOUT_MS);
     } else {
-      broadcastTyping(false);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      stopTyping();
     }
   };
 
@@ -748,10 +861,7 @@ export default function SupportCenterLauncher() {
     setDraft("");
     
     // Stop typing indicator
-    broadcastTyping(false);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+    stopTyping();
 
     try {
       let ticketId = activeTicket?.id;
@@ -845,6 +955,16 @@ export default function SupportCenterLauncher() {
           event: 'new-message',
           payload: savedMsg
         });
+      }
+
+      if ((savedMsg as Message | null)?.id) {
+        void supabase.functions
+          .invoke("send-support-push", {
+            body: { messageId: (savedMsg as Message).id },
+          })
+          .catch((error) => {
+            console.warn("[CustomerChat] push notify failed", error);
+          });
       }
 
       setReplyTo(null);
@@ -1232,6 +1352,11 @@ export default function SupportCenterLauncher() {
   const popupHeight = `min(${popupDefaultHeight}px, ${popupAvailableHeight})`;
 
   const autoCloseWarning = getAutoCloseWarning();
+  const hasRecentSupportActivity =
+    !!supportLastSeenAt && (Date.now() - new Date(supportLastSeenAt).getTime()) <= 5 * 60 * 1000;
+  const supportHeaderStatus = staffTyping ? "typing..." : (supportOnline || hasRecentSupportActivity) ? "online" : "offline";
+  const supportHeaderStatusClass =
+    supportHeaderStatus === "offline" ? "text-white/70" : "text-emerald-100";
   const shouldShowAiRating = aiMessages.some((m, idx) => idx > 0 && m.role === "assistant") && aiConversationFeedback === null;
   const showAiStarter = aiMode === "starter" && aiMessages.length <= 1;
   const showTripForm = aiMode === "trip-form";
@@ -1240,6 +1365,15 @@ export default function SupportCenterLauncher() {
     : aiMode === "trip-form"
       ? "Use the trip form above or type a question here..."
       : "Choose one of the guided options below or ask anything related to Merry360X...";
+
+  const hideLauncherOnRoute =
+    location.pathname.startsWith("/checkout") ||
+    location.pathname.startsWith("/secure-card-handoff") ||
+    location.pathname.startsWith("/payment-");
+
+  if (hideLauncherOnRoute) {
+    return null;
+  }
 
   return (
     <>
@@ -1852,23 +1986,38 @@ export default function SupportCenterLauncher() {
             <div className="flex flex-col flex-1 min-h-0">
               {/* Header */}
               <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-gradient-to-r from-blue-500 to-indigo-600 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/20" onClick={() => setStep("home")}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-white hover:bg-white/20"
+                  onClick={() => {
+                    stopTyping();
+                    setStep("home");
+                  }}
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
                   <Headset className="h-4 w-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-white">{activeSupportName}</div>
-                  <div className="text-[10px] text-white/70">
-                    {staffTyping ? `${activeSupportName} is typing...` : "Usually responds within minutes"}
+                  <div className="text-sm font-semibold text-white">Support</div>
+                  <div className={`text-[10px] ${supportHeaderStatusClass}`}>
+                    {activeSupportName} • {supportHeaderStatus}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => setExpanded(!expanded)} className="text-white/70 hover:text-white p-1">
                     {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </button>
-                  <button type="button" onClick={() => setOpen(false)} className="text-white/70 hover:text-white p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopTyping();
+                      setOpen(false);
+                    }}
+                    className="text-white/70 hover:text-white p-1"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -1938,96 +2087,91 @@ export default function SupportCenterLauncher() {
                       </div>
                     )}
 
-                    {messages.map((msg) => {
-                      const isMe = msg.sender_id === user?.id;
-                      const isNew = msg.id.startsWith('temp-') || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
-                      return (
-                        <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
-                          <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${
-                            isMe ? "bg-primary" : "bg-gradient-to-br from-blue-500 to-indigo-600"
-                          }`}>
-                            {isMe ? <User className="h-3.5 w-3.5 text-primary-foreground" /> : <Headset className="h-3.5 w-3.5 text-white" />}
-                          </div>
-                          <div className={`flex-1 ${isMe ? "text-right" : ""}`}>
-                            {/* Reply indicator */}
-                            {msg.reply_to && (
-                              <div className={`text-[10px] text-muted-foreground mb-1 flex items-center gap-1 ${isMe ? "justify-end" : ""}`}>
-                                <Reply className="h-2.5 w-2.5" />
-                                <span className="max-w-[120px] truncate">{msg.reply_to.message}</span>
+                    {(() => {
+                      const firstSupportMessageId = messages.find((m) => m.sender_type === "staff")?.id;
+
+                      return messages.map((msg) => {
+                        const isMe = msg.sender_id === user?.id;
+                        const isSupportMessage = msg.sender_type === "staff";
+                        const isNew = msg.id.startsWith('temp-') || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
+                        const senderLabel = isMe ? "You" : (msg.sender_name || activeSupportName);
+
+                        return (
+                          <div key={msg.id} className="space-y-1">
+                            {isSupportMessage && msg.id === firstSupportMessageId ? (
+                              <div className="flex justify-center py-1">
+                                <div className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                                  {senderLabel} joined the conversation
+                                </div>
                               </div>
-                            )}
-                            
-                            <div className={`rounded-2xl px-3 py-2 text-xs inline-block text-left max-w-[85%] ${
-                              isMe 
-                                ? "bg-primary text-primary-foreground rounded-tr-sm" 
-                                : "bg-muted text-foreground rounded-tl-sm"
-                            }`}>
-                              {!isMe && (
-                                <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mb-1">
-                                  {msg.sender_name || activeSupportName}
+                            ) : null}
+
+                            <div className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
+                              <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${
+                                isMe ? "bg-[#ff5a00]" : "bg-gradient-to-br from-blue-500 to-indigo-600"
+                              }`}>
+                                {isMe ? <User className="h-3.5 w-3.5 text-white" /> : <Headset className="h-3.5 w-3.5 text-white" />}
+                              </div>
+
+                              <div className={`flex-1 ${isMe ? "text-right" : ""}`}>
+                                {msg.reply_to && (
+                                  <div className={`text-[10px] text-muted-foreground mb-1 flex items-center gap-1 ${isMe ? "justify-end" : ""}`}>
+                                    <Reply className="h-2.5 w-2.5" />
+                                    <span className="max-w-[120px] truncate">{msg.reply_to.message}</span>
+                                  </div>
+                                )}
+
+                                <div className={`text-[10px] mb-1 font-semibold ${isMe ? "text-slate-600" : "text-slate-900"}`}>
+                                  {senderLabel} • <span className="font-normal text-muted-foreground">{formatTime(msg.created_at)}</span>
                                 </div>
-                              )}
-                              <div className="whitespace-pre-wrap">{msg.message}</div>
-                              
-                              {/* Attachments */}
-                              {msg.attachments && msg.attachments.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {msg.attachments.map((att, i) => (
-                                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] underline opacity-80 hover:opacity-100">
-                                      {att.type === "image" ? <ImageIcon className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />}
-                                      {att.name}
-                                    </a>
-                                  ))}
+
+                                <div className={`rounded-2xl px-3 py-2 text-xs inline-block text-left max-w-[85%] ${
+                                  isMe
+                                    ? "bg-[#ff5a00] text-white rounded-tr-sm"
+                                    : "bg-[#e7e7ea] text-slate-900 rounded-tl-sm"
+                                }`}>
+                                  <div className="whitespace-pre-wrap">{msg.message}</div>
+
+                                  {msg.attachments && msg.attachments.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {msg.attachments.map((att, i) => (
+                                        <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1 text-[10px] underline ${isMe ? "text-white/90" : "opacity-80 hover:opacity-100"}`}>
+                                          {att.type === "image" ? <ImageIcon className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />}
+                                          {att.name}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            
-                            <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1 ${isMe ? "justify-end" : ""}`}>
-                              {formatTime(msg.created_at)}
-                              {!isMe && (
-                                <button className="hover:text-foreground ml-1" onClick={() => setReplyTo(msg)}>
-                                  <Reply className="h-2.5 w-2.5" />
-                                </button>
-                              )}
+
+                                {!isMe ? (
+                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <button className="hover:text-foreground" onClick={() => setReplyTo(msg)}>
+                                      <Reply className="h-2.5 w-2.5" />
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
 
-                    {/* Typing indicator */}
-                    {staffTyping && (
-                      <div className="flex gap-2">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-                          <Headset className="h-3.5 w-3.5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="rounded-2xl px-2.5 py-1.5 text-xs inline-block bg-muted/60 animate-pulse">
-                            <div className="flex gap-1">
-                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Typing indicator */}
                     {staffTyping && (
                       <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
                         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                           <Headset className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div className="flex-1">
-                          <div className="text-[10px] mb-1 font-semibold text-blue-600 dark:text-blue-400">
-                            Support is typing...
+                          <div className="text-[10px] mb-1 font-semibold text-slate-900">
+                            {activeSupportName} is typing...
                           </div>
-                          <div className="rounded-2xl px-3 py-1.5 text-xs inline-block bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800">
+                          <div className="rounded-2xl px-3 py-2 text-xs inline-block bg-[#e7e7ea]">
                             <div className="flex gap-1">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                             </div>
                           </div>
                         </div>
@@ -2088,6 +2232,7 @@ export default function SupportCenterLauncher() {
                       placeholder="Type your message..."
                       value={draft}
                       onChange={(e) => handleTyping(e.target.value)}
+                      onBlur={() => stopTyping()}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();

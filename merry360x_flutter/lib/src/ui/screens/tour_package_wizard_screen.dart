@@ -384,7 +384,7 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
           icon: const Icon(Icons.image_outlined),
           label: Text(_coverImageUrl == null ? 'Upload cover image' : 'Replace cover image'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.black87,
+            foregroundColor: AppColors.black,
             side: BorderSide(color: Colors.grey.shade300),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
@@ -395,7 +395,7 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
           icon: const Icon(Icons.photo_library_outlined),
           label: const Text('Add gallery images'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.black87,
+            foregroundColor: AppColors.black,
             side: BorderSide(color: Colors.grey.shade300),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
@@ -413,7 +413,7 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
           const SizedBox(height: 16),
           const LinearProgressIndicator(color: _kRed),
           const SizedBox(height: 8),
-          const Center(child: Text('Uploading…', style: TextStyle(fontSize: 13, color: Colors.black54))),
+          const Center(child: Text('Uploading…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
         ],
       ],
     );
@@ -442,7 +442,7 @@ class _WizardBottomNav extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surface,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
@@ -451,7 +451,7 @@ class _WizardBottomNav extends StatelessWidget {
             child: OutlinedButton(
               onPressed: step < totalSteps && canProceed && !saving ? onNext : null,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.black,
                 side: BorderSide(color: Colors.grey.shade300),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
@@ -503,7 +503,7 @@ class _StepHeader extends StatelessWidget {
             children: [
               Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
             ],
           ),
         ),
@@ -619,7 +619,7 @@ class _ReviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade200),
         borderRadius: BorderRadius.circular(14),
-        color: Colors.white,
+        color: AppColors.surface,
       ),
       child: Column(children: children),
     );
@@ -637,7 +637,7 @@ class _ReviewRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54))),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.foggy))),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

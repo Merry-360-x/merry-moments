@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import PropertyCard from "@/components/PropertyCard";
+import HostSocialActions from "@/components/HostSocialActions";
 
 export default function HostAbout() {
   const params = useParams();
@@ -27,14 +28,16 @@ export default function HostAbout() {
     },
   });
 
+  const hostUserId = host?.user_id ? String(host.user_id) : hostId;
+
   const { data: listings = [] } = useQuery({
-    queryKey: ["host-about-listings", hostId],
-    enabled: Boolean(hostId),
+    queryKey: ["host-about-listings", hostUserId],
+    enabled: Boolean(hostUserId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
         .select("id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, images, bedrooms, bathrooms, beds")
-        .eq("host_id", hostId)
+        .eq("host_id", hostUserId)
         .eq("is_published", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -100,10 +103,11 @@ export default function HostAbout() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Link to={`/hosts/${encodeURIComponent(hostId)}/reviews`}>
+                <HostSocialActions hostId={hostUserId} hostName={host?.full_name} />
+                <Link to={`/hosts/${encodeURIComponent(hostUserId)}/reviews`}>
                   <Button variant="outline">All reviews</Button>
                 </Link>
-                <Link to={`/accommodations?host=${encodeURIComponent(hostId)}`}>
+                <Link to={`/accommodations?host=${encodeURIComponent(hostUserId)}`}>
                   <Button>View listings</Button>
                 </Link>
               </div>

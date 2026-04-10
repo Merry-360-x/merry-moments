@@ -163,7 +163,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                               },
                             );
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            Navigator.of(this.context).pop();
                             AppSnackBar.success(this.context, 'Dispute opened.');
                             await _loadOverview(showSpinner: false);
                           } catch (error) {
@@ -195,7 +195,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -249,7 +249,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
-                                color: method == 'mobile_money' ? const Color(0xFFF2F8FF) : Colors.white,
+                                color: method == 'mobile_money' ? const Color(0xFFF2F8FF) : AppColors.surface,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: method == 'mobile_money' ? AppColors.rausch : const Color(0xFFE7E7EC),
@@ -289,7 +289,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
-                                color: method == 'card' ? const Color(0xFFF2F8FF) : Colors.white,
+                                color: method == 'card' ? const Color(0xFFF2F8FF) : AppColors.surface,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: method == 'card' ? AppColors.rausch : const Color(0xFFE7E7EC),
@@ -374,7 +374,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                                 );
                                 if (!mounted) return;
                                 if (ok) {
-                                  Navigator.pop(context);
+                                  Navigator.of(this.context).pop();
                                 } else {
                                   setLocal(() => processing = false);
                                 }
@@ -479,9 +479,9 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
   Widget build(BuildContext context) {
     if (!widget.session.isAuthenticated) {
       return Scaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         appBar: AppBar(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -505,9 +505,9 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
 
     if (_loading) {
       return Scaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         appBar: AppBar(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -536,9 +536,9 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
     }).length;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -643,7 +643,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -764,7 +764,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -910,7 +910,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -1093,7 +1093,7 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE7E7EC)),
       ),
@@ -1201,7 +1201,7 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),

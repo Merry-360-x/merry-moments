@@ -58,7 +58,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Profile details'),
@@ -69,7 +69,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),

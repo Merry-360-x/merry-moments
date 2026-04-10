@@ -6,6 +6,7 @@ import '../session_controller.dart';
 import 'screens/ai_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/explore_screen.dart';
+import 'screens/messages_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/trip_cart_screen.dart';
 import 'screens/wishlists_screen.dart';
@@ -13,13 +14,18 @@ import 'screens/wishlists_screen.dart';
 // ── Custom nav SVG icons ─────────────────────────────────────────────────────
 const _kSvgHome = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10.5651C3 9.9907 3 9.70352 3.07403 9.43905C3.1396 9.20478 3.24737 8.98444 3.39203 8.78886C3.55534 8.56806 3.78202 8.39175 4.23539 8.03912L11.0177 2.764C11.369 2.49075 11.5447 2.35412 11.7387 2.3016C11.9098 2.25526 12.0902 2.25526 12.2613 2.3016C12.4553 2.35412 12.631 2.49075 12.9823 2.764L19.7646 8.03913C20.218 8.39175 20.4447 8.56806 20.608 8.78886C20.7526 8.98444 20.8604 9.20478 20.926 9.43905C21 9.70352 21 9.9907 21 10.5651V17.8C21 18.9201 21 19.4801 20.782 19.908C20.5903 20.2843 20.2843 20.5903 19.908 20.782C19.4802 21 18.9201 21 17.8 21H6.2C5.07989 21 4.51984 21 4.09202 20.782C3.71569 20.5903 3.40973 20.2843 3.21799 19.908C3 19.4801 3 18.9201 3 17.8V10.5651Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const _kSvgWishlists = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.1111 3C19.6333 3 22 6.3525 22 9.48C22 15.8138 12.1778 21 12 21C11.8222 21 2 15.8138 2 9.48C2 6.3525 4.36667 3 7.88889 3C9.91111 3 11.2333 4.02375 12 4.92375C12.7667 4.02375 14.0889 3 16.1111 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const _kSvgAi = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5C12.8 6.5 14.8 9.2 17.5 10.6C18.7 11.2 20 11.6 21.5 12C20 12.4 18.7 12.8 17.5 13.4C14.8 14.8 12.8 17.5 12 21.5C11.2 17.5 9.2 14.8 6.5 13.4C5.3 12.8 4 12.4 2.5 12C4 11.6 5.3 11.2 6.5 10.6C9.2 9.2 11.2 6.5 12 2.5Z" fill="currentColor"/></svg>';
-const _kSvgTripCart = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22V20M9.5 15V7M16 22V20M14.5 15V7M8.8 20H15.2C16.8802 20 17.7202 20 18.362 19.673C18.9265 19.3854 19.3854 18.9265 19.673 18.362C20 17.7202 20 16.8802 20 15.2V6.8C20 5.11984 20 4.27976 19.673 3.63803C19.3854 3.07354 18.9265 2.6146 18.362 2.32698C17.7202 2 16.8802 2 15.2 2H8.8C7.11984 2 6.27976 2 5.63803 2.32698C5.07354 2.6146 4.6146 3.07354 4.32698 3.63803C4 4.27976 4 5.11984 4 6.8V15.2C4 16.8802 4 17.7202 4.32698 18.362C4.6146 18.9265 5.07354 19.3854 5.63803 19.673C6.27976 20 7.11984 20 8.8 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.session});
+  const MainShell({
+    super.key,
+    required this.session,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  });
 
   final SessionController session;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -27,14 +33,13 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
-  int _previousTab = 0;
   bool _authSheetOpen = false;
 
-  Future<void> _showAuthSheet() async {
+  Future<void> _showAuthSheet({int? requestedTab}) async {
     if (_authSheetOpen) return;
     _authSheetOpen = true;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    await showModalBottomSheet<void>(
+    final didAuthenticate = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       enableDrag: true,
@@ -47,40 +52,57 @@ class _MainShellState extends State<MainShell> {
           child: AuthScreen(
             session: widget.session,
             asSheet: true,
-            onAuthenticated: () => Navigator.of(context).pop(),
-            onBrowseAsGuest: () => Navigator.of(context).pop(),
+            onAuthenticated: () => Navigator.of(context).pop(true),
+            onBrowseAsGuest: () => Navigator.of(context).pop(false),
           ),
         );
       },
     );
     _authSheetOpen = false;
+
+    if (!mounted) return;
+    if (didAuthenticate == true && requestedTab != null && widget.session.isAuthenticated) {
+      setState(() {
+        _tab = requestedTab;
+      });
+    }
   }
 
   void _openTab(int index) {
-    final requiresAuth = index == 1 || index == 3 || index == 4;
+    final requiresAuth = index >= 1;
     if (requiresAuth && !widget.session.isAuthenticated) {
-      _showAuthSheet();
+      _showAuthSheet(requestedTab: index);
       return;
     }
     setState(() {
-      if (_tab != index) {
-        _previousTab = _tab;
-      }
       _tab = index;
     });
   }
 
-  void _leaveAiScreen() {
-    final target = _previousTab == 2 ? 0 : _previousTab;
-    setState(() => _tab = target);
+  Future<void> _openAiSupport() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AiScreen(
+          session: widget.session,
+          onBack: () => Navigator.of(context).maybePop(),
+        ),
+      ),
+    );
   }
 
   List<Widget> _buildTabs(SessionController session) => [
     SafeArea(bottom: false, child: ExploreScreen(session: session)),
     SafeArea(bottom: false, child: WishlistsScreen(session: session)),
-    AiScreen(session: session, onBack: _leaveAiScreen),
     SafeArea(bottom: false, child: TripCartScreen(session: session)),
-    SafeArea(bottom: false, child: ProfileScreen(session: session)),
+    SafeArea(bottom: false, child: MessagesScreen(session: session)),
+    SafeArea(
+      bottom: false,
+      child: ProfileScreen(
+        session: session,
+        themeMode: widget.themeMode,
+        onThemeModeChanged: widget.onThemeModeChanged,
+      ),
+    ),
   ];
 
   @override
@@ -95,57 +117,62 @@ class _MainShellState extends State<MainShell> {
     final tabs = _buildTabs(session);
 
     return Scaffold(
-      body: IndexedStack(index: _tab, children: tabs),
-      bottomNavigationBar: _tab == 2
-          ? null
-          : Container(
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 2),
-                  child: Row(
-                    children: [
-                      _NavItem(
-                        svgData: _kSvgHome,
-                        label: 'Home',
-                        selected: _tab == 0,
-                        onTap: () => _openTab(0),
-                      ),
-                      _NavItem(
-                        svgData: _kSvgWishlists,
-                        label: 'Wishlists',
-                        selected: _tab == 1,
-                        onTap: () => _openTab(1),
-                      ),
-                      _NavItem(
-                        svgData: _kSvgAi,
-                        label: 'AI',
-                        selected: _tab == 2,
-                        onTap: () => _openTab(2),
-                      ),
-                      _NavItem(
-                        svgData: _kSvgTripCart,
-                        label: 'Trips',
-                        selected: _tab == 3,
-                        onTap: () => _openTab(3),
-                        badge: cartCount > 0 ? cartCount : null,
-                      ),
-                      _NavItem(
-                        icon: Icons.person_outline,
-                        label: 'Profile',
-                        selected: _tab == 4,
-                        onTap: () => _openTab(4),
-                        badge: unreadCount > 0 ? unreadCount : null,
-                      ),
-                    ],
-                  ),
+      key: ValueKey<ThemeMode>(widget.themeMode),
+      body: IndexedStack(
+        key: ValueKey<ThemeMode>(widget.themeMode),
+        index: _tab,
+        children: tabs,
+      ),
+      floatingActionButton: _AiTripAdvisorButton(onTap: _openAiSupport),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 2),
+            child: Row(
+              children: [
+                _NavItem(
+                  svgData: _kSvgHome,
+                  label: 'Home',
+                  selected: _tab == 0,
+                  onTap: () => _openTab(0),
                 ),
-              ),
+                _NavItem(
+                  svgData: _kSvgWishlists,
+                  label: 'Wish list',
+                  selected: _tab == 1,
+                  onTap: () => _openTab(1),
+                ),
+                _NavItem(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Trip cart',
+                  selected: _tab == 2,
+                  onTap: () => _openTab(2),
+                  badge: cartCount > 0 ? cartCount : null,
+                ),
+                _NavItem(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Message',
+                  selected: _tab == 3,
+                  onTap: () => _openTab(3),
+                ),
+                _NavItem(
+                  icon: Icons.person_outline,
+                  label: 'Profile',
+                  selected: _tab == 4,
+                  onTap: () => _openTab(4),
+                  badge: unreadCount > 0 ? unreadCount : null,
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -171,7 +198,7 @@ class _NavItem extends StatelessWidget {
   final int? badge;
 
   static String _toHex(Color c) =>
-      '#${c.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+      '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +252,50 @@ class _NavItem extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiTripAdvisorButton extends StatelessWidget {
+  const _AiTripAdvisorButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDark
+        ? const Color(0xFF000000)
+        : const Color(0xFF1F262F);
+    final borderColor = isDark
+        ? const Color(0x59FFFFFF)
+        : const Color(0x66FFFFFF);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x3A000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(Icons.auto_awesome_rounded, size: 20, color: AppColors.white),
+          ),
         ),
       ),
     );

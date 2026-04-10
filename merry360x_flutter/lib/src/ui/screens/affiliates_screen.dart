@@ -36,9 +36,9 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
         title: const Text('Affiliate Portal',
@@ -99,8 +99,8 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)),
-                    child: const Text('Copy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                    decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: 0.24), borderRadius: BorderRadius.circular(8)),
+                    child: const Text('Copy', style: TextStyle(color: AppColors.surface, fontWeight: FontWeight.w600, fontSize: 12)),
                   ),
                 ),
               ]),
@@ -128,7 +128,7 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12),
                     ),
                 child: Row(children: [
                   CircleAvatar(radius: 18, backgroundColor: AppColors.linnen,
@@ -153,7 +153,7 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
           if (commissions.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
               child: const Center(child: Text('No commissions yet.\nStart sharing your referral link!',
                   textAlign: TextAlign.center, style: TextStyle(color: AppColors.foggy, fontSize: 13))),
             )
@@ -165,7 +165,7 @@ class _AffiliatesScreenState extends State<AffiliatesScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12),
                     ),
                 child: Row(children: [
                   Container(
@@ -220,7 +220,7 @@ class _StatCard extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14),
             ),
         child: Column(children: [
           Icon(icon, color: AppColors.rausch, size: 20),

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import HostSocialActions from "@/components/HostSocialActions";
 
 type HostProfile = {
   user_id: string;
@@ -57,14 +58,16 @@ export default function HostReviews() {
     },
   });
 
+  const hostUserId = host?.user_id ? String(host.user_id) : hostId;
+
   const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ["host-reviews", hostId],
-    enabled: Boolean(hostId),
+    queryKey: ["host-reviews", hostUserId],
+    enabled: Boolean(hostUserId),
     queryFn: async () => {
       const { data: props, error: propsErr } = await supabase
         .from("properties")
         .select("id")
-        .eq("host_id", hostId)
+        .eq("host_id", hostUserId)
         .eq("is_published", true);
       if (propsErr) throw propsErr;
       const ids = (props ?? []).map((p) => String((p as { id: string }).id));
@@ -163,9 +166,12 @@ export default function HostReviews() {
               {host?.bio ? <p className="text-sm text-muted-foreground line-clamp-2">{host.bio}</p> : null}
             </div>
           </div>
-          <Link to={`/accommodations?host=${encodeURIComponent(hostId)}`}>
-            <Button variant="outline">View listings</Button>
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <HostSocialActions hostId={hostUserId} hostName={host?.full_name} />
+            <Link to={`/accommodations?host=${encodeURIComponent(hostUserId)}`}>
+              <Button variant="outline">View listings</Button>
+            </Link>
+          </div>
         </div>
 
         {reviews.length === 0 ? (

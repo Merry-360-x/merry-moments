@@ -473,8 +473,8 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
                 FilterChip(
                   label: Text(f, style: const TextStyle(fontSize: 12)),
                   selected: _keyFeatures.contains(f),
-                  selectedColor: Colors.black.withValues(alpha: 0.06),
-                  checkmarkColor: Colors.black87,
+                  selectedColor: AppColors.black.withValues(alpha: 0.06),
+                  checkmarkColor: AppColors.black,
                   onSelected: (sel) => setState(() {
                     if (sel) {
                       _keyFeatures.add(f);
@@ -496,7 +496,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
                   icon: const Icon(Icons.photo_library_outlined),
                   label: const Text('Exterior'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black87,
+                    foregroundColor: AppColors.black,
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
@@ -508,7 +508,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
                   icon: const Icon(Icons.photo_library_outlined),
                   label: const Text('Interior'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black87,
+                    foregroundColor: AppColors.black,
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
@@ -533,7 +533,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
               child: Center(child: CircularProgressIndicator(color: _kRed)),
             )
           else if (_routes.isEmpty)
-            const Text('No routes found. Add routes on the website first.', style: TextStyle(color: Colors.black54))
+            const Text('No routes found. Add routes on the website first.', style: TextStyle(color: AppColors.foggy))
           else
             Column(
               children: [
@@ -557,14 +557,14 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFFEBEBEB)),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('$from → $to', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 6),
-          Text('Default: $cur ${base ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          Text('Default: $cur ${base ?? ''}', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
           const SizedBox(height: 10),
           TextField(
             controller: ctrl,
@@ -618,7 +618,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFFEBEBEB)),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.surface,
       ),
       child: Row(
         children: [
@@ -628,14 +628,14 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
               children: [
                 Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
-                Text(url == null ? 'Not uploaded' : 'Uploaded', style: TextStyle(fontSize: 12, color: url == null ? Colors.black45 : Colors.green.shade700)),
+                Text(url == null ? 'Not uploaded' : 'Uploaded', style: TextStyle(fontSize: 12, color: url == null ? AppColors.foggy : Colors.green.shade700)),
               ],
             ),
           ),
           OutlinedButton(
             onPressed: _saving ? null : onPick,
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black87,
+              foregroundColor: AppColors.black,
               side: BorderSide(color: Colors.grey.shade300),
             ),
             child: Text(url == null ? 'Upload' : 'Replace'),
@@ -670,7 +670,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFEBEBEB)),
         ),
@@ -681,7 +681,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
             const Spacer(),
             Flexible(
               child: Text(value.isEmpty ? '—' : value,
@@ -715,7 +715,7 @@ class _BottomNav extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         border: Border(top: BorderSide(color: Color(0xFFEBEBEB))),
       ),
       child: SizedBox(
@@ -762,7 +762,7 @@ class _Header extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
             ]),
           ),
         ],
@@ -780,7 +780,7 @@ class _Counter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
         const SizedBox(height: 6),
         Row(
           children: [

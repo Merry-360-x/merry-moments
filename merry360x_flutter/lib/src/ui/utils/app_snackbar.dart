@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 /// Centralized snackbar helper.
-/// White background; text is red for errors, teal/green for success, dark for info.
+/// Theme-aware background; text is red for errors, teal/green for success, dark for info.
 abstract class AppSnackBar {
-  static const _bgColor = Color(0xFFFFFFFF);
+  static const _bgLight = Color(0xFFFFFFFF);
+  static const _bgDark = Color(0xFF000000);
   static const _errorColor = Color(0xFFFF385C);   // rausch — errors / deductions
   static const _successColor = Color(0xFF00A699); // babu  — confirmations / notes
   static const _infoColor = Color(0xFF222222);    // black — neutral info
@@ -15,6 +16,7 @@ abstract class AppSnackBar {
     SnackBarAction? action,
   }) {
     if (!context.mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
@@ -26,7 +28,7 @@ abstract class AppSnackBar {
             fontSize: 14,
           ),
         ),
-        backgroundColor: _bgColor,
+        backgroundColor: isDark ? _bgDark : _bgLight,
         behavior: SnackBarBehavior.floating,
         elevation: 4,
         shape: const RoundedRectangleBorder(

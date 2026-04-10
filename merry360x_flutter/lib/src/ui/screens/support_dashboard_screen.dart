@@ -60,7 +60,7 @@ class _SupportDashboardScreenState extends State<SupportDashboardScreen> {
     watchTable('profiles', 'profiles');
     watchTable('bookings', 'bookings');
     watchTable('tickets', 'support_tickets');
-    watchTable('messages', 'support_messages');
+    watchTable('messages', 'support_ticket_messages');
   }
 
   Future<void> _load() async {
@@ -412,7 +412,7 @@ class _SupportMetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFECECF1)),
       ),
@@ -475,7 +475,7 @@ class _SupportPanel extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE7E7EC)),
       ),

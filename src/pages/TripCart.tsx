@@ -1,5 +1,5 @@
 import { calculateBookingFinancialsFromDiscountedListing, calculateGuestTotal } from "@/lib/fees";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ import { formatMoney } from "@/lib/money";
 import { useTripCart, getGuestCart, getCartItemMetadata, saveCartItemMetadata, CartItemMetadata } from "@/hooks/useTripCart";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount, roundToCurrency } from "@/lib/fx";
+import { clearQueuedPromoPrefillCode, readQueuedPromoPrefillCode } from "@/lib/promoPrefill";
 import { 
   Trash2, 
   Tag, 
@@ -73,6 +74,7 @@ export default function TripCart() {
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [validatingCode, setValidatingCode] = useState(false);
+  const [prefillAttempted, setPrefillAttempted] = useState(false);
   
   // Edit dates modal state
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
@@ -288,47 +290,77 @@ export default function TripCart() {
   }
 
   // Validate discount code
-  const applyDiscountCode = async () => {
-    if (!discountCode.trim()) return;
+  const applyDiscountCode = useCallback(async (
+    codeInput?: string,
+    options?: { silentFailure?: boolean; fromPrefill?: boolean }
+  ) => {
+    const normalizedCode = (codeInput ?? discountCode).trim().toUpperCase();
+    if (!normalizedCode) return false;
     setValidatingCode(true);
-    
+
     try {
       const { data, error } = await (supabase
         .from("discount_codes")
         .select("*")
-        .eq("code", discountCode.toUpperCase().trim())
+        .eq("code", normalizedCode)
         .eq("is_active", true)
         .single() as any);
-      
+
       if (error || !data) {
-        toast({ variant: "destructive", title: "Invalid Code", description: "Discount code not found or expired" });
-        setValidatingCode(false);
-        return;
+        if (!options?.silentFailure) {
+          toast({ variant: "destructive", title: "Invalid Code", description: "Discount code not found or expired" });
+        }
+        return false;
       }
-      
+
       if (data.valid_until && new Date(data.valid_until) < new Date()) {
-        toast({ variant: "destructive", title: "Expired", description: "This discount code has expired" });
-        setValidatingCode(false);
-        return;
+        if (!options?.silentFailure) {
+          toast({ variant: "destructive", title: "Expired", description: "This discount code has expired" });
+        }
+        return false;
       }
-      
+
       if (data.max_uses && data.current_uses >= data.max_uses) {
-        toast({ variant: "destructive", title: "Limit Reached", description: "This discount code has reached its usage limit" });
-        setValidatingCode(false);
-        return;
+        if (!options?.silentFailure) {
+          toast({ variant: "destructive", title: "Limit Reached", description: "This discount code has reached its usage limit" });
+        }
+        return false;
       }
-      
+
+      setDiscountCode(normalizedCode);
       setAppliedDiscount(data);
-      const fixedDiscountText = (() => {
-        const converted = convertAmount(data.discount_value, data.currency, displayCurrency, usdRates);
-        return `${formatMoney(converted ?? data.discount_value, converted !== null ? displayCurrency : data.currency)} off`;
-      })();
-      toast({ title: "Discount Applied!", description: `${data.discount_type === 'percentage' ? data.discount_value + '%' : fixedDiscountText}` });
+      clearQueuedPromoPrefillCode();
+
+      if (!options?.fromPrefill) {
+        const fixedDiscountText = (() => {
+          const discountCurrency = preferredCurrency || "RWF";
+          const converted = convertAmount(data.discount_value, data.currency, discountCurrency, usdRates);
+          return `${formatMoney(converted ?? data.discount_value, converted !== null ? discountCurrency : data.currency)} off`;
+        })();
+        toast({ title: "Discount Applied!", description: `${data.discount_type === 'percentage' ? data.discount_value + '%' : fixedDiscountText}` });
+      }
+
+      return true;
     } catch {
-      toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
+      if (!options?.silentFailure) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to validate discount code" });
+      }
+      return false;
+    } finally {
+      setValidatingCode(false);
     }
-    setValidatingCode(false);
-  };
+  }, [discountCode, toast, preferredCurrency, usdRates]);
+
+  useEffect(() => {
+    if (prefillAttempted || appliedDiscount) return;
+
+    const queuedCode = readQueuedPromoPrefillCode();
+    setPrefillAttempted(true);
+    if (!queuedCode) return;
+
+    setDiscountCode(queuedCode);
+    void applyDiscountCode(queuedCode, { silentFailure: true, fromPrefill: true });
+  }, [prefillAttempted, appliedDiscount, applyDiscountCode]);
 
   // Open edit dates modal
   const handleEditDates = (item: CartItem) => {

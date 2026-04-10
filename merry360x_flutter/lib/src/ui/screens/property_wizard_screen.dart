@@ -468,7 +468,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         icon: const Icon(Icons.photo_library_outlined),
         label: const Text('Gallery (Multiple)'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black87,
+          foregroundColor: AppColors.black,
           side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
@@ -480,7 +480,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
           if (img != null) setState(() => _newFiles.add(img));
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black87,
+          foregroundColor: AppColors.black,
           side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
         ),
@@ -528,8 +528,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                 bottom: 4, left: 4,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                  child: const Text('New', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                  decoration: BoxDecoration(color: AppColors.foggy, borderRadius: BorderRadius.circular(4)),
+                  child: const Text('New', style: TextStyle(color: AppColors.surface, fontSize: 9, fontWeight: FontWeight.w600)),
                 ),
               ),
             Positioned(
@@ -544,8 +544,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                 }),
                 child: Container(
                   width: 22, height: 22,
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  decoration: const BoxDecoration(color: AppColors.foggy, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, size: 14, color: AppColors.surface),
                 ),
               ),
             ),
@@ -622,7 +622,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       const SizedBox(height: 16),
       const LinearProgressIndicator(color: _kRed),
       const SizedBox(height: 8),
-      const Center(child: Text('Uploading photos to Cloudinary…', style: TextStyle(fontSize: 13, color: Colors.black54))),
+      const Center(child: Text('Uploading photos to Cloudinary…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
     ],
   ]);
 }
@@ -643,7 +643,7 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
     decoration: const BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       border: Border(top: BorderSide(color: Color(0xFFEBEBEB))),
     ),
     child: SizedBox(
@@ -687,7 +687,7 @@ class _StepHeader extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
         ]),
       ),
     ],
@@ -803,13 +803,13 @@ class _ModeCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: selected ? _kRed : Colors.grey.shade300, width: selected ? 2 : 1),
-        color: selected ? _kRed.withValues(alpha: 0.05) : Colors.white,
+        color: selected ? _kRed.withValues(alpha: 0.05) : AppColors.surface,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, color: selected ? _kRed : Colors.grey.shade500, size: 22),
         const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: selected ? _kRed : Colors.black87)),
-        Text(subtitle, style: TextStyle(fontSize: 11, color: selected ? _kRed.withValues(alpha: 0.7) : Colors.black45)),
+        Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: selected ? _kRed : AppColors.black)),
+        Text(subtitle, style: TextStyle(fontSize: 11, color: selected ? _kRed.withValues(alpha: 0.7) : AppColors.foggy)),
       ]),
     ),
   );
@@ -824,7 +824,7 @@ class _ReviewCard extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(8),
     ),
     child: Column(children: children),
@@ -839,7 +839,7 @@ class _ReviewRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
     child: Row(children: [
-      Text(label, style: const TextStyle(color: Colors.black45, fontSize: 13)),
+      Text(label, style: const TextStyle(color: AppColors.foggy, fontSize: 13)),
       const Spacer(),
       Text(value.isEmpty ? '—' : value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
     ]),

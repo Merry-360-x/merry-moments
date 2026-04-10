@@ -19,7 +19,8 @@ class AppConfig {
   /// Pass at build time: --dart-define=GOOGLE_WEB_CLIENT_ID=...
   static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '270563800148-mafsbml3i6h01gjeo7qdlruc75a1s63i.apps.googleusercontent.com',
   );
 
   static String get supabaseUrl {

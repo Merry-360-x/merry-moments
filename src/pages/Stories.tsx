@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Heart, MessageCircle, Send, Volume2, VolumeX, X } from "lucide-react";
+import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type StoryRow = {
@@ -66,7 +66,7 @@ const isVideo = (url?: string | null) => {
 };
 
 export default function Stories() {
-  const { user, isAdmin, isHost } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -93,14 +93,16 @@ export default function Stories() {
   const holdStartRef = useRef<number | null>(null);
   const suppressTapUntilRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
-  const canCreateStory = isAdmin || isHost;
+  const canCreateStory = !!user;
 
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories", "public-feed"],
     queryFn: async () => {
+      const activeCutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("stories")
         .select("id, title, body, location, media_url, media_type, image_url, user_id, created_at")
+        .gte("created_at", activeCutoffIso)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -565,6 +567,26 @@ export default function Stories() {
         ) : (
           <div className="space-y-8">
             <div className="flex items-start gap-4 overflow-x-auto pb-2">
+              {user ? (
+                <Link
+                  to="/create-story"
+                  className="flex flex-col items-center gap-2 min-w-[74px]"
+                >
+                  <div className="relative p-[2px] rounded-full bg-primary">
+                    <Avatar className="w-16 h-16 border border-border bg-background">
+                      <AvatarImage src={(user.user_metadata as any)?.avatar_url || undefined} alt="Your story" />
+                      <AvatarFallback>
+                        {(((user.user_metadata as any)?.full_name || user.email || "You") as string).slice(0, 1).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="absolute -right-1 -bottom-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground border border-background">
+                      <Plus className="w-3 h-3" />
+                    </span>
+                  </div>
+                  <span className="text-xs text-foreground truncate max-w-[72px]">Your story</span>
+                </Link>
+              ) : null}
+
               {storyGroups.map((group, groupIndex) => {
                 const latestStory = group.stories[group.stories.length - 1];
                 const latestMedia = latestStory.media_url || latestStory.image_url;

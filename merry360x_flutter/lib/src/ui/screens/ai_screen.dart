@@ -75,14 +75,23 @@ class _AiScreenState extends State<AiScreen> {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final parsed = _parseAiResponse(jsonDecode(response.body) as Map<String, dynamic>);
+        final allowTravelSuggestions = _shouldShowTravelSuggestions(trimmed);
+        final visibleRecommendations = allowTravelSuggestions
+            ? parsed.recommendations
+            : const <_AiRecommendation>[];
+        final visibleActions = allowTravelSuggestions
+            ? parsed.actions
+            : parsed.actions
+                .where((action) => !_isListingAction(action))
+                .toList(growable: false);
         if (parsed.reply.isNotEmpty) {
           final targetIndex = _messages.length;
           setState(() {
             _messages.add(_ChatMsg(
               role: 'assistant',
               content: parsed.reply,
-              recommendations: parsed.recommendations,
-              actions: parsed.actions,
+              recommendations: visibleRecommendations,
+              actions: visibleActions,
             ));
             _pendingScrollToAssistantIndex = targetIndex;
           });
@@ -182,6 +191,106 @@ class _AiScreenState extends State<AiScreen> {
       recommendations: recommendations,
       actions: actions,
     );
+  }
+
+  bool _isListingAction(_AiAction action) {
+    final type = action.type.toLowerCase();
+    final label = action.label.toLowerCase();
+    final url = (action.url ?? '').toLowerCase();
+    final itemType = (action.itemType ?? '').toLowerCase();
+
+    if (itemType.isNotEmpty) return true;
+    if ((action.referenceId ?? '').isNotEmpty) return true;
+
+    if (type == 'add_to_trip_cart' || type == 'get_trip_cart' || type == 'go_to_checkout') {
+      return true;
+    }
+
+    if (url.contains('/trip-cart') || url.contains('/checkout')) {
+      return true;
+    }
+
+    if (label.contains('cart') ||
+        label.contains('checkout') ||
+        label.contains('stay') ||
+        label.contains('tour') ||
+        label.contains('transport') ||
+        label.contains('property')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool _shouldShowTravelSuggestions(String prompt) {
+    final q = prompt.toLowerCase().trim();
+    if (q.isEmpty) return false;
+
+    final identityQueries = <String>[
+      'what is your name',
+      "what's your name",
+      'who are you',
+      'your name',
+      'what do i call you',
+    ];
+    if (identityQueries.any(q.contains)) return false;
+
+    final domainKeywords = <String>[
+      'stay',
+      'stays',
+      'hotel',
+      'hotels',
+      'room',
+      'rooms',
+      'property',
+      'properties',
+      'tour',
+      'tours',
+      'package',
+      'packages',
+      'transport',
+      'car',
+      'cars',
+      'airport',
+      'pickup',
+      'dropoff',
+      'trip',
+      'booking',
+      'book',
+      'reserve',
+      'checkout',
+      'cart',
+    ];
+
+    final intentKeywords = <String>[
+      'find',
+      'search',
+      'show',
+      'recommend',
+      'suggest',
+      'option',
+      'options',
+      'available',
+      'which',
+      'best',
+      'cheap',
+      'cheapest',
+      'budget',
+      'price',
+      'cost',
+      'plan',
+      'itinerary',
+      'book',
+      'reserve',
+      'add to cart',
+      'checkout',
+    ];
+
+    final hasDomain = domainKeywords.any(q.contains);
+    if (!hasDomain) return false;
+
+    final hasIntent = intentKeywords.any(q.contains);
+    return hasIntent || q.endsWith('?');
   }
 
   Map<String, dynamic> _recommendationToListingMap(_AiRecommendation recommendation) {
@@ -514,7 +623,7 @@ class _AiScreenState extends State<AiScreen> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
@@ -556,7 +665,7 @@ class _AiScreenState extends State<AiScreen> {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(48),
-                    backgroundColor: AppColors.black,
+                    backgroundColor: const Color(0xFF222222),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -630,9 +739,9 @@ class _AiScreenState extends State<AiScreen> {
     // can end up visually hidden depending on safe-area/insets. Use full width.
     final maxContentWidth = double.infinity;
 
-    return ColoredBox(
-      color: Colors.white,
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
         bottom: true,
         child: Column(
           children: [
@@ -736,7 +845,7 @@ class _AiScreenState extends State<AiScreen> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE7E7E7)),
           ),
@@ -832,7 +941,7 @@ class _AiScreenState extends State<AiScreen> {
               Container(
                 padding: EdgeInsets.all(isWide ? 12 : 14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFEAEAEA)),
                 ),
@@ -1010,7 +1119,7 @@ class _AiScreenState extends State<AiScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     constraints: BoxConstraints(maxWidth: maxWidth * 0.84),
                     decoration: BoxDecoration(
-                      color: isUser ? AppColors.black : AppColors.linnen,
+                      color: isUser ? const Color(0xFF222222) : AppColors.linnen,
                       borderRadius: BorderRadius.circular(22),
                       border: isUser ? null : Border.all(color: const Color(0xFFE9E9E9)),
                     ),
@@ -1024,7 +1133,7 @@ class _AiScreenState extends State<AiScreen> {
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppColors.surface,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: const Color(0xFFE3E3E3)),
                                 ),
@@ -1159,7 +1268,7 @@ class _ThinkingCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFE3E3E3)),
                 ),
@@ -1202,7 +1311,7 @@ class _RecommendationCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFEAEAEA)),
       ),
@@ -1309,7 +1418,7 @@ class _ActionChip extends StatelessWidget {
     return action.variant == 'primary'
         ? FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.black,
+              backgroundColor: const Color(0xFF222222),
               foregroundColor: Colors.white,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

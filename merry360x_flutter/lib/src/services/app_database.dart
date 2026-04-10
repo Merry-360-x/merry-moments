@@ -56,8 +56,42 @@ class AppDatabase {
   AppDatabase({http.Client? client}) : _http = client ?? http.Client();
 
   final http.Client _http;
+  static final RegExp _emailPattern = RegExp(
+    r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+  );
+  static final RegExp _linkPattern = RegExp(r'(https?://|www\.)', caseSensitive: false);
+  static final RegExp _phonePattern = RegExp(
+    r'(^|[^0-9])\+?[0-9][0-9\-\s\(\)]{6,}[0-9]([^0-9]|$)',
+  );
+  static final RegExp _blockedWordPattern = RegExp(
+    r'\b(address|phone|telephone|whatsapp|telegram|snapchat|instagram|facebook|contact me|call me|text me|dm me)\b',
+    caseSensitive: false,
+  );
 
   SupabaseClient get _sb => Supabase.instance.client;
+
+  static String? validateDirectMessage(String rawMessage) {
+    final message = rawMessage.trim();
+    if (message.isEmpty) {
+      return 'Message cannot be empty.';
+    }
+    if (message.length > 1200) {
+      return 'Message is too long. Keep it under 1200 characters.';
+    }
+    if (_emailPattern.hasMatch(message)) {
+      return 'Sharing emails is not allowed in chat.';
+    }
+    if (_linkPattern.hasMatch(message)) {
+      return 'Sharing links is not allowed in chat.';
+    }
+    if (_phonePattern.hasMatch(message)) {
+      return 'Sharing phone numbers is not allowed in chat.';
+    }
+    if (_blockedWordPattern.hasMatch(message)) {
+      return 'For safety, contact details and off-platform coordination are blocked.';
+    }
+    return null;
+  }
 
   // ── Data sync (direct Supabase queries — same tables as website) ──
 
@@ -72,6 +106,10 @@ class AppDatabase {
       }
     }
 
+    const propertyLimit = 120;
+    const feedLimit = 80;
+    final storiesCutoffIso = DateTime.now().toUtc().subtract(const Duration(hours: 24)).toIso8601String();
+
     // Home listings — aligned with website table columns
     final results = await Future.wait([
       safeQuery(
@@ -80,15 +118,19 @@ class AppDatabase {
             .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image, created_at')
             .eq('is_published', true)
             .order('created_at', ascending: false)
-            .limit(20),
+            .order('rating', ascending: false)
+            .order('review_count', ascending: false)
+            .limit(propertyLimit),
       ),
       safeQuery(
         _sb
             .from('tours')
             .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, created_at')
-        .or('is_published.eq.true,is_published.is.null')
+            .or('is_published.eq.true,is_published.is.null')
             .order('created_at', ascending: false)
-            .limit(10),
+            .order('rating', ascending: false)
+            .order('review_count', ascending: false)
+            .limit(feedLimit),
       ),
       safeQuery(
         _sb
@@ -96,7 +138,7 @@ class AppDatabase {
             .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, created_at')
             .eq('status', 'approved')
             .order('created_at', ascending: false)
-            .limit(10),
+            .limit(feedLimit),
       ),
       safeQuery(
         _sb
@@ -104,7 +146,15 @@ class AppDatabase {
             .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
             .or('is_published.eq.true,is_published.is.null')
             .order('created_at', ascending: false)
-            .limit(10),
+            .limit(feedLimit),
+      ),
+      safeQuery(
+        _sb
+          .from('stories')
+          .select('id, user_id, image_url, media_url, title, location, created_at')
+          .gte('created_at', storiesCutoffIso)
+          .order('created_at', ascending: false)
+          .limit(feedLimit),
       ),
     ]);
 
@@ -112,6 +162,7 @@ class AppDatabase {
     final tours = results[1];
     final tourPkgs = results[2];
     final transport = results[3];
+    final stories = results[4];
 
     final listings = <Map<String, dynamic>>[
       for (final p in properties) _normalizeProperty(p),
@@ -147,7 +198,7 @@ class AppDatabase {
     return MobileSyncPayload(
       serverTime: DateTime.now().toUtc().toIso8601String(),
       homeListings: listings,
-      stories: const [],
+      stories: stories,
       profile: profile,
       roles: roles,
       bookings: bookings,
@@ -551,12 +602,48 @@ class AppDatabase {
 
   Future<List<Map<String, dynamic>>> fetchStories() async {
     try {
+      final cutoffIso = DateTime.now().toUtc().subtract(const Duration(hours: 24)).toIso8601String();
       final data = await _sb
           .from('stories')
-          .select('id, title, body, image_url, video_url, location, author_id, created_at, profiles(full_name, avatar_url)')
+          .select('id, user_id, title, body, location, media_url, media_type, image_url, created_at')
+          .gte('created_at', cutoffIso)
           .order('created_at', ascending: false)
-          .limit(50);
-      return (data as List).cast<Map<String, dynamic>>();
+          .limit(80);
+
+      final stories = (data as List).cast<Map<String, dynamic>>();
+      if (stories.isEmpty) return stories;
+
+      final userIds = stories
+          .map((row) => (row['user_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final profileMap = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        final profiles = await _sb
+            .from('profiles')
+            .select('user_id, full_name, nickname, avatar_url')
+            .inFilter('user_id', userIds);
+
+        for (final row in (profiles as List).cast<Map<String, dynamic>>()) {
+          final uid = (row['user_id'] ?? '').toString();
+          if (uid.isNotEmpty) {
+            profileMap[uid] = row;
+          }
+        }
+      }
+
+      return stories
+          .map((story) {
+            final uid = (story['user_id'] ?? '').toString();
+            final profile = profileMap[uid];
+            return {
+              ...story,
+              'profiles': ?profile,
+            };
+          })
+          .toList();
     } catch (_) {
       return [];
     }
@@ -568,17 +655,132 @@ class AppDatabase {
     String? body,
     String? imageUrl,
     String? videoUrl,
+    String? mediaUrl,
+    String? mediaType,
     String? location,
   }) async {
+    final normalizedMediaUrl = mediaUrl ?? videoUrl ?? imageUrl;
+    final normalizedMediaType = mediaType ??
+        ((videoUrl ?? '').trim().isNotEmpty
+            ? 'video'
+            : (normalizedMediaUrl ?? '').trim().isNotEmpty
+                ? 'image'
+                : null);
+
     final result = await _sb.from('stories').insert({
-      'author_id': userId,
+      'user_id': userId,
       'title': title,
       'body': ?body,
-      'image_url': ?imageUrl,
-      'video_url': ?videoUrl,
+      'media_url': ?normalizedMediaUrl,
+      'media_type': ?normalizedMediaType,
+      'image_url': ?(normalizedMediaType == 'image' ? normalizedMediaUrl : imageUrl),
       'location': ?location,
     }).select('id').single();
     return result['id']?.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStoryLikes({
+    required List<String> storyIds,
+  }) async {
+    final ids = storyIds.where((id) => id.trim().isNotEmpty).toList();
+    if (ids.isEmpty) return const [];
+
+    try {
+      final data = await _sb
+          .from('story_likes')
+          .select('story_id, user_id')
+          .inFilter('story_id', ids);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStoryComments({
+    required List<String> storyIds,
+    int limit = 200,
+  }) async {
+    final ids = storyIds.where((id) => id.trim().isNotEmpty).toList();
+    if (ids.isEmpty) return const [];
+
+    try {
+      final data = await _sb
+          .from('story_comments')
+          .select('id, story_id, user_id, comment_text, created_at')
+          .inFilter('story_id', ids)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      final comments = (data as List).cast<Map<String, dynamic>>();
+      if (comments.isEmpty) return comments;
+
+      final userIds = comments
+          .map((row) => (row['user_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final profileMap = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        final profiles = await _sb
+            .from('profiles')
+            .select('user_id, full_name, nickname, avatar_url')
+            .inFilter('user_id', userIds);
+
+        for (final row in (profiles as List).cast<Map<String, dynamic>>()) {
+          final uid = (row['user_id'] ?? '').toString();
+          if (uid.isNotEmpty) {
+            profileMap[uid] = row;
+          }
+        }
+      }
+
+      return comments
+          .map((comment) {
+            final uid = (comment['user_id'] ?? '').toString();
+            final profile = profileMap[uid];
+            return {
+              ...comment,
+              'profiles': ?profile,
+            };
+          })
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> likeStory({
+    required String storyId,
+    required String userId,
+  }) async {
+    await _sb.from('story_likes').insert({
+      'story_id': storyId,
+      'user_id': userId,
+    });
+  }
+
+  Future<void> unlikeStory({
+    required String storyId,
+    required String userId,
+  }) async {
+    await _sb
+        .from('story_likes')
+        .delete()
+        .eq('story_id', storyId)
+        .eq('user_id', userId);
+  }
+
+  Future<void> addStoryComment({
+    required String storyId,
+    required String userId,
+    required String commentText,
+  }) async {
+    await _sb.from('story_comments').insert({
+      'story_id': storyId,
+      'user_id': userId,
+      'comment_text': commentText,
+    });
   }
 
   // ── Booking management ──
@@ -599,14 +801,51 @@ class AppDatabase {
     required double serviceRating,
     required String comment,
   }) async {
-    await _sb.from('reviews').insert({
-      'booking_id': bookingId,
-      'reviewer_id': userId,
-      'title': title,
-      'accommodation_rating': accommodationRating,
-      'service_rating': serviceRating,
-      'comment': comment,
-    });
+    final booking = await _sb
+        .from('bookings')
+        .select('id, guest_id, property_id, tour_id, transport_id')
+        .eq('id', bookingId)
+        .eq('guest_id', userId)
+        .maybeSingle();
+
+    final propertyId = (booking?['property_id'] ?? '').toString().trim();
+    final tourId = (booking?['tour_id'] ?? '').toString().trim();
+    final transportId = (booking?['transport_id'] ?? '').toString().trim();
+
+    final int accom = accommodationRating.round().clamp(1, 5);
+    final int service = serviceRating.round().clamp(1, 5);
+    final int overall = ((accom + service) / 2).round().clamp(1, 5);
+
+    final cleanTitle = title.trim();
+    final cleanComment = comment.trim();
+    final mergedComment = cleanTitle.isEmpty
+        ? cleanComment
+        : '$cleanTitle\n\n$cleanComment';
+
+    if (propertyId.isNotEmpty) {
+      await _sb.from('property_reviews').insert({
+        'booking_id': bookingId,
+        'property_id': propertyId,
+        'reviewer_id': userId,
+        'rating': accom,
+        'service_rating': service,
+        'comment': mergedComment,
+        'service_comment': cleanComment,
+        'is_hidden': false,
+      });
+    } else {
+      await _sb.from('reviews').insert({
+        'booking_id': bookingId,
+        'user_id': userId,
+        'property_id': null,
+        'tour_id': tourId.isEmpty ? null : tourId,
+        'transport_id': transportId.isEmpty ? null : transportId,
+        'rating': overall,
+        'comment': mergedComment,
+        'is_hidden': false,
+      });
+    }
+
     await _sb.from('bookings').update({'has_review': true}).eq('id', bookingId);
   }
 
@@ -858,12 +1097,51 @@ class AppDatabase {
 
   Future<List<Map<String, dynamic>>> fetchSupportTickets({required String userId, bool allTickets = false}) async {
     try {
-      var req = _sb.from('support_tickets').select('*, support_messages(id, body, sender_id, created_at)');
+      var req = _sb.from('support_tickets').select(
+        '*, support_ticket_messages(id, message, sender_id, sender_type, sender_name, attachments, reply_to_id, created_at)',
+      );
       if (!allTickets) req = req.eq('user_id', userId);
       final data = await req.order('created_at', ascending: false).limit(50);
-      return (data as List).cast<Map<String, dynamic>>();
+      final tickets = (data as List).cast<Map<String, dynamic>>();
+      for (final ticket in tickets) {
+        final messages = ((ticket['support_ticket_messages'] as List?) ?? const <dynamic>[])
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList()
+          ..sort((a, b) =>
+              (a['created_at'] ?? '').toString().compareTo((b['created_at'] ?? '').toString()));
+        ticket['support_ticket_messages'] = messages;
+      }
+      return tickets;
     } catch (_) {
-      return [];
+      // Legacy fallback for environments still using support_messages.
+      try {
+        var req = _sb.from('support_tickets').select('*, support_messages(id, body, sender_id, created_at)');
+        if (!allTickets) req = req.eq('user_id', userId);
+        final data = await req.order('created_at', ascending: false).limit(50);
+        final tickets = (data as List).cast<Map<String, dynamic>>();
+        for (final ticket in tickets) {
+          final legacy = ((ticket['support_messages'] as List?) ?? const <dynamic>[])
+              .whereType<Map>()
+              .map((row) => <String, dynamic>{
+                    'id': row['id'],
+                    'message': row['body'],
+                    'sender_id': row['sender_id'],
+                    'sender_type': 'customer',
+                    'sender_name': null,
+                    'attachments': const <dynamic>[],
+                    'reply_to_id': null,
+                    'created_at': row['created_at'],
+                  })
+              .toList()
+            ..sort((a, b) =>
+                (a['created_at'] ?? '').toString().compareTo((b['created_at'] ?? '').toString()));
+          ticket['support_ticket_messages'] = legacy;
+        }
+        return tickets;
+      } catch (_) {
+        return [];
+      }
     }
   }
 
@@ -875,30 +1153,241 @@ class AppDatabase {
     final ticket = await _sb.from('support_tickets').insert({
       'user_id': userId,
       'subject': subject,
+      'message': message,
+      'category': 'general',
       'status': 'open',
     }).select('id').single();
     final ticketId = ticket['id']?.toString();
     if (ticketId != null) {
-      await _sb.from('support_messages').insert({
+      await _sb.from('support_ticket_messages').insert({
         'ticket_id': ticketId,
         'sender_id': userId,
-        'body': message,
+        'sender_type': 'customer',
+        'message': message,
       });
     }
     return ticketId;
   }
 
-  Future<void> sendTicketReply({
+  Future<Map<String, dynamic>> sendTicketReply({
     required String ticketId,
     required String userId,
     required String message,
+    String senderType = 'customer',
+    String? senderName,
   }) async {
-    await _sb.from('support_messages').insert({
-      'ticket_id': ticketId,
-      'sender_id': userId,
-      'body': message,
+    final saved = await _sb
+        .from('support_ticket_messages')
+        .insert({
+          'ticket_id': ticketId,
+          'sender_id': userId,
+          'sender_type': senderType,
+          if (senderName != null && senderName.trim().isNotEmpty)
+            'sender_name': senderName.trim(),
+          'message': message,
+        })
+        .select('id, ticket_id, sender_id, sender_type, sender_name, message, attachments, reply_to_id, created_at')
+        .single();
+    final nextStatus = senderType == 'staff' ? 'in_progress' : 'open';
+    await _sb
+      .from('support_tickets')
+      .update({'status': nextStatus, 'updated_at': DateTime.now().toIso8601String()})
+      .eq('id', ticketId);
+    return Map<String, dynamic>.from(saved as Map);
+  }
+
+  // ── Social graph + direct host messaging ──
+
+  Future<Map<String, dynamic>?> fetchPublicProfile({required String userId}) async {
+    try {
+      final data = await _sb
+          .from('profiles')
+          .select('user_id, full_name, nickname, avatar_url, bio, created_at')
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (data == null) return null;
+      return Map<String, dynamic>.from(data as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int> fetchHostFollowersCount({required String hostId}) async {
+    try {
+      final data = await _sb.from('host_follows').select('id').eq('host_id', hostId);
+      return (data as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<bool> isFollowingHost({required String userId, required String hostId}) async {
+    try {
+      final data = await _sb
+          .from('host_follows')
+          .select('id')
+          .eq('follower_id', userId)
+          .eq('host_id', hostId)
+          .maybeSingle();
+      return data != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> followHost({required String userId, required String hostId}) async {
+    if (userId == hostId) return;
+    await _sb.from('host_follows').upsert(
+      {
+        'follower_id': userId,
+        'host_id': hostId,
+      },
+      onConflict: 'follower_id,host_id',
+    );
+  }
+
+  Future<void> unfollowHost({required String userId, required String hostId}) async {
+    await _sb
+        .from('host_follows')
+        .delete()
+        .eq('follower_id', userId)
+        .eq('host_id', hostId);
+  }
+
+  Future<void> sendDirectMessage({
+    required String senderId,
+    required String recipientId,
+    required String body,
+  }) async {
+    if (senderId == recipientId) {
+      throw Exception('You cannot message yourself.');
+    }
+
+    final validationError = validateDirectMessage(body);
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
+    await _sb.from('direct_messages').insert({
+      'sender_id': senderId,
+      'recipient_id': recipientId,
+      'body': body.trim(),
     });
-    await _sb.from('support_tickets').update({'status': 'open', 'updated_at': DateTime.now().toIso8601String()}).eq('id', ticketId);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDirectMessages({
+    required String userId,
+    required String peerId,
+    int limit = 200,
+  }) async {
+    try {
+      final data = await _sb
+          .from('direct_messages')
+          .select('id, sender_id, recipient_id, body, created_at, read_at')
+          .or('and(sender_id.eq.$userId,recipient_id.eq.$peerId),and(sender_id.eq.$peerId,recipient_id.eq.$userId)')
+          .order('created_at', ascending: true)
+          .limit(limit);
+
+      final rows = (data as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+
+      if (rows.isEmpty) return rows;
+
+      final profile = await fetchPublicProfile(userId: peerId);
+      if (profile != null) {
+        for (final row in rows) {
+          row['peer_profile'] = profile;
+        }
+      }
+
+      return rows;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDirectConversations({
+    required String userId,
+    int limit = 500,
+  }) async {
+    try {
+      final data = await _sb
+          .from('direct_messages')
+          .select('id, sender_id, recipient_id, body, created_at, read_at')
+          .or('sender_id.eq.$userId,recipient_id.eq.$userId')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      final rows = (data as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+
+      final byPeer = <String, Map<String, dynamic>>{};
+      for (final row in rows) {
+        final senderId = (row['sender_id'] ?? '').toString();
+        final recipientId = (row['recipient_id'] ?? '').toString();
+        final peerId = senderId == userId ? recipientId : senderId;
+        if (peerId.isEmpty) continue;
+
+        final existing = byPeer[peerId];
+        if (existing == null) {
+          byPeer[peerId] = {
+            'peer_id': peerId,
+            'last_message': row['body'],
+            'last_message_at': row['created_at'],
+            'unread_count':
+                recipientId == userId && row['read_at'] == null ? 1 : 0,
+          };
+          continue;
+        }
+
+        if (recipientId == userId && row['read_at'] == null) {
+          existing['unread_count'] = (existing['unread_count'] as int) + 1;
+        }
+      }
+
+      final peerIds = byPeer.keys.toList();
+      if (peerIds.isNotEmpty) {
+        final profiles = await _sb
+            .from('profiles')
+            .select('user_id, full_name, nickname, avatar_url')
+            .inFilter('user_id', peerIds);
+
+        final profileMap = <String, Map<String, dynamic>>{};
+        for (final row in (profiles as List).whereType<Map>()) {
+          final uid = (row['user_id'] ?? '').toString();
+          if (uid.isEmpty) continue;
+          profileMap[uid] = Map<String, dynamic>.from(row);
+        }
+
+        for (final entry in byPeer.entries) {
+          entry.value['peer_profile'] = profileMap[entry.key];
+        }
+      }
+
+      final conversations = byPeer.values.toList()
+        ..sort((a, b) => (b['last_message_at'] ?? '')
+            .toString()
+            .compareTo((a['last_message_at'] ?? '').toString()));
+      return conversations;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> markDirectConversationRead({
+    required String userId,
+    required String peerId,
+  }) async {
+    await _sb
+        .from('direct_messages')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('recipient_id', userId)
+        .eq('sender_id', peerId)
+        .isFilter('read_at', null);
   }
 
   // ── Affiliate ──
@@ -1210,7 +1699,22 @@ class AppDatabase {
   }
 
   Future<void> suspendUser({required String userId, required bool suspended}) async {
-    await _sb.from('profiles').update({'is_suspended': suspended}).eq('user_id', userId);
+    try {
+      await _sb.from('profiles').update({'is_suspended': suspended}).eq('user_id', userId);
+    } on PostgrestException catch (e) {
+      final message = e.message.toLowerCase();
+      final isMissingSuspensionColumn =
+          e.code == 'PGRST204' && message.contains('is_suspended');
+      if (!isMissingSuspensionColumn) rethrow;
+
+      // Backward-compatible fallback for older schemas where profiles.is_suspended
+      // has not been migrated yet.
+      await _sb.from('host_applications').update({
+        'suspended': suspended,
+        if (!suspended) 'suspension_reason': null,
+        'suspended_at': suspended ? DateTime.now().toIso8601String() : null,
+      }).eq('user_id', userId);
+    }
   }
 
   Future<void> toggleListingPublished({
@@ -1251,6 +1755,235 @@ class AppDatabase {
 
   Future<void> updateSupportTicketStatus({required String id, required String status}) async {
     await _sb.from('support_tickets').update({'status': status, 'updated_at': DateTime.now().toIso8601String()}).eq('id', id);
+  }
+
+  Future<Map<String, dynamic>> sendAdminGeneralNotification({
+    required String title,
+    required String body,
+    String audience = 'all',
+    List<String> userIds = const <String>[],
+    String notificationType = 'special',
+    String? deepLink,
+    bool sendPush = true,
+    bool sendInApp = true,
+  }) async {
+    Map<String, dynamic>? decodeJwtPayload(String token) {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      try {
+        final normalized = base64Url.normalize(parts[1]);
+        final payload = utf8.decode(base64Url.decode(normalized));
+        final decoded = jsonDecode(payload);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        return null;
+      }
+      return null;
+    }
+
+    String expectedProjectRef() {
+      try {
+        final host = Uri.parse(AppConfig.supabaseUrl).host;
+        return host.split('.').first.trim();
+      } catch (_) {
+        return '';
+      }
+    }
+
+    Future<int> authUserPreflightStatus(String token) async {
+      try {
+        final uri = Uri.parse('${AppConfig.supabaseUrl}/auth/v1/user');
+        final resp = await _http.get(
+          uri,
+          headers: {
+            'apikey': AppConfig.supabaseAnonKey,
+            'Authorization': 'Bearer $token',
+          },
+        );
+        return resp.statusCode;
+      } catch (_) {
+        return -1;
+      }
+    }
+
+    Future<void> clearLocalSessionSilently() async {
+      try {
+        await _sb.auth.signOut(scope: SignOutScope.local);
+        return;
+      } catch (_) {
+        // Fall through to default signOut.
+      }
+
+      try {
+        await _sb.auth.signOut();
+      } catch (_) {
+        // Nothing else to do.
+      }
+    }
+
+    Future<String> resolveAccessToken({bool forceRefresh = false}) async {
+      Session? session = _sb.auth.currentSession;
+
+      if (session == null) {
+        throw Exception('You are signed out. Please sign in again.');
+      }
+
+      int? tokenExp(String token) {
+        final payload = decodeJwtPayload(token);
+        final raw = payload?['exp'];
+        if (raw is int) return raw;
+        return int.tryParse(raw?.toString() ?? '');
+      }
+
+      final nowEpochSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final expiresAt = session.expiresAt;
+      final shouldRefresh =
+          forceRefresh ||
+          session.accessToken.trim().isEmpty ||
+          expiresAt == null ||
+          expiresAt <= nowEpochSec + 300;
+
+      if (shouldRefresh) {
+        final refreshed = await _sb.auth.refreshSession();
+        session = refreshed.session ?? _sb.auth.currentSession;
+        if (session == null) {
+          throw Exception('Session expired. Please sign out and sign in again.');
+        }
+      }
+
+      var token = session.accessToken.trim();
+      if (token.isEmpty) {
+        throw Exception('Session expired. Please sign out and sign in again.');
+      }
+
+      var exp = tokenExp(token);
+      if (exp == null || exp <= nowEpochSec + 60) {
+        final refreshed = await _sb.auth.refreshSession();
+        session = refreshed.session ?? _sb.auth.currentSession;
+        token = (session?.accessToken ?? '').trim();
+        exp = tokenExp(token);
+      }
+
+      if (token.isEmpty || exp == null || exp <= nowEpochSec + 60) {
+        throw Exception('Session expired. Please sign out and sign in again.');
+      }
+
+      final user = await _sb.auth.getUser(token);
+      if (user.user == null) {
+        throw Exception('Session expired. Please sign out and sign in again.');
+      }
+
+      return token;
+    }
+
+    String accessToken;
+    try {
+      accessToken = await resolveAccessToken();
+    } catch (_) {
+      throw Exception('Session expired. Please sign out and sign in again.');
+    }
+
+    final payload = <String, dynamic>{
+      'title': title,
+      'body': body,
+      'audience': audience,
+      'notificationType': notificationType,
+      'sendPush': sendPush,
+      'sendInApp': sendInApp,
+      if (userIds.isNotEmpty) 'userIds': userIds,
+      if ((deepLink ?? '').trim().isNotEmpty) 'deepLink': deepLink!.trim(),
+    };
+
+    Future<Map<String, dynamic>> invokeSendGeneralPush(String token) async {
+      final uri = Uri.parse('${AppConfig.supabaseUrl}/functions/v1/send-general-push');
+      final resp = await _http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'apikey': AppConfig.supabaseAnonKey,
+        },
+        body: jsonEncode(payload),
+      );
+
+      final rawBody = resp.body.trim();
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        if (rawBody.isEmpty) return const <String, dynamic>{};
+        final decoded = jsonDecode(rawBody);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return const <String, dynamic>{};
+      }
+
+      throw Exception('send-general-push failed (${resp.statusCode}): ${resp.body}');
+    }
+
+    Future<Map<String, dynamic>> invokeSendGeneralPushViaSdk() async {
+      final result = await _sb.functions.invoke(
+        'send-general-push',
+        body: payload,
+      );
+
+      final dynamic data = result.data;
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return const <String, dynamic>{};
+    }
+
+    bool shouldRetryAuth(Object error) {
+      final message = error.toString().toLowerCase();
+      return message.contains('invalid jwt') ||
+          message.contains('session expired') ||
+          message.contains('auth token') ||
+          message.contains('jwt') ||
+          message.contains('401') ||
+          message.contains('unauthorized');
+    }
+
+    Map<String, dynamic> response;
+
+    try {
+      response = await invokeSendGeneralPush(accessToken);
+    } catch (error) {
+      if (!shouldRetryAuth(error)) rethrow;
+
+      try {
+        accessToken = await resolveAccessToken(forceRefresh: true);
+        response = await invokeSendGeneralPush(accessToken);
+      } catch (retryError) {
+        if (!shouldRetryAuth(retryError)) rethrow;
+
+        try {
+          response = await invokeSendGeneralPushViaSdk();
+        } catch (sdkError) {
+          if (!shouldRetryAuth(sdkError)) rethrow;
+
+          final payload = decodeJwtPayload(accessToken);
+          final tokenRef = (payload?['ref'] ?? '').toString().trim();
+          final tokenRole = (payload?['role'] ?? '').toString().trim();
+          final expectedRef = expectedProjectRef();
+          final authStatus = await authUserPreflightStatus(accessToken);
+          final directError = error.toString();
+          final retryErrorText = retryError.toString();
+          final sdkErrorText = sdkError.toString();
+
+          await clearLocalSessionSilently();
+
+          if (tokenRef.isNotEmpty && expectedRef.isNotEmpty && tokenRef != expectedRef) {
+            throw Exception(
+              'Auth token project mismatch. token_ref=$tokenRef expected_ref=$expectedRef role=$tokenRole auth_user_status=$authStatus. Local session was reset. Please sign in again.',
+            );
+          }
+
+          throw Exception(
+            'Auth rejected after retries. token_ref=${tokenRef.isEmpty ? 'unknown' : tokenRef} expected_ref=${expectedRef.isEmpty ? 'unknown' : expectedRef} role=${tokenRole.isEmpty ? 'unknown' : tokenRole} auth_user_status=$authStatus direct_error=$directError retry_error=$retryErrorText sdk_error=$sdkErrorText. Local session was reset. Please sign in again, then retry.',
+          );
+        }
+      }
+    }
+
+    return response;
   }
 
   Future<Map<String, dynamic>> fetchAdminAiAnalyticsSummary({int days = 30}) async {

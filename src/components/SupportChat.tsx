@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck - support_ticket_messages table not in generated types yet
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { 
   Send, 
   Paperclip, 
@@ -54,6 +53,26 @@ type SupportChatProps = {
 
 const EMOJI_LIST = ["�", "🤣", "😆", "😄", "😁", "😊", "🥰", "😍", "🤩", "😎", "🥳", "🤪", "😜", "😝", "🤗", "🤭", "👍", "👎", "❤️", "💖", "💯", "🎉", "🎊", "🙌", "👏", "🙏", "✅", "❌", "⚠️", "📎", "💡", "🔥", "✨", "⭐", "💪", "👀", "🤔", "😮", "😢", "🥺"];
 
+type TypingSpeedPreset = "ultra" | "balanced" | "persistent";
+
+const TYPING_TIMEOUT_MS_BY_PRESET: Record<TypingSpeedPreset, number> = {
+  ultra: 500,
+  balanced: 900,
+  persistent: 1200,
+};
+
+const readTypingPreset = (): TypingSpeedPreset => {
+  if (typeof window === "undefined") return "balanced";
+  const raw = window.localStorage.getItem("support_typing_preset");
+  if (raw === "ultra" || raw === "balanced" || raw === "persistent") {
+    return raw;
+  }
+  return "balanced";
+};
+
+const SUPPORT_TYPING_PRESET = readTypingPreset();
+const SUPPORT_TYPING_TIMEOUT_MS = TYPING_TIMEOUT_MS_BY_PRESET[SUPPORT_TYPING_PRESET];
+
 export function SupportChat({ ticket, userType, onClose, onStatusChange }: SupportChatProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -67,6 +86,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userName, setUserName] = useState<string>("");
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [activeSupportName, setActiveSupportName] = useState<string>("Support Team");
+  const [otherUserOnline, setOtherUserOnline] = useState(false);
+  const [otherUserLastSeenAt, setOtherUserLastSeenAt] = useState<string | null>(null);
 
   const notifyRefundStatus = async (status: string) => {
     try {
@@ -88,6 +110,52 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
   const messagesChannelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
 
+  const maybeShowBackgroundNotification = useCallback((incoming: Message) => {
+    if (!incoming) return;
+    if (incoming.sender_id && incoming.sender_id === user?.id) return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (!(document.hidden || !document.hasFocus())) return;
+
+    const title = (incoming.sender_name || (incoming.sender_type === "staff" ? "Support" : "Customer")).trim();
+    const bodyText = (incoming.message || "").trim();
+
+    const showNotification = () => {
+      try {
+        void new window.Notification(title || "Support", {
+          body: bodyText.length > 140 ? `${bodyText.slice(0, 137)}...` : (bodyText || "New support message"),
+          icon: "/brand/logo_dark.png",
+          tag: `support-${ticket.id}`,
+          renotify: true,
+        });
+      } catch (error) {
+        console.warn("[SupportChat] Browser notification failed", error);
+      }
+    };
+
+    if (window.Notification.permission === "granted") {
+      showNotification();
+      return;
+    }
+
+    if (window.Notification.permission === "default") {
+      void window.Notification.requestPermission()
+        .then((permission) => {
+          if (permission === "granted") {
+            showNotification();
+          }
+        })
+        .catch(() => {});
+    }
+  }, [ticket.id, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (window.Notification.permission === "default") {
+      void window.Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
   // Get user's display name
   useEffect(() => {
     const fetchName = async () => {
@@ -104,6 +172,9 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
   // Fetch messages
   useEffect(() => {
+    setOtherUserTyping(false);
+    setOtherUserOnline(false);
+
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from("support_ticket_messages")
@@ -125,6 +196,21 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         }
         return msg;
       });
+
+      const lastStaffMessage = [...enriched]
+        .reverse()
+        .find((msg) => msg.sender_type === "staff" && msg.sender_name);
+      if (lastStaffMessage?.sender_name) {
+        setActiveSupportName(lastStaffMessage.sender_name);
+      }
+
+      const lastOtherMessage = [...enriched]
+        .reverse()
+        .find((msg) => msg.sender_id && msg.sender_id !== user?.id);
+      if (lastOtherMessage?.created_at) {
+        setOtherUserLastSeenAt(lastOtherMessage.created_at);
+      }
+
       setMessages(enriched);
     };
 
@@ -155,6 +241,15 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
               console.log('[SupportChat] Message already exists, skipping');
               return prev;
             }
+
+            if (newMsg.sender_type === "staff" && newMsg.sender_name) {
+              setActiveSupportName(newMsg.sender_name);
+            }
+            if (newMsg.sender_id && newMsg.sender_id !== user?.id) {
+              setOtherUserLastSeenAt(newMsg.created_at || new Date().toISOString());
+              maybeShowBackgroundNotification(newMsg);
+            }
+
             console.log('[SupportChat] Adding broadcast message instantly');
             const updated = [...prev, newMsg];
             // Trigger immediate scroll to new message
@@ -183,6 +278,15 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
               console.log('[SupportChat] Message already exists from broadcast, skipping DB change');
               return prev;
             }
+
+            if (newMsg.sender_type === "staff" && newMsg.sender_name) {
+              setActiveSupportName(newMsg.sender_name);
+            }
+            if (newMsg.sender_id && newMsg.sender_id !== user?.id) {
+              setOtherUserLastSeenAt(newMsg.created_at || new Date().toISOString());
+              maybeShowBackgroundNotification(newMsg);
+            }
+
             console.log('[SupportChat] Adding message from DB change');
             const updated = [...prev, newMsg];
             // Immediate scroll to new message
@@ -216,18 +320,33 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
+        const hasOtherPresence = Object.values(state).some((presences: any) => {
+          return presences.some((p: any) => p.user_id !== user?.id);
+        });
+        setOtherUserOnline(hasOtherPresence);
+
         const otherPresence = Object.values(state).find((presences: any) => {
           return presences.some((p: any) => p.user_id !== user?.id && p.typing);
         });
         setOtherUserTyping(!!otherPresence);
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const hasOtherJoin = newPresences.some((p: any) => p.user_id !== user?.id);
+        if (hasOtherJoin) {
+          setOtherUserOnline(true);
+          setOtherUserLastSeenAt(new Date().toISOString());
+        }
+
         const typing = newPresences.some((p: any) => p.user_id !== user?.id && p.typing);
         if (typing) setOtherUserTyping(true);
       })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const wasTyping = leftPresences.some((p: any) => p.user_id !== user?.id && p.typing);
-        if (wasTyping) setOtherUserTyping(false);
+      .on('presence', { event: 'leave' }, () => {
+        const state = presenceChannel.presenceState();
+        const hasOtherPresence = Object.values(state).some((presences: any) => {
+          return presences.some((p: any) => p.user_id !== user?.id);
+        });
+        setOtherUserOnline(hasOtherPresence);
+        if (!hasOtherPresence) setOtherUserTyping(false);
       })
       .subscribe(async (status) => {
         console.log('[SupportChat] Presence channel status:', status);
@@ -243,12 +362,20 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
     return () => {
       console.log('[SupportChat] Cleaning up channels');
+      if (user) {
+        void presenceChannel.track({
+          user_id: user.id,
+          user_type: userType,
+          typing: false,
+          online_at: new Date().toISOString(),
+        });
+      }
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
       messagesChannelRef.current = null;
       presenceChannelRef.current = null;
     };
-  }, [ticket.id, user?.id, userType]);
+  }, [ticket.id, user?.id, userType, maybeShowBackgroundNotification]);
 
   // Auto-scroll to bottom on new messages and typing indicator
   useEffect(() => {
@@ -279,6 +406,15 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     }
   }, [otherUserTyping]);
 
+  // Safety guard: clear typing if no fresh typing signal arrives.
+  useEffect(() => {
+    if (!otherUserTyping) return;
+    const timeout = window.setTimeout(() => {
+      setOtherUserTyping(false);
+    }, SUPPORT_TYPING_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [otherUserTyping, messages.length]);
+
   // Broadcast typing status
   const broadcastTyping = (isTyping: boolean) => {
     if (presenceChannelRef.current && user) {
@@ -288,6 +424,14 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         typing: isTyping,
         online_at: new Date().toISOString(),
       });
+    }
+  };
+
+  const stopTyping = () => {
+    broadcastTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
     }
   };
 
@@ -304,15 +448,12 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Set timeout to stop typing indicator (1 second for faster feel)
+      // Stop typing shortly after input pauses.
       typingTimeoutRef.current = setTimeout(() => {
-        broadcastTyping(false);
-      }, 1000);
+        stopTyping();
+      }, SUPPORT_TYPING_TIMEOUT_MS);
     } else {
-      broadcastTyping(false);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      stopTyping();
     }
   };
 
@@ -325,10 +466,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     setDraft("");
     
     // Stop typing indicator
-    broadcastTyping(false);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+    stopTyping();
 
     try {
       const newMessage: Partial<Message> = {
@@ -369,6 +507,16 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
           event: 'new-message',
           payload: savedMsg
         });
+      }
+
+      if ((savedMsg as Message | null)?.id) {
+        void supabase.functions
+          .invoke("send-support-push", {
+            body: { messageId: (savedMsg as Message).id },
+          })
+          .catch((error) => {
+            console.warn("[SupportChat] push notify failed", error);
+          });
       }
 
       // Update ticket status if staff is replying
@@ -451,6 +599,38 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  const isSameDay = (a: string, b: string) => {
+    const da = new Date(a);
+    const db = new Date(b);
+    if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  };
+
+  const formatDayChip = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const sortedMessages = [...messages].sort((a, b) => {
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+  const firstSupportMessageId = sortedMessages.find((m) => m.sender_type === "staff")?.id;
+  const firstCustomerMessageId = sortedMessages.find((m) => m.sender_type === "customer")?.id;
+
+  const customerLabel =
+    sortedMessages.find((m) => m.sender_type === "customer" && m.sender_name)?.sender_name ||
+    "Customer";
+  const headerPersonName = userType === "customer" ? activeSupportName : customerLabel;
+  const hasRecentOtherActivity =
+    !!otherUserLastSeenAt && Date.now() - new Date(otherUserLastSeenAt).getTime() <= 5 * 60 * 1000;
+  const headerStatus = otherUserTyping
+    ? "typing..."
+    : (otherUserOnline || hasRecentOtherActivity)
+      ? "online"
+      : "offline";
+  const headerStatusClass = headerStatus === "offline" ? "text-white/70" : "text-emerald-100";
+
   const isClosed = ticket.status === "resolved" || ticket.status === "closed";
 
   return (
@@ -462,23 +642,22 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
             {userType === "staff" ? <User className="h-5 w-5 text-white" /> : <Headset className="h-5 w-5 text-white" />}
           </div>
           <div>
-            <div className="text-sm font-medium text-white">{ticket.subject}</div>
-            <div className="text-xs text-white/80 flex items-center gap-2">
-              <Badge className={`text-[10px] px-1.5 py-0 ${
-                ticket.status === "resolved" || ticket.status === "closed" 
-                  ? "bg-green-100 text-green-700" 
-                  : ticket.status === "in_progress" 
-                  ? "bg-yellow-100 text-yellow-700" 
-                  : "bg-blue-100 text-blue-700"
-              }`}>
-                {ticket.status}
-              </Badge>
-              {ticket.category && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/30 text-white">{ticket.category}</Badge>}
+            <div className="text-sm font-semibold text-white">Support</div>
+            <div className={`text-[10px] ${headerStatusClass}`}>
+              {headerPersonName} • {headerStatus}
             </div>
           </div>
         </div>
         {onClose && (
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20"
+            onClick={() => {
+              stopTyping();
+              onClose();
+            }}
+          >
             <X className="h-4 w-4" />
           </Button>
         )}
@@ -486,119 +665,151 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4 max-h-[60vh] sm:max-h-[600px] overflow-y-auto" ref={scrollRef}>
-        <div className="space-y-4">
-          {/* Initial ticket message - always from customer (left side) */}
-          <div className="flex gap-2">
-            <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br from-orange-500 to-red-600">
-              <User className="h-4 w-4 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="text-[11px] mb-1 font-semibold text-orange-600 dark:text-orange-400">
-                Customer · <span className="font-normal text-muted-foreground">{formatTime(ticket.created_at)}</span>
-              </div>
-              <div className="rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] bg-muted text-foreground rounded-tl-sm">
-                <div className="whitespace-pre-wrap">{ticket.message}</div>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-3">
+          {(() => {
+            const timeline: JSX.Element[] = [];
+            const initialIsMe = ticket.user_id === user?.id;
+            const initialSenderLabel = initialIsMe ? "You" : (userType === "customer" ? activeSupportName : customerLabel);
+            const initialDay = formatDayChip(ticket.created_at);
 
-          {/* Chat messages */}
-          {messages.map((msg) => {
-            // Customer messages always go left, Staff messages always go right
-            const isStaff = msg.sender_type === "staff";
-            const isNew = msg.id.startsWith('temp-') || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
-            return (
-              <div key={msg.id} className={`flex gap-2 ${isStaff ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                  isStaff 
-                    ? "bg-gradient-to-br from-blue-500 to-indigo-600" 
-                    : "bg-gradient-to-br from-orange-500 to-red-600"
-                }`}>
-                  {isStaff ? <Headset className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-white" />}
-                </div>
-                <div className={`flex-1 ${isStaff ? "text-right" : ""}`}>
-                  {/* Reply indicator */}
-                  {msg.reply_to && (
-                    <div className={`text-[11px] text-muted-foreground mb-1 flex items-center gap-1 ${isStaff ? "justify-end" : ""}`}>
-                      <Reply className="h-3 w-3" />
-                      <span className="max-w-[150px] truncate">{msg.reply_to.message}</span>
-                    </div>
-                  )}
-                  
-                  <div className={`text-[11px] mb-1 font-semibold ${isStaff ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400"}`}>
-                    {msg.sender_name || (isStaff ? "Support Team" : "Customer")} · <span className="font-normal text-muted-foreground">{formatTime(msg.created_at)}</span>
+            if (initialDay) {
+              timeline.push(
+                <div key="day-initial" className="flex justify-center py-1">
+                  <div className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
+                    {initialDay}
                   </div>
-                  
-                  <div className={`rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] ${
-                    isStaff 
-                      ? "bg-primary text-primary-foreground rounded-tr-sm" 
-                      : "bg-muted text-foreground rounded-tl-sm"
-                  }`}>
-                    <div className="whitespace-pre-wrap">{msg.message}</div>
-                    
-                    {/* Attachments */}
-                    {msg.attachments && msg.attachments.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {msg.attachments.map((att, i) => (
-                          <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs underline opacity-80 hover:opacity-100">
-                            {att.type === "image" ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                            {att.name}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Reply button */}
-                  {!isClosed && (
-                    <button className="text-[11px] text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1" onClick={() => setReplyTo(msg)}>
-                      <Reply className="h-3 w-3" /> Reply
-                    </button>
-                  )}
+                </div>,
+              );
+            }
+
+            timeline.push(
+              <div key="initial-ticket" className={`flex gap-2 ${initialIsMe ? "flex-row-reverse" : ""}`}>
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${initialIsMe ? "bg-[#ff5a00]" : "bg-gradient-to-br from-blue-500 to-indigo-600"}`}>
+                  {initialIsMe ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
                 </div>
-              </div>
+                <div className={`flex-1 ${initialIsMe ? "text-right" : ""}`}>
+                  <div className="text-[11px] mb-1 font-semibold text-slate-900">
+                    {initialSenderLabel} · <span className="font-normal text-muted-foreground">{formatTime(ticket.created_at)}</span>
+                  </div>
+                  <div className={`rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] ${initialIsMe ? "bg-[#ff5a00] text-white rounded-tr-sm" : "bg-[#e7e7ea] text-slate-900 rounded-tl-sm"}`}>
+                    <div className="whitespace-pre-wrap">{ticket.message}</div>
+                  </div>
+                </div>
+              </div>,
             );
-          })}
 
-          {/* Typing indicator */}
-          {otherUserTyping && (
-            <div className={`flex gap-2 ${userType === "staff" ? "" : "flex-row-reverse"} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                userType === "staff" 
-                  ? "bg-gradient-to-br from-orange-500 to-red-600" 
-                  : "bg-gradient-to-br from-blue-500 to-indigo-600"
-              }`}>
+            sortedMessages.forEach((msg, index) => {
+              const previousCreatedAt = index === 0 ? ticket.created_at : sortedMessages[index - 1].created_at;
+              if (!isSameDay(previousCreatedAt, msg.created_at)) {
+                const day = formatDayChip(msg.created_at);
+                if (day) {
+                  timeline.push(
+                    <div key={`day-${msg.id}`} className="flex justify-center py-1">
+                      <div className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
+                        {day}
+                      </div>
+                    </div>,
+                  );
+                }
+              }
+
+              const isMe = msg.sender_id === user?.id;
+              const isSupportMessage = msg.sender_type === "staff";
+              const isNew = msg.id.startsWith("temp-") || (new Date().getTime() - new Date(msg.created_at).getTime() < 3000);
+              const senderLabel = isMe ? "You" : (msg.sender_name || (isSupportMessage ? activeSupportName : customerLabel));
+
+              const showJoinedNotice = userType === "customer"
+                ? isSupportMessage && msg.id === firstSupportMessageId
+                : !isSupportMessage && msg.id === firstCustomerMessageId;
+
+              timeline.push(
+                <div key={msg.id} className="space-y-1">
+                  {showJoinedNotice ? (
+                    <div className="flex justify-center py-1">
+                      <div className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
+                        {senderLabel} joined the conversation
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""} ${isNew ? "animate-in fade-in slide-in-from-bottom-2 duration-300" : ""}`}>
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${isMe ? "bg-[#ff5a00]" : "bg-gradient-to-br from-blue-500 to-indigo-600"}`}>
+                      {isMe ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
+                    </div>
+                    <div className={`flex-1 ${isMe ? "text-right" : ""}`}>
+                      {msg.reply_to ? (
+                        <div className={`text-[10px] text-muted-foreground mb-1 flex items-center gap-1 ${isMe ? "justify-end" : ""}`}>
+                          <Reply className="h-2.5 w-2.5" />
+                          <span className="max-w-[150px] truncate">{msg.reply_to.message}</span>
+                        </div>
+                      ) : null}
+
+                      <div className="text-[11px] mb-1 font-semibold text-slate-900">
+                        {senderLabel} · <span className="font-normal text-muted-foreground">{formatTime(msg.created_at)}</span>
+                      </div>
+
+                      <div className={`rounded-2xl px-3 py-2 text-sm inline-block text-left max-w-[85%] ${isMe ? "bg-[#ff5a00] text-white rounded-tr-sm" : "bg-[#e7e7ea] text-slate-900 rounded-tl-sm"}`}>
+                        <div className="whitespace-pre-wrap">{msg.message}</div>
+
+                        {msg.attachments && msg.attachments.length > 0 ? (
+                          <div className="mt-2 space-y-1">
+                            {msg.attachments.map((att, i) => (
+                              <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1 text-xs underline ${isMe ? "text-white/90" : "opacity-80 hover:opacity-100"}`}>
+                                {att.type === "image" ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                                {att.name}
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {!isClosed ? (
+                        <button className={`text-[11px] text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1 ${isMe ? "ml-auto" : ""}`} onClick={() => setReplyTo(msg)}>
+                          <Reply className="h-3 w-3" /> Reply
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>,
+              );
+            });
+
+            return timeline;
+          })()}
+
+          {otherUserTyping ? (
+            <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                 {userType === "staff" ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
               </div>
-              <div className={`flex-1 ${userType === "staff" ? "" : "text-right"}`}>
-                <div className="text-[11px] mb-1 font-semibold text-blue-600 dark:text-blue-400">
-                  {userType === "staff" ? "Customer" : "Support"} is typing...
+              <div className="flex-1">
+                <div className="text-[11px] mb-1 font-semibold text-slate-900">
+                  {headerPersonName} is typing...
                 </div>
-                <div className="rounded-2xl px-4 py-2 text-sm inline-block bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800">
+                <div className="rounded-2xl px-4 py-2 text-sm inline-block bg-[#e7e7ea]">
                   <div className="flex gap-1.5">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Waiting indicator */}
-          {!otherUserTyping && messages.length > 0 && messages[messages.length - 1]?.sender_type !== "staff" && userType === "customer" && !isClosed && (
+          {!otherUserTyping && sortedMessages.length > 0 && sortedMessages[sortedMessages.length - 1]?.sender_id === user?.id && !isClosed ? (
             <div className="flex gap-2">
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-                <Headset className="h-4 w-4 text-white" />
+                {userType === "staff" ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
               </div>
               <div className="flex-1">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Support will reply soon
+                  {userType === "staff" ? "Customer will reply soon" : `${activeSupportName} will reply soon`}
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </ScrollArea>
 
@@ -639,6 +850,7 @@ export function SupportChat({ ticket, userType, onClose, onStatusChange }: Suppo
                 placeholder="Type your message..."
                 value={draft}
                 onChange={(e) => handleTyping(e.target.value)}
+                onBlur={() => stopTyping()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

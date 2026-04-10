@@ -27,7 +27,7 @@ class HostCreationScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -44,10 +44,10 @@ class HostCreationScaffold extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.chevron_left, size: 20, color: Colors.black54),
+                          const Icon(Icons.chevron_left, size: 20, color: AppColors.foggy),
                           Text(
                             step > 1 ? 'Back' : 'Cancel',
-                            style: const TextStyle(fontSize: 14, color: Colors.black54),
+                            style: const TextStyle(fontSize: 14, color: AppColors.foggy),
                           ),
                         ],
                       ),
@@ -85,14 +85,14 @@ class HostCreationScaffold extends StatelessWidget {
                     return Container(
                       width: 24, height: 24,
                       decoration: const BoxDecoration(color: AppColors.rausch, shape: BoxShape.circle),
-                      child: const Icon(Icons.check, size: 13, color: Colors.white),
+                      child: const Icon(Icons.check, size: 13, color: AppColors.surface),
                     );
                   }
                   if (isActive) {
                     return Container(
                       width: 24, height: 24,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         shape: BoxShape.circle,
                         border: Border.all(color: AppColors.rausch, width: 2),
                       ),
@@ -125,11 +125,11 @@ class HostCreationScaffold extends StatelessWidget {
                 children: [
                   Text(
                     stepTitle,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.foggy),
                   ),
                   Text(
                     '$step of $totalSteps',
-                    style: const TextStyle(fontSize: 11, color: Colors.black38),
+                    style: const TextStyle(fontSize: 11, color: AppColors.hackberry),
                   ),
                 ],
               ),

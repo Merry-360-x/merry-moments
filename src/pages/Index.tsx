@@ -15,7 +15,8 @@ import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, Mail, Sparkles, TrendingUp, X } from "lucide-react";
+import { queuePromoPrefillCode, SAVE10_PROMO_CODE } from "@/lib/promoPrefill";
+import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, Mail, Plus, Sparkles, Tag, TrendingUp, X } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
 
 const HOME_UPDATES_DISMISS_KEY = "home-updates-popup-dismissed-at";
@@ -212,9 +213,11 @@ const Index = () => {
   const { data: storyCircles = [], isLoading: isStoryCirclesLoading } = useQuery({
     queryKey: ["home-story-circles"],
     queryFn: async () => {
+      const activeCutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: storiesData, error: storiesError } = await supabase
         .from("stories")
         .select("id, user_id, media_url, image_url, created_at")
+        .gte("created_at", activeCutoffIso)
         .order("created_at", { ascending: false })
         .limit(80);
 
@@ -307,44 +310,6 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <section className="container mx-auto px-4 pt-3 md:pt-4">
-        <div className="px-0 py-0">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Stories</h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/stories")}>View all</Button>
-          </div>
-
-          {isStoryCirclesLoading ? (
-            <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="shrink-0 snap-start h-12 w-12 rounded-full bg-muted animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
-              {storyCircles.slice(0, 12).map((story, index) => {
-                const isFresh = storyFreshness.get(story.storyId) ?? false;
-                const fallbackText = story.displayName.slice(0, 1).toUpperCase();
-                return (
-                  <button
-                    key={story.storyId}
-                    type="button"
-                    onClick={() => openStoryModal(index)}
-                    className="group shrink-0 snap-start"
-                    aria-label={`Open stories by ${story.displayName}`}
-                  >
-                    <Avatar className={`h-12 w-12 ${isFresh ? "border-[3px] border-primary" : "border border-border/50"}`}>
-                      <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
-                      <AvatarFallback>{fallbackText}</AvatarFallback>
-                    </Avatar>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-3 md:pt-4">
         <div className="grid grid-cols-1 gap-3 items-stretch">
@@ -398,6 +363,70 @@ const Index = () => {
               {/* Search Bar */}
               <HeroSearch onWhereChange={setStayCityInput} />
 
+              <div className="mx-auto mt-5 w-full max-w-4xl rounded-2xl border border-white/25 bg-black/30 px-3 py-2 backdrop-blur-sm">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/90">Stories</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-white hover:bg-white/20 hover:text-white"
+                    onClick={() => navigate("/stories")}
+                  >
+                    View all
+                  </Button>
+                </div>
+
+                {isStoryCirclesLoading ? (
+                  <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="shrink-0 snap-start h-12 w-12 rounded-full bg-white/20 animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
+                    {user ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/create-story")}
+                        className="group shrink-0 snap-start"
+                        aria-label="Create your story"
+                      >
+                        <div className="relative">
+                          <Avatar className="h-12 w-12 border-[3px] border-primary bg-background">
+                            <AvatarImage src={(user.user_metadata as any)?.avatar_url || undefined} alt="Your story" />
+                            <AvatarFallback>
+                              {(((user.user_metadata as any)?.full_name || user.email || "Y") as string).slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="absolute -right-1 -bottom-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-background bg-primary text-primary-foreground">
+                            <Plus className="h-3 w-3" />
+                          </span>
+                        </div>
+                      </button>
+                    ) : null}
+
+                    {storyCircles.slice(0, 12).map((story, index) => {
+                      const isFresh = storyFreshness.get(story.storyId) ?? false;
+                      const fallbackText = story.displayName.slice(0, 1).toUpperCase();
+                      return (
+                        <button
+                          key={story.storyId}
+                          type="button"
+                          onClick={() => openStoryModal(index)}
+                          className="group shrink-0 snap-start"
+                          aria-label={`Open stories by ${story.displayName}`}
+                        >
+                          <Avatar className={`h-12 w-12 ${isFresh ? "border-[3px] border-primary" : "border border-white/40"}`}>
+                            <AvatarImage src={story.avatarUrl || story.fallbackPreviewUrl || undefined} alt={story.displayName} />
+                            <AvatarFallback>{fallbackText}</AvatarFallback>
+                          </Avatar>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* Referral CTA */}
               <div className="mt-6 md:mt-8 flex justify-center">
                 <Button
@@ -440,7 +469,30 @@ const Index = () => {
 
       </section>
 
-      <section className="container mx-auto px-4 pt-10 pb-16">
+      <section className="container mx-auto px-4 pt-4 md:pt-6">
+        <div className="rounded-2xl border border-slate-200 bg-[#D6E6F5] px-4 py-5 md:px-8 md:py-6 text-slate-900">
+          <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white/60 text-slate-700">
+              <Tag className="h-5 w-5" />
+            </span>
+            <h3 className="text-xl md:text-3xl font-bold leading-tight">
+              Taste your activities in a day and your transportation all in one place.
+            </h3>
+            <p className="text-sm md:text-lg text-slate-700">
+              Save 10% on selected stays with code <span className="font-extrabold tracking-wide">SAVE10</span>.
+            </p>
+            <a
+              href="#selected-stays"
+              onClick={() => queuePromoPrefillCode(SAVE10_PROMO_CODE)}
+              className="text-sm md:text-xl font-semibold underline underline-offset-4 hover:text-slate-800"
+            >
+              Book now
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="selected-stays" className="container mx-auto px-4 pt-10 pb-16">
         <PersonalizedRecommendations
           type="properties"
           limit={20}

@@ -29,6 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
+import HostSocialActions from "@/components/HostSocialActions";
 
 type PropertyRow = {
   id: string;
@@ -1931,9 +1932,16 @@ export default function PropertyDetails() {
                       {hostProfile?.bio ? (
                         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{hostProfile.bio}</p>
                       ) : null}
+
                     </div>
                   </div>
                 </Link>
+                <div className="mt-3">
+                  <HostSocialActions
+                    hostId={String(data.host_id)}
+                    hostName={(hostProfile?.nickname || hostProfile?.full_name || "").trim()}
+                  />
+                </div>
               </div>
 
               {/* Reviews preview */}

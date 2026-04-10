@@ -359,6 +359,9 @@ type AdBannerRow = {
   updated_at: string;
 };
 
+type SpecialNotificationAudience = "all" | "customers" | "hosts" | "staff" | "custom";
+type SpecialNotificationDelivery = "both" | "push_only" | "in_app_only";
+
 type TabValue =
   | "overview"
   | "ads"
@@ -596,6 +599,14 @@ export default function AdminDashboard() {
   const [respondingTicket, setRespondingTicket] = useState<SupportTicketRow | null>(null);
   const [responseDraft, setResponseDraft] = useState("");
   const [sendingResponse, setSendingResponse] = useState(false);
+  const [specialNotificationTitle, setSpecialNotificationTitle] = useState("");
+  const [specialNotificationBody, setSpecialNotificationBody] = useState("");
+  const [specialNotificationAudience, setSpecialNotificationAudience] = useState<SpecialNotificationAudience>("all");
+  const [specialNotificationCustomUserIds, setSpecialNotificationCustomUserIds] = useState("");
+  const [specialNotificationDelivery, setSpecialNotificationDelivery] = useState<SpecialNotificationDelivery>("both");
+  const [specialNotificationType, setSpecialNotificationType] = useState("special");
+  const [specialNotificationDeepLink, setSpecialNotificationDeepLink] = useState("");
+  const [sendingSpecialNotification, setSendingSpecialNotification] = useState(false);
   const [roleToAdd, setRoleToAdd] = useState<Record<string, string>>({});
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [orderBookings, setOrderBookings] = useState<BookingRow[]>([]);
@@ -879,36 +890,6 @@ export default function AdminDashboard() {
     failed_attempts: number;
   };
 
-  type AiAnalyticsSummaryRow = {
-    total_requests: number;
-    openai_requests: number;
-    cache_hits: number;
-    faq_hits: number;
-    rate_limited_requests: number;
-    error_requests: number;
-    conversations_total: number;
-    feedback_count: number;
-    positive_feedback: number;
-    negative_feedback: number;
-    win_rate: number;
-    estimated_cost_usd: number;
-    estimated_saved_usd: number;
-  };
-
-  type AiAnalyticsSeriesRow = {
-    bucket_date: string;
-    total_requests: number;
-    openai_requests: number;
-    cache_hits: number;
-    faq_hits: number;
-    rate_limited_requests: number;
-    error_requests: number;
-    positive_feedback: number;
-    negative_feedback: number;
-    estimated_cost_usd: number;
-    estimated_saved_usd: number;
-  };
-
   const {
     data: liveWebAnalytics,
     isLoading: isLiveWebAnalyticsLoading,
@@ -939,44 +920,6 @@ export default function AdminDashboard() {
       const { data, error } = await (supabase as any).rpc("admin_web_analytics_series", { p_range: trafficAnalyticsRange });
       if (error) throw error;
       return (data ?? []) as WebAnalyticsSeriesRow[];
-    },
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 10,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    placeholderData: (previousData) => previousData,
-  });
-
-  const {
-    data: aiAnalyticsSummary,
-    isLoading: isAiAnalyticsLoading,
-    isError: isAiAnalyticsError,
-    error: aiAnalyticsError,
-  } = useQuery({
-    queryKey: ["admin_ai_analytics_summary"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("admin_ai_analytics_summary", { p_days: 30 });
-      if (error) throw error;
-      return (data?.[0] ?? null) as AiAnalyticsSummaryRow | null;
-    },
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 10,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    placeholderData: (previousData) => previousData,
-  });
-
-  const {
-    data: aiAnalyticsSeries = [],
-    isLoading: isAiAnalyticsSeriesLoading,
-    isError: isAiAnalyticsSeriesError,
-    error: aiAnalyticsSeriesError,
-  } = useQuery({
-    queryKey: ["admin_ai_analytics_series"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("admin_ai_analytics_series", { p_days: 30 });
-      if (error) throw error;
-      return (data ?? []) as AiAnalyticsSeriesRow[];
     },
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 10,
@@ -1019,16 +962,6 @@ export default function AdminDashboard() {
   const revenueChartConfig = useMemo<ChartConfig>(
     () => ({
       revenue_rwf: { label: "Revenue (RWF)", color: "hsl(var(--primary))" },
-    }),
-    [],
-  );
-
-  const aiChartConfig = useMemo<ChartConfig>(
-    () => ({
-      total_requests: { label: "Requests", color: "#0f766e" },
-      openai_requests: { label: "OpenAI", color: "#f97316" },
-      positive_feedback: { label: "Thumbs up", color: "#16a34a" },
-      negative_feedback: { label: "Thumbs down", color: "#dc2626" },
     }),
     [],
   );
@@ -1790,14 +1723,6 @@ export default function AdminDashboard() {
 
   const analyticsConfig = analyticsChart === "revenue" ? revenueChartConfig : webAnalyticsChartConfig;
   const analyticsChartData = analyticsChart === "revenue" ? analyticsRevenueSeries : webAnalyticsSeries;
-  const aiAnalyticsChartData = useMemo(
-    () =>
-      aiAnalyticsSeries.map((row) => ({
-        ...row,
-        bucket: row.bucket_date,
-      })),
-    [aiAnalyticsSeries],
-  );
   const regionChartData = useMemo(
     () =>
       adminAdvancedAnalytics.regionBreakdown.slice(0, 6).map((row, index) => ({
@@ -2777,6 +2702,104 @@ export default function AdminDashboard() {
     } catch (e) {
       logError("admin.updateTicketStatus", e);
       toast({ variant: "destructive", title: "Failed", description: uiErrorMessage(e, "Please try again.") });
+    }
+  };
+
+  const sendSpecialNotification = async () => {
+    const title = specialNotificationTitle.trim();
+    const body = specialNotificationBody.trim();
+
+    if (title.length < 3) {
+      toast({
+        variant: "destructive",
+        title: "Title is too short",
+        description: "Use at least 3 characters for the notification title.",
+      });
+      return;
+    }
+
+    if (body.length < 3) {
+      toast({
+        variant: "destructive",
+        title: "Body is too short",
+        description: "Use at least 3 characters for the notification message.",
+      });
+      return;
+    }
+
+    const customUserIds = specialNotificationAudience === "custom"
+      ? Array.from(
+          new Set(
+            specialNotificationCustomUserIds
+              .split(/[\s,]+/)
+              .map((value) => value.trim())
+              .filter(Boolean),
+          ),
+        )
+      : [];
+
+    if (specialNotificationAudience === "custom" && customUserIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "User IDs required",
+        description: "Enter at least one user ID for custom audience sends.",
+      });
+      return;
+    }
+
+    setSendingSpecialNotification(true);
+    try {
+      const sendPush = specialNotificationDelivery !== "in_app_only";
+      const sendInApp = specialNotificationDelivery !== "push_only";
+
+      const { data, error } = await supabase.functions.invoke("send-general-push", {
+        body: {
+          title,
+          body,
+          audience: specialNotificationAudience,
+          userIds: customUserIds,
+          sendPush,
+          sendInApp,
+          notificationType: specialNotificationType.trim() || "special",
+          deepLink: specialNotificationDeepLink.trim() || undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      const payload = (data || {}) as Record<string, any>;
+      const recipientCount = Number(payload.recipientCount || 0);
+      const inAppInserted = Number(payload.inAppInserted || 0);
+      const pushSent = Number(payload.push?.sent || 0);
+      const pushFailed = Number(payload.push?.failed || 0);
+      const skippedReason = String(payload.push?.skippedReason || "");
+
+      const summaryParts = [
+        `Recipients: ${recipientCount}`,
+        `In-app: ${inAppInserted}`,
+        `Push sent: ${pushSent}`,
+      ];
+      if (pushFailed > 0) summaryParts.push(`Push failed: ${pushFailed}`);
+      if (skippedReason) summaryParts.push(`Push: ${skippedReason.replace(/_/g, " ")}`);
+
+      toast({
+        title: "Special notification sent",
+        description: summaryParts.join(" · "),
+      });
+
+      setSpecialNotificationTitle("");
+      setSpecialNotificationBody("");
+      setSpecialNotificationCustomUserIds("");
+      setSpecialNotificationDeepLink("");
+    } catch (e) {
+      logError("admin.sendSpecialNotification", e);
+      toast({
+        variant: "destructive",
+        title: "Failed to send notification",
+        description: uiErrorMessage(e, "Please try again."),
+      });
+    } finally {
+      setSendingSpecialNotification(false);
     }
   };
 
@@ -4372,118 +4395,6 @@ For support, contact: support@merry360x.com
                   <span>Refreshing analytics…</span>
                 </div>
               )}
-            </Card>
-
-            <Card className="p-4 mb-6">
-              <div className="flex items-center justify-between mb-4 gap-3">
-                <div>
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> AI Usage & Win Rate
-                  </h3>
-                  <p className="text-xs text-muted-foreground">Last 30 days from FAQ, cache, OpenAI, and conversation ratings</p>
-                </div>
-                {isAiAnalyticsLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
-              </div>
-
-              {isAiAnalyticsError || isAiAnalyticsSeriesError ? (
-                <Alert className="mb-4">
-                  <AlertDescription>
-                    AI analytics is not configured in the database yet. Apply the Supabase migration
-                    {' '}20260325160000_add_ai_analytics_and_feedback.sql{' '}
-                    and refresh. Error: {uiErrorMessage((aiAnalyticsError as any) || (aiAnalyticsSeriesError as any))}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="text-sm">AI Requests</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">{aiAnalyticsSummary?.total_requests ?? 0}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Star className="w-4 h-4" />
-                    <span className="text-sm">Win Rate</span>
-                  </div>
-                  <p className="text-2xl font-bold text-primary">{Number(aiAnalyticsSummary?.win_rate ?? 0).toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">Based on thumbs up share</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <DollarSign className="w-4 h-4" />
-                    <span className="text-sm">AI Spend</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">${Number(aiAnalyticsSummary?.estimated_cost_usd ?? 0).toFixed(2)}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <CheckCircle className="w-4 h-4" />
-                    <span className="text-sm">Cost Saved</span>
-                  </div>
-                  <p className="text-2xl font-bold text-primary">${Number(aiAnalyticsSummary?.estimated_saved_usd ?? 0).toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">OpenAI replies</p>
-                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.openai_requests ?? 0}</p>
-                </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">FAQ hits</p>
-                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.faq_hits ?? 0}</p>
-                </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">Cache hits</p>
-                  <p className="text-lg font-semibold text-foreground">{aiAnalyticsSummary?.cache_hits ?? 0}</p>
-                </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">Feedback</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {aiAnalyticsSummary?.feedback_count ?? 0}
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      {aiAnalyticsSummary?.positive_feedback ?? 0} up / {aiAnalyticsSummary?.negative_feedback ?? 0} down
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl border p-3">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">AI Daily Trend</p>
-                    <p className="text-xs text-muted-foreground">30-day request volume and sentiment</p>
-                  </div>
-                  {isAiAnalyticsSeriesLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : null}
-                </div>
-
-                <ChartContainer config={aiChartConfig} className="w-full">
-                  <AreaChart data={aiAnalyticsChartData} margin={{ left: 12, right: 12, top: 8, bottom: 0 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="bucket"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      minTickGap={24}
-                      tickFormatter={(iso) => new Date(String(iso)).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                    />
-                    <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent formatter={(value) => <span className="font-mono">{Number(value ?? 0).toLocaleString()}</span>} />}
-                    />
-                    <Area dataKey="total_requests" type="monotone" stroke="var(--color-total_requests)" fill="var(--color-total_requests)" fillOpacity={0.12} strokeWidth={2} />
-                    <Area dataKey="openai_requests" type="monotone" stroke="var(--color-openai_requests)" fill="var(--color-openai_requests)" fillOpacity={0.08} strokeWidth={2} />
-                    <Area dataKey="positive_feedback" type="monotone" stroke="var(--color-positive_feedback)" fill="var(--color-positive_feedback)" fillOpacity={0.08} strokeWidth={2} />
-                    <Area dataKey="negative_feedback" type="monotone" stroke="var(--color-negative_feedback)" fill="var(--color-negative_feedback)" fillOpacity={0.05} strokeWidth={2} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                  </AreaChart>
-                </ChartContainer>
-              </div>
             </Card>
 
             <Card className="p-4 mb-6">
@@ -7224,6 +7135,126 @@ For support, contact: support@merry360x.com
           {/* SUPPORT TAB */}
           <TabsContent value="support">
             <div className="grid gap-6">
+              {/* Special Notification Generator */}
+              <Card className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Megaphone className="w-4 h-4" />
+                      Special Notification Generator
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Send targeted in-app and mobile push announcements to users.
+                    </p>
+                  </div>
+                  <Badge variant="outline">Admin / Staff</Badge>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Audience</p>
+                    <Select
+                      value={specialNotificationAudience}
+                      onValueChange={(value) => setSpecialNotificationAudience(value as SpecialNotificationAudience)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose audience" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All users</SelectItem>
+                        <SelectItem value="customers">Customers only</SelectItem>
+                        <SelectItem value="hosts">Hosts only</SelectItem>
+                        <SelectItem value="staff">Staff only</SelectItem>
+                        <SelectItem value="custom">Custom user IDs</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Delivery</p>
+                    <Select
+                      value={specialNotificationDelivery}
+                      onValueChange={(value) => setSpecialNotificationDelivery(value as SpecialNotificationDelivery)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose delivery" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="both">Push + In-app</SelectItem>
+                        <SelectItem value="push_only">Push only</SelectItem>
+                        <SelectItem value="in_app_only">In-app only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <p className="text-sm font-medium">Title</p>
+                    <Input
+                      value={specialNotificationTitle}
+                      onChange={(event) => setSpecialNotificationTitle(event.target.value)}
+                      maxLength={120}
+                      placeholder="Example: Limited offer on weekend stays"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <p className="text-sm font-medium">Message</p>
+                    <Textarea
+                      value={specialNotificationBody}
+                      onChange={(event) => setSpecialNotificationBody(event.target.value)}
+                      maxLength={500}
+                      rows={4}
+                      placeholder="Write the notification message that should be sent to users."
+                    />
+                  </div>
+
+                  {specialNotificationAudience === "custom" && (
+                    <div className="space-y-2 md:col-span-2">
+                      <p className="text-sm font-medium">Custom user IDs</p>
+                      <Input
+                        value={specialNotificationCustomUserIds}
+                        onChange={(event) => setSpecialNotificationCustomUserIds(event.target.value)}
+                        placeholder="uuid-1, uuid-2, uuid-3"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate user IDs by comma, space, or new line.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Notification type</p>
+                    <Input
+                      value={specialNotificationType}
+                      onChange={(event) => setSpecialNotificationType(event.target.value)}
+                      maxLength={64}
+                      placeholder="special"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Deep link (optional)</p>
+                    <Input
+                      value={specialNotificationDeepLink}
+                      onChange={(event) => setSpecialNotificationDeepLink(event.target.value)}
+                      maxLength={250}
+                      placeholder="/support or merry360x://offers"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end mt-4">
+                  <Button onClick={sendSpecialNotification} disabled={sendingSpecialNotification}>
+                    {sendingSpecialNotification ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Send special notification
+                  </Button>
+                </div>
+              </Card>
+
               {/* Ticket Activity Logs */}
               <TicketActivityLogs limit={100} filterStorageKey="ticket_activity_filter_admin_dashboard" />
 

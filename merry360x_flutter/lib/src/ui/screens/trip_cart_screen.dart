@@ -7,6 +7,7 @@ import '../utils/app_snackbar.dart';
 
 import '../../services/app_database.dart';
 import 'package:merry360x_flutter/src/lib/fees.dart';
+import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -151,8 +152,8 @@ class _TripCartScreenState extends State<TripCartScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             decoration: const BoxDecoration(
-              color: AppColors.white,
-              border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
             ),
             child: SafeArea(
               top: false,
@@ -246,9 +247,9 @@ class _CartItemTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEBEBEB)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
@@ -336,6 +337,12 @@ class _TotalBarState extends State<_TotalBar> {
 
   bool _showPriceDetails = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapPendingPromoCode();
+  }
+
   String _serviceTypeForItemType(String itemType) {
     switch (itemType) {
       case 'tour':
@@ -411,6 +418,14 @@ class _TotalBarState extends State<_TotalBar> {
     super.dispose();
   }
 
+  Future<void> _bootstrapPendingPromoCode() async {
+    final pendingCode = await getPendingPromoCode();
+    if (!mounted || pendingCode == null || pendingCode.isEmpty) return;
+
+    _promoCtrl.text = pendingCode;
+    await _applyPromo(autoTriggered: true);
+  }
+
   Map<String, double> _computeTotals() {
     // Guest totals (base minus promo discount, then service fee applied per item type)
     final totals = <String, double>{};
@@ -443,7 +458,7 @@ class _TotalBarState extends State<_TotalBar> {
     return totals;
   }
 
-  Future<void> _applyPromo() async {
+  Future<void> _applyPromo({bool autoTriggered = false}) async {
     final code = _promoCtrl.text.trim();
     if (code.isEmpty) return;
     setState(() { _applying = true; _promoMsg = null; _promoSuccess = false; });
@@ -462,7 +477,11 @@ class _TotalBarState extends State<_TotalBar> {
       );
       if (!mounted) return;
       if (result.data == null) {
-        setState(() { _discount = 0; _promoMsg = result.error ?? 'Invalid promo code.'; _appliedData = null; });
+        setState(() {
+          _discount = 0;
+          _promoMsg = autoTriggered ? null : (result.error ?? 'Invalid promo code.');
+          _appliedData = null;
+        });
         widget.onDiscountChanged?.call(null, null);
       } else {
         final type = (result.data!['discount_type'] ?? 'fixed').toString();
@@ -474,11 +493,17 @@ class _TotalBarState extends State<_TotalBar> {
           _promoSuccess = true;
           _appliedData = result.data;
         });
-        widget.onDiscountChanged?.call(code.toUpperCase().trim(), result.data);
+        final normalizedCode = code.toUpperCase().trim();
+        widget.onDiscountChanged?.call(normalizedCode, result.data);
+        await clearPendingPromoCode();
       }
     } catch (_) {
       if (mounted) {
-        setState(() { _promoMsg = 'Error validating code.'; _discount = 0; _appliedData = null; });
+        setState(() {
+          _promoMsg = autoTriggered ? null : 'Error validating code.';
+          _discount = 0;
+          _appliedData = null;
+        });
         widget.onDiscountChanged?.call(null, null);
       }
     } finally {
@@ -543,7 +568,7 @@ class _TotalBarState extends State<_TotalBar> {
                   decoration: InputDecoration(
                     hintText: 'Promo code',
                     hintStyle: const TextStyle(fontSize: 13),
-                    filled: true, fillColor: Colors.white,
+                    filled: true, fillColor: AppColors.surface,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -696,9 +721,9 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [

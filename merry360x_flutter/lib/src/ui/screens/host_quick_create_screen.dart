@@ -118,7 +118,7 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         leading: StageSafeLeadingButton(
           icon: Icons.chevron_left,
@@ -133,7 +133,7 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Step $_step of 2', style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              Text('Step $_step of 2', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
               const SizedBox(height: 10),
               LinearProgressIndicator(
                 value: _step / 2,
@@ -145,7 +145,7 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
               if (_step == 1) ...[
                 const Text('Quick setup', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
-                const Text('Name it and choose what you’re creating.', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                const Text('Name it and choose what you’re creating.', style: TextStyle(fontSize: 13, color: AppColors.foggy)),
                 const SizedBox(height: 18),
                 TextField(
                   controller: _titleCtrl,
@@ -171,7 +171,7 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
               ] else ...[
                 Text(_typeLabel, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
-                Text('We’ll take you through the full steps next.', style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                Text('We’ll take you through the full steps next.', style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
                 const SizedBox(height: 18),
                 Container(
                   width: double.infinity,
@@ -183,7 +183,7 @@ class _HostQuickCreateScreenState extends State<HostQuickCreateScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.edit_note, color: Colors.black54),
+                      const Icon(Icons.edit_note, color: AppColors.foggy),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(

@@ -26,6 +26,7 @@ const Transport = lazy(() => import("./pages/Transport"));
 const HostDashboard = lazy(() => import("./pages/HostDashboard"));
 const MyBookings = lazy(() => import("./pages/MyBookings"));
 const Favorites = lazy(() => import("./pages/Favorites"));
+const Messages = lazy(() => import("./pages/Messages"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const BecomeHost = lazy(() => import("./pages/BecomeHost"));
@@ -484,9 +485,9 @@ const App = () => (
               <Route
                 path="/create-story"
                 element={
-                  <RequireRole allowed={["host", "admin"]}>
+                  <RequireAuth>
                     <CreateStory />
-                  </RequireRole>
+                  </RequireAuth>
                 }
               />
               <Route
@@ -641,6 +642,14 @@ const App = () => (
                 }
               />
               <Route path="/favorites" element={<Favorites />} />
+              <Route
+                path="/messages"
+                element={
+                  <RequireAuth>
+                    <Messages />
+                  </RequireAuth>
+                }
+              />
               <Route path="/trip-cart" element={<TripCart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/secure-card-handoff" element={<SecureCardHandoff />} />

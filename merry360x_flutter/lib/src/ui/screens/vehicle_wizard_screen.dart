@@ -363,7 +363,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
         const SizedBox(height: 6),
         const Text(
           'Upload required legal documents.',
-          style: TextStyle(fontSize: 12, color: Colors.black45),
+          style: TextStyle(fontSize: 12, color: AppColors.foggy),
         ),
         const SizedBox(height: 16),
         docRow(
@@ -474,8 +474,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       children: _kKeyFeatures.map((f) => FilterChip(
         label: Text(f, style: const TextStyle(fontSize: 12)),
         selected: _keyFeatures.contains(f),
-        selectedColor: Colors.black.withValues(alpha: 0.06),
-        checkmarkColor: Colors.black87,
+        selectedColor: AppColors.black.withValues(alpha: 0.06),
+        checkmarkColor: AppColors.black,
         onSelected: (sel) => setState(() {
           if (sel) {
             _keyFeatures.add(f);
@@ -501,7 +501,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
         icon: const Icon(Icons.photo_library_outlined),
         label: const Text('Gallery'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black87,
+          foregroundColor: AppColors.black,
           side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
@@ -513,7 +513,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
           if (img != null) setState(() => _newFiles.add(img));
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black87,
+          foregroundColor: AppColors.black,
           side: BorderSide(color: Colors.grey.shade300),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
         ),
@@ -567,8 +567,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
                 }),
                 child: Container(
                   width: 22, height: 22,
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  decoration: const BoxDecoration(color: AppColors.foggy, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, size: 14, color: AppColors.surface),
                 ),
               ),
             ),
@@ -636,7 +636,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       const SizedBox(height: 16),
       const LinearProgressIndicator(color: _kRed),
       const SizedBox(height: 8),
-      const Center(child: Text('Uploading photos…', style: TextStyle(fontSize: 13, color: Colors.black54))),
+      const Center(child: Text('Uploading photos…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
     ],
   ]);
 }
@@ -657,7 +657,7 @@ class _VehicleBottomNav extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
     decoration: const BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       border: Border(top: BorderSide(color: Color(0xFFEBEBEB))),
     ),
     child: SizedBox(
@@ -701,7 +701,7 @@ class _VStepHeader extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
         ]),
       ),
     ],
@@ -801,7 +801,7 @@ class _VReviewCard extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(8),
     ),
     child: Column(children: children),
@@ -816,7 +816,7 @@ class _VReviewRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
     child: Row(children: [
-      Text(label, style: const TextStyle(color: Colors.black45, fontSize: 13)),
+      Text(label, style: const TextStyle(color: AppColors.foggy, fontSize: 13)),
       const Spacer(),
       Text(value.isEmpty ? '—' : value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
     ]),

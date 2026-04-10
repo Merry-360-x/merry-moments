@@ -227,8 +227,8 @@ export default function Dashboard() {
   }, [profile?.created_at]);
 
   const canCreateStory = useMemo(() => {
-    return roles.includes("host") || roles.includes("admin");
-  }, [roles]);
+    return !!user;
+  }, [user]);
 
   const canManagePostBooking = useMemo(() => {
     return roles.some((role) => ["admin", "financial_staff", "operations_staff", "customer_support"].includes(role));
@@ -464,6 +464,37 @@ export default function Dashboard() {
 
               <div className="mt-4 text-lg font-semibold text-foreground">{profile?.full_name || "Merry 360 X"}</div>
               <div className="text-sm text-muted-foreground">{user?.email}</div>
+
+              <div className="mt-5 w-full rounded-xl border border-border bg-muted/30 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">Stories</span>
+                  <Link to="/stories" className="text-xs font-medium text-primary hover:underline">View all</Link>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <Link to="/create-story" className="flex flex-col items-center gap-1.5">
+                    <div className="relative">
+                      <Avatar className="h-14 w-14 border-[2px] border-primary">
+                        <AvatarImage src={profile?.avatar_url ?? undefined} alt="Your story" />
+                        <AvatarFallback>
+                          {(profile?.full_name ?? user?.email ?? "Y").slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -right-1 -bottom-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-background bg-primary text-primary-foreground">
+                        <PlusCircle className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Your story</span>
+                  </Link>
+
+                  <Link to="/stories" className="flex flex-col items-center gap-1.5">
+                    <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-border bg-background">
+                      <Compass className="h-5 w-5 text-muted-foreground" />
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">Community</span>
+                  </Link>
+                </div>
+              </div>
             </div>
 
             <div className="mt-6 rounded-xl border border-border bg-muted/30 p-4">

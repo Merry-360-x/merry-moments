@@ -152,9 +152,9 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const ReturnButton(color: AppColors.black, fallbackRoute: '/'),
@@ -183,7 +183,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Step ${_step + 1} of 3',
-                  style: const TextStyle(color: Colors.black38, fontSize: 13)),
+                  style: const TextStyle(color: AppColors.hackberry, fontSize: 13)),
               const SizedBox(height: 6),
               if (_draftRestored) ...[
                 Container(
@@ -215,7 +215,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
                 const SizedBox(height: 4),
                 const Text('Tell us a little about yourself.',
-                    style: TextStyle(color: Colors.black54)),
+                    style: TextStyle(color: AppColors.foggy)),
                 const SizedBox(height: 20),
                 _ValidatedField(ctrl: _nameCtrl, label: 'Full Name', required: true),
                 _ValidatedField(ctrl: _phoneCtrl, label: 'Phone Number',
@@ -232,7 +232,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
                 const SizedBox(height: 4),
                 const Text('Select all service types you plan to provide.',
-                    style: TextStyle(color: Colors.black54)),
+                    style: TextStyle(color: AppColors.foggy)),
                 const SizedBox(height: 20),
                 ..._kServiceOptions.map((item) {
                   final (value, icon, title, subtitle) = item;
@@ -247,16 +247,16 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: selected ? _kRed.withValues(alpha: 0.06) : Colors.white,
+                        color: selected ? _kRed.withValues(alpha: 0.06) : AppColors.surface,
                         border: Border.all(color: selected ? _kRed : const Color(0xFFE0E0E0), width: selected ? 2 : 1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(children: [
-                        Icon(icon, color: selected ? _kRed : Colors.black45),
+                        Icon(icon, color: selected ? _kRed : AppColors.foggy),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? _kRed : Colors.black87)),
-                          Text(subtitle, style: const TextStyle(color: Colors.black45, fontSize: 12)),
+                          Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? _kRed : AppColors.black)),
+                          Text(subtitle, style: const TextStyle(color: AppColors.foggy, fontSize: 12)),
                         ])),
                         if (selected) const Icon(Icons.check_circle, color: _kRed, size: 20),
                       ]),
@@ -277,7 +277,7 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
                 const SizedBox(height: 4),
                 const Text('We need to verify your identity to activate your host account.',
-                    style: TextStyle(color: Colors.black54)),
+                    style: TextStyle(color: AppColors.foggy)),
                 const SizedBox(height: 20),
                 _ValidatedField(ctrl: _nationalIdCtrl, label: 'National ID Number', required: true),
                 Container(
@@ -365,7 +365,7 @@ class _SuccessView extends StatelessWidget {
           alreadySubmitted
               ? 'Your host application is under review. We\'ll notify you once it\'s approved.'
               : 'Thank you for applying! Our team will review your application and get back to you within 2–3 business days.',
-          style: const TextStyle(color: Colors.black54, fontSize: 15, height: 1.5),
+          style: const TextStyle(color: AppColors.foggy, fontSize: 15, height: 1.5),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),

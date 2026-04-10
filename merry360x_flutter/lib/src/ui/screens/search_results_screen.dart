@@ -126,7 +126,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
     final all = _all;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(112),
         child: SafeArea(
@@ -347,7 +347,7 @@ class _ResultCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFEAEAEA)),
         ),

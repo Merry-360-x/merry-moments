@@ -209,7 +209,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                               },
                             );
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            Navigator.of(this.context).pop();
                             AppSnackBar.success(this.context, 'Charge created.');
                             await _loadOverview(showSpinner: false);
                           } catch (error) {
@@ -352,7 +352,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                               },
                             );
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            Navigator.of(this.context).pop();
                             AppSnackBar.success(this.context, 'Modification proposal sent.');
                             await _loadOverview(showSpinner: false);
                           } catch (error) {
@@ -449,7 +449,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
                               },
                             );
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            Navigator.of(this.context).pop();
                             AppSnackBar.success(this.context, 'Dispute updated.');
                             await _loadOverview(showSpinner: false);
                           } catch (error) {
@@ -476,9 +476,9 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
   Widget build(BuildContext context) {
     if (!widget.session.canManagePostBooking) {
       return Scaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         appBar: AppBar(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -502,9 +502,9 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
 
     if (_loading) {
       return Scaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         appBar: AppBar(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -524,9 +524,9 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
     }).length;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -650,7 +650,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -752,7 +752,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -823,7 +823,7 @@ class _AdminPostBookingScreenState extends State<AdminPostBookingScreen>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE7E7EC)),
             ),
@@ -962,7 +962,7 @@ class _AdminStatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE7E7EC)),
       ),

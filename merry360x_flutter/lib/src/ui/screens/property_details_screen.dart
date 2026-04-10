@@ -10,6 +10,7 @@ import 'package:merry360x_flutter/src/lib/fees.dart';
 import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
+import 'messages_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PropertyDetailsScreen
@@ -56,6 +57,13 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   int _currentImage = 0;
   bool _liked = false;
 
+  String? _hostId;
+  Map<String, dynamic>? _hostProfile;
+  int _hostFollowersCount = 0;
+  bool _isFollowingHost = false;
+  bool _loadingHostActions = false;
+  bool _togglingFollow = false;
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +81,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         _full = widget.item;
         _loading = false;
       });
+      unawaited(_loadHostActions(widget.item));
       unawaited(_loadRecommendations(widget.item));
       return;
     }
@@ -83,6 +92,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         _full = resolved;
         _loading = false;
       });
+      unawaited(_loadHostActions(resolved));
       unawaited(_loadRecommendations(resolved));
     } catch (e) {
       setState(() {
@@ -90,7 +100,163 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         _loading = false;
         _error = e.toString();
       });
+      unawaited(_loadHostActions(widget.item));
       unawaited(_loadRecommendations(widget.item));
+    }
+  }
+
+  String _resolveHostId(Map<String, dynamic> source) {
+    final possibleKeys = <String>[
+      'host_id',
+      'created_by',
+      'user_id',
+      'owner_id',
+      'provider_id',
+    ];
+
+    for (final key in possibleKeys) {
+      final value = (source[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+
+    return '';
+  }
+
+  Future<void> _loadHostActions(Map<String, dynamic> source) async {
+    final hostId = _resolveHostId(source);
+    if (hostId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _hostId = null;
+        _hostProfile = null;
+        _hostFollowersCount = 0;
+        _isFollowingHost = false;
+        _loadingHostActions = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _loadingHostActions = true;
+      _hostId = hostId;
+    });
+
+    try {
+      final profileFuture = widget.session.fetchPublicProfile(userId: hostId);
+      final followersFuture = widget.session.fetchHostFollowersCount(hostId: hostId);
+      final followingFuture = widget.session.isAuthenticated
+          ? widget.session.isFollowingHost(hostId: hostId)
+          : Future<bool>.value(false);
+
+      final results = await Future.wait<dynamic>([
+        profileFuture,
+        followersFuture,
+        followingFuture,
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _hostProfile = results[0] as Map<String, dynamic>?;
+        _hostFollowersCount = results[1] as int;
+        _isFollowingHost = results[2] as bool;
+        _loadingHostActions = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingHostActions = false);
+    }
+  }
+
+  String get _hostDisplayName {
+    final nickname = (_hostProfile?['nickname'] ?? '').toString().trim();
+    if (nickname.isNotEmpty) return nickname;
+    final fullName = (_hostProfile?['full_name'] ?? '').toString().trim();
+    if (fullName.isNotEmpty) return fullName;
+    return 'Host';
+  }
+
+  Future<void> _contactHost() async {
+    final hostId = (_hostId ?? '').trim();
+    if (hostId.isEmpty) {
+      _showSnack('Host profile is not available right now.', isError: true);
+      return;
+    }
+    if (!widget.session.isAuthenticated) {
+      _showSnack('Sign in to message hosts');
+      return;
+    }
+    if (hostId == widget.session.userId) {
+      _showSnack('This listing belongs to you.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DirectMessageThreadScreen(
+          session: widget.session,
+          peerId: hostId,
+          peerDisplayName: _hostDisplayName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleFollowHost() async {
+    if (_togglingFollow || _loadingHostActions) return;
+
+    final hostId = (_hostId ?? '').trim();
+    if (hostId.isEmpty) {
+      _showSnack('Host profile is not available right now.', isError: true);
+      return;
+    }
+    if (!widget.session.isAuthenticated) {
+      _showSnack('Sign in to follow hosts');
+      return;
+    }
+    if (hostId == widget.session.userId) {
+      _showSnack('You cannot follow your own profile.');
+      return;
+    }
+
+    final wasFollowing = _isFollowingHost;
+    setState(() {
+      _togglingFollow = true;
+      _isFollowingHost = !wasFollowing;
+      if (wasFollowing) {
+        _hostFollowersCount = _hostFollowersCount > 0 ? _hostFollowersCount - 1 : 0;
+      } else {
+        _hostFollowersCount = _hostFollowersCount + 1;
+      }
+    });
+
+    try {
+      if (wasFollowing) {
+        await widget.session.unfollowHost(hostId: hostId);
+      } else {
+        await widget.session.followHost(hostId: hostId);
+      }
+      if (!mounted) return;
+      _showSnack(
+        wasFollowing
+            ? 'Removed from followed hosts.'
+            : 'You are now following this host.',
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isFollowingHost = wasFollowing;
+        if (wasFollowing) {
+          _hostFollowersCount = _hostFollowersCount + 1;
+        } else {
+          _hostFollowersCount = _hostFollowersCount > 0 ? _hostFollowersCount - 1 : 0;
+        }
+      });
+      _showSnack('Could not update follow status', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _togglingFollow = false);
+      }
     }
   }
 
@@ -306,15 +472,21 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       initialDateRange: (_checkIn != null && _checkOut != null)
           ? DateTimeRange(start: _checkIn!, end: _checkOut!)
           : null,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.rausch,
-            onPrimary: Colors.white,
+      builder: (context, child) {
+        final base = Theme.of(context);
+        return Theme(
+          data: base.copyWith(
+            colorScheme: base.colorScheme.copyWith(
+              primary: AppColors.rausch,
+              onPrimary: Colors.white,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(foregroundColor: AppColors.rausch),
+            ),
           ),
-        ),
-        child: child!,
-      ),
+          child: child!,
+        );
+      },
     );
     if (result != null) {
       setState(() {
@@ -424,16 +596,27 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     final bedrooms = item['bedrooms']?.toString();
     final bathrooms = item['bathrooms']?.toString();
     final beds = item['beds']?.toString();
+    final hostId = (_hostId ?? '').trim();
+    final hasHost = hostId.isNotEmpty;
+    final hostName = _hostDisplayName;
+    final hostAvatarUrl = (_hostProfile?['avatar_url'] ?? '').toString().trim();
+    final hostTotalReviews = int.tryParse(
+      (_hostProfile?['review_count'] ??
+              _hostProfile?['reviews_count'] ??
+              reviewCount ??
+              '')
+          .toString(),
+    );
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       // ── Fixed bottom action bar ──
       bottomNavigationBar: Container(
         padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad + 10),
         decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
         ),
         child: Row(
           children: [
@@ -476,7 +659,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               fit: StackFit.expand,
               children: [
                 if (_loading)
-                  Container(color: const Color(0xFFF0F0F3))
+                  Container(color: AppColors.surfaceSubtle)
                 else
                   GestureDetector(
                     onTap: () => _openGallery(images, _currentImage),
@@ -625,6 +808,120 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   const SizedBox(height: 16),
                 ],
 
+                if (hasHost) ...[
+                  const Text('Connect with host', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            if (hostAvatarUrl.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  hostAvatarUrl,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFEFF0),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(Icons.person_outline, color: AppColors.rausch, size: 20),
+                                  ),
+                                ),
+                              )
+                            else
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFEFF0),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.person_outline, color: AppColors.rausch, size: 20),
+                              ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    hostName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _loadingHostActions
+                                        ? 'Loading host details...'
+                                        : '${hostTotalReviews ?? 0} reviews · $_hostFollowersCount follower${_hostFollowersCount == 1 ? '' : 's'}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: (_loadingHostActions || _togglingFollow)
+                                    ? null
+                                    : _toggleFollowHost,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.black,
+                                  side: const BorderSide(color: AppColors.black),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: _togglingFollow
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : Text(_isFollowingHost ? 'Following' : 'Follow'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: _contactHost,
+                                icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                                label: const Text('Message'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.rausch,
+                                  foregroundColor: AppColors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                ],
+
                 if (_loadingRecommendations || _hasRecommendations) ...[
                   const Text('Recommended for your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
@@ -659,7 +956,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFD4D4D8)),
+                      border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(children: [
@@ -688,7 +985,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFD4D4D8)),
+                    border: Border.all(color: AppColors.border),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(children: [
@@ -771,10 +1068,13 @@ class _GalleryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final placeholderColor = AppColors.surfaceSubtle;
+    final placeholderIconColor = AppColors.hackberry;
+
     if (images.isEmpty) {
       return Container(
-        color: const Color(0xFFF0F0F3),
-        child: const Center(child: Icon(Icons.image_outlined, size: 60, color: Color(0xFF8E8E98))),
+        color: placeholderColor,
+        child: Center(child: Icon(Icons.image_outlined, size: 60, color: placeholderIconColor)),
       );
     }
     return PageView.builder(
@@ -785,8 +1085,8 @@ class _GalleryView extends StatelessWidget {
           images[index],
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => Container(
-            color: const Color(0xFFF0F0F3),
-            child: const Icon(Icons.broken_image_outlined, size: 48, color: Color(0xFF8E8E98)),
+            color: placeholderColor,
+            child: Icon(Icons.broken_image_outlined, size: 48, color: placeholderIconColor),
           ),
         );
       },
@@ -810,7 +1110,7 @@ class _DotIndicator extends StatelessWidget {
           height: 6,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: i == current ? AppColors.rausch : const Color(0xFFD4D4D8),
+            color: i == current ? AppColors.rausch : AppColors.border,
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -1075,6 +1375,8 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageFallbackColor = AppColors.surfaceSubtle;
+    final imageFallbackIconColor = AppColors.hackberry;
     final title = _cardTitle(item);
     final imageUrl = resolveListingImageUrl(item) ?? '';
     final rating = (item['rating'] ?? item['average_rating'])?.toString();
@@ -1110,32 +1412,14 @@ class _RecommendationCard extends StatelessWidget {
                             imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
-                              color: const Color(0xFFF0F0F3),
-                              child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8E8E98)),
+                              color: imageFallbackColor,
+                              child: Icon(Icons.broken_image_outlined, color: imageFallbackIconColor),
                             ),
                           )
                         : Container(
-                            color: const Color(0xFFF0F0F3),
-                            child: const Icon(Icons.image_outlined, color: Color(0xFF8E8E98)),
+                            color: imageFallbackColor,
+                            child: Icon(Icons.image_outlined, color: imageFallbackIconColor),
                           ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
-                          ],
-                        ),
-                        child: const Text(
-                          'Guest favorite',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
-                        ),
-                      ),
-                    ),
                     Positioned(
                       top: 10,
                       right: 10,
@@ -1179,7 +1463,7 @@ class _RecommendationCard extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF222222)),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black),
             ),
             const SizedBox(height: 4),
             Row(
@@ -1190,7 +1474,7 @@ class _RecommendationCard extends StatelessWidget {
                       children: [
                         TextSpan(
                           text: '${_priceMain(item)} ${_priceSuffix(item)}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF717171)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                         ),
                       ],
                     ),
@@ -1200,11 +1484,11 @@ class _RecommendationCard extends StatelessWidget {
                 ),
                 if (rating != null && rating != 'null') ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.star, size: 14, color: Color(0xFF222222)),
+                  const Icon(Icons.star, size: 14, color: AppColors.black),
                   const SizedBox(width: 3),
                   Text(
                     rating,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF222222)),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.black),
                   ),
                 ],
               ],
@@ -1276,7 +1560,7 @@ class _CircleBtn extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           shape: BoxShape.circle,
           boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 6)],
         ),
@@ -1328,9 +1612,9 @@ class _SpecChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF555560)),
+        Icon(icon, size: 16, color: AppColors.hackberry),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF222222))),
+        Text(label, style: const TextStyle(fontSize: 14, color: AppColors.hof)),
       ],
     );
   }
@@ -1340,6 +1624,24 @@ class _AmenityChip extends StatelessWidget {
   const _AmenityChip({required this.amenity});
 
   final String amenity;
+
+  String _label(String raw) {
+    final normalized = raw
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (normalized.isEmpty) return raw;
+
+    return normalized
+        .split(' ')
+        .where((word) => word.isNotEmpty)
+        .map((word) {
+          final lower = word.toLowerCase();
+          if (lower.length == 1) return lower.toUpperCase();
+          return '${lower[0].toUpperCase()}${lower.substring(1)}';
+        })
+        .join(' ');
+  }
 
   IconData _icon(String a) {
     final lower = a.toLowerCase();
@@ -1359,18 +1661,33 @@ class _AmenityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chipColor = isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F7);
+    final chipBorderColor = isDark ? const Color(0xFF2A3342) : Colors.transparent;
+    final maxChipWidth = MediaQuery.sizeOf(context).shortestSide >= 600 ? 280.0 : 210.0;
+    final label = _label(amenity);
+
     return Container(
+      constraints: BoxConstraints(maxWidth: maxChipWidth),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F7),
+        color: chipColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: chipBorderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_icon(amenity), size: 14, color: const Color(0xFF555560)),
+          Icon(_icon(amenity), size: 14, color: AppColors.hackberry),
           const SizedBox(width: 5),
-          Text(amenity, style: const TextStyle(fontSize: 13, color: Color(0xFF222222))),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, color: AppColors.black),
+            ),
+          ),
         ],
       ),
     );
@@ -1399,7 +1716,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(displayText, style: const TextStyle(fontSize: 15, color: Color(0xFF444450), height: 1.5)),
+        Text(displayText, style: const TextStyle(fontSize: 15, color: AppColors.hof, height: 1.5)),
         if (shouldTruncate)
           GestureDetector(
             onTap: () => setState(() => _expanded = !_expanded),
@@ -1463,6 +1780,10 @@ class _Btn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    final borderColor = disabled ? AppColors.border : AppColors.hackberry;
+    final iconColor = disabled ? AppColors.hackberry : AppColors.black;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1471,10 +1792,10 @@ class _Btn extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: onTap == null ? const Color(0xFFDDDDDD) : const Color(0xFF888888),
+            color: borderColor,
           ),
         ),
-        child: Icon(icon, size: 16, color: onTap == null ? const Color(0xFFDDDDDD) : const Color(0xFF222222)),
+        child: Icon(icon, size: 16, color: iconColor),
       ),
     );
   }
@@ -1533,8 +1854,9 @@ class _PriceSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
+        color: AppColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1613,7 +1935,7 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = bold
         ? const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)
-        : const TextStyle(fontSize: 14, color: Color(0xFF444450));
+        : const TextStyle(fontSize: 14, color: AppColors.hof);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
