@@ -387,15 +387,15 @@ const Navbar = () => {
           </Link>
 
           {/* Main Navigation - Desktop */}
-          <div className="hidden lg:flex items-center gap-1 flex-1 min-w-0 mx-2">
-            <div className="flex items-center gap-1 flex-wrap">
+          <div className="hidden lg:flex items-center flex-1 min-w-0 mx-2 overflow-hidden">
+            <div className="flex items-center gap-1 whitespace-nowrap">
               {navLinks.map((link) => {
                 const isActive = location.pathname === link.path;
                 return (
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`px-2.5 xl:px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    className={`shrink-0 px-2.5 xl:px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-primary/10 text-primary border border-primary"
                         : "text-foreground hover:text-primary"
@@ -409,11 +409,11 @@ const Navbar = () => {
           </div>
 
           {/* Right Actions - Desktop */}
-          <div className="hidden lg:flex items-center gap-0.5 xl:gap-1.5">
+          <div className="hidden lg:flex items-center gap-0.5 xl:gap-1">
             {/* Become host / Host dashboard (primary) */}
             <Button
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-3"
+              className="h-9 gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-3 shrink-0"
               onClick={() => navigate(isHost ? "/host-dashboard" : "/become-host")}
               type="button"
             >
@@ -429,7 +429,7 @@ const Navbar = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 px-3 relative"
+                className="relative h-9 gap-2 px-3 shrink-0"
                 onClick={() => navigate("/admin?tab=overview")}
                 type="button"
               >
@@ -445,7 +445,7 @@ const Navbar = () => {
             ) : null}
 
             <button
-              className="p-2 rounded-full hover:bg-muted transition-colors"
+              className="h-9 w-9 rounded-full hover:bg-muted transition-colors shrink-0"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               aria-label={t("labels.theme")}
               type="button"
@@ -460,7 +460,7 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm"
+                  className="flex h-9 items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm shrink-0"
                   aria-label={t("labels.currency")}
                 >
                   <span className="hidden xl:inline">
@@ -491,7 +491,7 @@ const Navbar = () => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm">
+                <button className="flex h-9 items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm shrink-0">
                   <span>{language.toUpperCase()}</span>
                   <ChevronDown className="w-3 h-3 xl:w-4 xl:h-4" />
                 </button>
@@ -507,9 +507,9 @@ const Navbar = () => {
             </DropdownMenu>
 
             <Link to="/trip-cart">
-              <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
+              <Button variant="outline" size="sm" className="relative h-9 gap-1 xl:gap-2 px-2 xl:px-2.5 shrink-0">
                 <TripCartIcon className="w-4 h-4 shrink-0" />
-                <span className="hidden xl:inline">{t("actions.tripCart")}</span>
+                <span className="hidden 2xl:inline">{t("actions.tripCart")}</span>
                 {tripCartCount > 0 ? (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
                     {tripCartCount > 99 ? "99+" : tripCartCount}
@@ -518,12 +518,11 @@ const Navbar = () => {
               </Button>
             </Link>
 
-            <Link to="/messages">
-              <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
+            <Link to="/messages" aria-label="Messages">
+              <Button variant="outline" size="sm" className="relative h-9 w-9 p-0 shrink-0" aria-label="Messages">
                 <MessageSquare className="w-4 h-4" />
-                <span className="hidden xl:inline">Messages</span>
                 {user && unreadDirectMessagesCount > 0 ? (
-                  <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
                     {unreadDirectMessagesCount > 99 ? "99+" : unreadDirectMessagesCount}
                   </span>
                 ) : null}
@@ -531,7 +530,7 @@ const Navbar = () => {
             </Link>
 
             <Link to="/favorites">
-              <button className="p-2 rounded-full hover:bg-muted transition-colors">
+              <button className="h-9 w-9 rounded-full hover:bg-muted transition-colors shrink-0">
                 <Heart className="w-5 h-5 text-muted-foreground" />
               </button>
             </Link>
