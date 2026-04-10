@@ -659,6 +659,17 @@ export default function CheckoutNew() {
     updateCheckoutDates(nextCheckIn, nextCheckOut);
   };
 
+  const stayDatesDirty =
+    isDirectPropertyCheckout &&
+    (draftStayDates.checkIn !== checkInParam || draftStayDates.checkOut !== checkOutParam);
+
+  const stayDatesValid = (() => {
+    if (!draftStayDates.checkIn || !draftStayDates.checkOut) return false;
+    const start = parseDateValue(draftStayDates.checkIn);
+    const end = parseDateValue(draftStayDates.checkOut);
+    return Boolean(start && end && end > start);
+  })();
+
   // When geo-detection resolves, update payment defaults (only once, before user interacts)
   useEffect(() => {
     if (detectedCountry && !geoApplied) {
@@ -2597,19 +2608,6 @@ export default function CheckoutNew() {
                                   };
                                 });
                               }}
-                              onBlur={(e) => {
-                                const nextCheckIn = e.target.value;
-                                if (!nextCheckIn) return;
-
-                                const nextCheckOut = !draftStayDates.checkOut || draftStayDates.checkOut <= nextCheckIn
-                                  ? addDaysToDateOnly(nextCheckIn, 1)
-                                  : draftStayDates.checkOut;
-
-                                commitDraftStayDates({
-                                  checkIn: nextCheckIn,
-                                  checkOut: nextCheckOut,
-                                });
-                              }}
                               className="mt-1.5"
                             />
                           </div>
@@ -2630,18 +2628,23 @@ export default function CheckoutNew() {
                                   checkOut: nextCheckOut,
                                 }));
                               }}
-                              onBlur={(e) => {
-                                const nextCheckOut = e.target.value;
-                                if (!nextCheckOut || !draftStayDates.checkIn) return;
-
-                                commitDraftStayDates({
-                                  checkIn: draftStayDates.checkIn,
-                                  checkOut: nextCheckOut,
-                                });
-                              }}
                               className="mt-1.5"
                             />
                           </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 pt-1">
+                          <p className="text-xs text-muted-foreground">
+                            Dates update after you confirm them.
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => commitDraftStayDates()}
+                            disabled={!stayDatesDirty || !stayDatesValid}
+                          >
+                            Update dates
+                          </Button>
                         </div>
                       </div>
                     )}
