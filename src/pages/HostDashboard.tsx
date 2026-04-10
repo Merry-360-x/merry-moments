@@ -8017,10 +8017,10 @@ export default function HostDashboard() {
     <div className="min-h-[100dvh] bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container mx-auto overflow-x-hidden px-4 py-8">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold text-foreground">Host Dashboard</h1>
               {hostProfile?.profile_complete && (
                 <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
@@ -8031,8 +8031,8 @@ export default function HostDashboard() {
             </div>
             <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/post-booking")}> 
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <Button variant="outline" size="sm" className="w-full justify-center sm:w-auto" onClick={() => navigate("/post-booking")}> 
               <CreditCard className="w-4 h-4 mr-2" />
               Post-Booking Center
             </Button>
@@ -8062,13 +8062,13 @@ export default function HostDashboard() {
         )}
 
         <Tabs value={tab} onValueChange={setHostTab}>
-          <div className="mb-6 max-w-full overflow-x-auto">
-            <TabsList className="w-max min-w-full justify-start">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="properties">Properties ({(properties || []).length})</TabsTrigger>
-              <TabsTrigger value="tours">Tours ({(tours || []).length})</TabsTrigger>
-              <TabsTrigger value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
-              <TabsTrigger value="bookings">
+          <div className="mb-6 max-w-full overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="inline-flex h-auto min-w-max justify-start gap-1 rounded-xl p-1">
+              <TabsTrigger className="shrink-0 rounded-lg" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="properties">Properties ({(properties || []).length})</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="tours">Tours ({(tours || []).length})</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="bookings">
                 Bookings ({totalBookingsCount})
                 {pendingBookings > 0 && (
                   <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
@@ -8076,11 +8076,11 @@ export default function HostDashboard() {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="manual-reviews">Manual Reviews</TabsTrigger>
-              <TabsTrigger value="discounts">Discount Codes</TabsTrigger>
-              <TabsTrigger value="financial">Financial Reports</TabsTrigger>
-              <TabsTrigger value="payout-methods">Payout Methods</TabsTrigger>
-              <TabsTrigger value="calendar-availability">Calendar & Availability</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="manual-reviews">Manual Reviews</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="discounts">Discount Codes</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="financial">Financial Reports</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="payout-methods">Payout Methods</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-lg" value="calendar-availability">Calendar & Availability</TabsTrigger>
             </TabsList>
           </div>
 

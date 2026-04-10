@@ -1393,6 +1393,7 @@ export default function SupportCenterLauncher() {
       : "Choose one of the guided options below or ask anything related to Merry360X...";
 
   const hideLauncherOnRoute =
+    location.pathname.startsWith("/host-dashboard") ||
     location.pathname.startsWith("/checkout") ||
     location.pathname.startsWith("/secure-card-handoff") ||
     location.pathname.startsWith("/payment-");
