@@ -27,6 +27,7 @@ import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { convertAmount } from "@/lib/fx";
 import { uploadFile } from "@/lib/uploads";
+import { getDraftWizardStep } from "@/lib/draft-session";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -820,7 +821,7 @@ export default function HostDashboard() {
       if (savedProperty) {
         const parsed = JSON.parse(savedProperty);
         setPropertyForm({ ...createDefaultPropertyForm(), ...(parsed.form || {}) });
-        setWizardStep(parsed.step || 1);
+        setWizardStep(getDraftWizardStep(parsed.step, 5, parsed.timestamp));
       }
     } catch (e) {
       console.error('Failed to load property draft:', e);
@@ -844,7 +845,7 @@ export default function HostDashboard() {
   const savePropertyDraft = useCallback((form = propertyForm, step = wizardStep) => {
     if (!hasPropertyDraftContent(form, step)) return false;
     try {
-      localStorage.setItem(PROPERTY_FORM_KEY, JSON.stringify({ form, step }));
+      localStorage.setItem(PROPERTY_FORM_KEY, JSON.stringify({ form, step, timestamp: new Date().toISOString() }));
       return true;
     } catch (e) {
       console.error('Failed to save property draft:', e);
@@ -904,7 +905,7 @@ export default function HostDashboard() {
       if (savedVehicle) {
         const parsed = JSON.parse(savedVehicle);
         setVehicleForm(parsed.form);
-        setVehicleWizardStep(parsed.step || 1);
+        setVehicleWizardStep(getDraftWizardStep(parsed.step, 4, parsed.timestamp));
       }
     } catch (e) {
       console.error('Failed to load vehicle draft:', e);
@@ -915,7 +916,7 @@ export default function HostDashboard() {
   useEffect(() => {
     if (showVehicleWizard && vehicleForm.title) {
       try {
-        localStorage.setItem(VEHICLE_FORM_KEY, JSON.stringify({ form: vehicleForm, step: vehicleWizardStep }));
+        localStorage.setItem(VEHICLE_FORM_KEY, JSON.stringify({ form: vehicleForm, step: vehicleWizardStep, timestamp: new Date().toISOString() }));
       } catch (e) {
         console.error('Failed to save vehicle draft:', e);
       }

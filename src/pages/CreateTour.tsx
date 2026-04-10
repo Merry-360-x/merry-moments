@@ -24,6 +24,7 @@ import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { roundToCurrency } from "@/lib/fx";
 import { isVideoUrl } from "@/lib/media";
+import { getDraftWizardStep } from "@/lib/draft-session";
 
 const categories = ["Nature", "Adventure", "Cultural", "Wildlife", "Historical", "City Tours", "Eco-Tourism", "Photography"];
 const tourPricingModels = [
@@ -287,7 +288,7 @@ export default function CreateTour() {
         if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
         if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
         if (typeof draft.wizardStep === "number") {
-          setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+          setWizardStep(getDraftWizardStep(draft.wizardStep, totalSteps, draft.timestamp));
         }
         const restoredAt = new Date(draft.timestamp);
         setLastSaved(restoredAt);

@@ -18,6 +18,7 @@ import { CURRENCY_OPTIONS } from "@/lib/currencies";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { isVideoUrl } from "@/lib/media";
+import { getDraftWizardStep } from "@/lib/draft-session";
 
 const isVideoPreviewSrc = (src: string) => /^data:video\//i.test(src) || isVideoUrl(src);
 
@@ -311,6 +312,7 @@ export default function CreateTransport() {
       try {
         const parsed = JSON.parse(savedData);
         if (parsed.formData) setFormData(parsed.formData);
+        setWizardStep(getDraftWizardStep(parsed.wizardStep, totalSteps, parsed.timestamp));
         const restoredAt = new Date(parsed.timestamp);
         setLastSaved(restoredAt);
         setRestoredDraftAt(restoredAt);
@@ -361,6 +363,7 @@ export default function CreateTransport() {
     const timer = setTimeout(() => {
       const dataToSave = {
         formData,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(storageKey, JSON.stringify(dataToSave));
@@ -368,7 +371,7 @@ export default function CreateTransport() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [formData, draftLoaded, isEditMode, hasDraftContent, user?.id, editId]);
+  }, [formData, draftLoaded, isEditMode, hasDraftContent, user?.id, editId, wizardStep]);
 
   useEffect(() => {
     const storageKey = getStorageKey();
@@ -378,6 +381,7 @@ export default function CreateTransport() {
 
       const dataToSave = {
         formData,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(storageKey, JSON.stringify(dataToSave));
@@ -385,13 +389,14 @@ export default function CreateTransport() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [formData, hasDraftContent, isEditMode, user?.id, editId]);
+  }, [formData, hasDraftContent, isEditMode, user?.id, editId, wizardStep]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
     const storageKey = getStorageKey();
     const dataToSave = {
       formData,
+      wizardStep,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(storageKey, JSON.stringify(dataToSave));

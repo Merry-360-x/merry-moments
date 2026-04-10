@@ -15,8 +15,7 @@ import TourPromoCard from "@/components/TourPromoCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTourPricingModel } from "@/lib/tour-pricing";
-import { queuePromoPrefillCode, SAVE10_PROMO_CODE } from "@/lib/promoPrefill";
-import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, Mail, Plus, Sparkles, Tag, TrendingUp, X } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, Mail, Plus, Sparkles, TrendingUp, X } from "lucide-react";
 import heroVideo from "@/assets/merry.mp4";
 
 const HOME_UPDATES_DISMISS_KEY = "home-updates-popup-dismissed-at";
@@ -467,29 +466,6 @@ const Index = () => {
           </aside>
         </div>
 
-      </section>
-
-      <section className="container mx-auto px-4 pt-4 md:pt-6">
-        <div className="rounded-2xl border border-slate-200 bg-[#D6E6F5] px-4 py-5 md:px-8 md:py-6 text-slate-900">
-          <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white/60 text-slate-700">
-              <Tag className="h-5 w-5" />
-            </span>
-            <h3 className="text-xl md:text-3xl font-bold leading-tight">
-              Taste your activities in a day and your transportation all in one place.
-            </h3>
-            <p className="text-sm md:text-lg text-slate-700">
-              Save 10% on selected stays with code <span className="font-extrabold tracking-wide">SAVE10</span>.
-            </p>
-            <a
-              href="#selected-stays"
-              onClick={() => queuePromoPrefillCode(SAVE10_PROMO_CODE)}
-              className="text-sm md:text-xl font-semibold underline underline-offset-4 hover:text-slate-800"
-            >
-              Book now
-            </a>
-          </div>
-        </div>
       </section>
 
       <section id="selected-stays" className="container mx-auto px-4 pt-10 pb-16">

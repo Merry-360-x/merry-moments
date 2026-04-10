@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { isVideoUrl } from "@/lib/media";
+import { getDraftWizardStep } from "@/lib/draft-session";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus", "Truck", "Luxury"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -130,6 +131,7 @@ export default function CreateCarRental() {
         if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
         if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
         if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
+        setWizardStep(getDraftWizardStep(draft.wizardStep, totalSteps, draft.timestamp));
         setLastSaved(new Date(draft.timestamp));
         if (restoredFromKey && restoredFromKey !== primaryDraftKey) {
           localStorage.setItem(primaryDraftKey, savedDraft);
@@ -178,6 +180,7 @@ export default function CreateCarRental() {
         registrationDoc,
         roadworthinessDoc,
         ownerIdDoc,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -185,7 +188,7 @@ export default function CreateCarRental() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, hasDraftContent]);
+  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, hasDraftContent, wizardStep]);
 
   // Save on page unload
   useEffect(() => {
@@ -201,6 +204,7 @@ export default function CreateCarRental() {
         registrationDoc,
         roadworthinessDoc,
         ownerIdDoc,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -208,7 +212,7 @@ export default function CreateCarRental() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, hasDraftContent]);
+  }, [formData, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, hasDraftContent, wizardStep]);
 
   const clearDraft = () => {
     const draftKey = getStorageKey();
@@ -226,6 +230,7 @@ export default function CreateCarRental() {
       registrationDoc,
       roadworthinessDoc,
       ownerIdDoc,
+      wizardStep,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));

@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { isVideoUrl } from "@/lib/media";
+import { getDraftWizardStep } from "@/lib/draft-session";
 
 const carTypes = ["SUV", "Sedan", "Hatchback", "Coupe", "Wagon", "Van", "Minibus"];
 const transmissionTypes = ["Automatic", "Manual", "Hybrid"];
@@ -228,6 +229,7 @@ export default function CreateAirportTransfer() {
         if (draft.registrationDoc) setRegistrationDoc(draft.registrationDoc);
         if (draft.roadworthinessDoc) setRoadworthinessDoc(draft.roadworthinessDoc);
         if (draft.ownerIdDoc) setOwnerIdDoc(draft.ownerIdDoc);
+        setWizardStep(getDraftWizardStep(draft.wizardStep, totalSteps, draft.timestamp));
         const restoredAt = new Date(draft.timestamp);
         setLastSaved(restoredAt);
         setRestoredDraftAt(restoredAt);
@@ -276,6 +278,7 @@ export default function CreateAirportTransfer() {
         registrationDoc,
         roadworthinessDoc,
         ownerIdDoc,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -283,7 +286,7 @@ export default function CreateAirportTransfer() {
     }, 1000); // Debounce 1 second
 
     return () => clearTimeout(timer);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, isEditMode, hasDraftContent]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, draftLoaded, getStorageKey, isEditMode, hasDraftContent, wizardStep]);
 
   // Save on page unload
   useEffect(() => {
@@ -300,6 +303,7 @@ export default function CreateAirportTransfer() {
         registrationDoc,
         roadworthinessDoc,
         ownerIdDoc,
+        wizardStep,
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -307,7 +311,7 @@ export default function CreateAirportTransfer() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, isEditMode, hasDraftContent]);
+  }, [formData, selectedRoutes, exteriorImages, interiorImages, insuranceDoc, registrationDoc, roadworthinessDoc, ownerIdDoc, user?.id, getStorageKey, isEditMode, hasDraftContent, wizardStep]);
 
   const clearDraft = () => {
     const draftKey = getStorageKey();
@@ -326,6 +330,7 @@ export default function CreateAirportTransfer() {
       registrationDoc,
       roadworthinessDoc,
       ownerIdDoc,
+      wizardStep,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));

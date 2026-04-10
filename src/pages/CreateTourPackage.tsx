@@ -23,6 +23,7 @@ import { HostCreationSubpage } from "@/components/HostCreationSubpage";
 import { Progress } from "@/components/ui/progress";
 import { roundToCurrency } from "@/lib/fx";
 import { isVideoUrl } from "@/lib/media";
+import { getDraftWizardStep } from "@/lib/draft-session";
 
 const categories = ["Cultural", "Adventure", "Wildlife", "City Tours", "Hiking", "Photography", "Historical", "Eco-Tourism"];
 const tourTypes = ["Private", "Group"];
@@ -376,7 +377,7 @@ Some components are non-refundable once booked, including but not limited to:
         if (draft.licenseUrl) setLicenseUrl(draft.licenseUrl);
         if (draft.pdfUrl) setPdfUrl(draft.pdfUrl);
         if (typeof draft.wizardStep === "number") {
-          setWizardStep(Math.max(1, Math.min(totalSteps, Math.floor(draft.wizardStep))));
+          setWizardStep(getDraftWizardStep(draft.wizardStep, totalSteps, draft.timestamp));
         }
         const restoredAt = new Date(draft.timestamp);
         setLastSaved(restoredAt);

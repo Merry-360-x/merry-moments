@@ -548,6 +548,10 @@ const Navbar = () => {
                     {user.email}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/profile") }>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Account
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     markBookingDecisionsSeen();
                     navigate("/my-bookings");

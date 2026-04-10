@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -24,6 +24,7 @@ import { requestPasswordReset } from "@/lib/password-reset";
 type ProfileRow = {
   user_id: string;
   full_name: string | null;
+  nickname?: string | null;
   phone: string | null;
   avatar_url: string | null;
   bio?: string | null;
@@ -62,6 +63,8 @@ export default function Dashboard() {
   const { user, signOut, roles } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const [resetting, setResetting] = useState(false);
@@ -191,13 +194,29 @@ export default function Dashboard() {
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const defaultTab = location.pathname === "/profile" ? "personal" : "trips";
+  const requestedTab = searchParams.get("tab");
+  const activeTab = requestedTab === "personal" || requestedTab === "security" || requestedTab === "trips"
+    ? requestedTab
+    : defaultTab;
+
   useEffect(() => {
     setFullName(profile?.full_name ?? "");
     setPhone(profile?.phone ?? "");
     setDob(profile?.date_of_birth ?? "");
     setBio(profile?.bio ?? "");
-    setNickname((profile as any)?.nickname ?? "");
+    setNickname(profile?.nickname ?? "");
   }, [profile]);
+
+  const handleAccountTabChange = (nextTab: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === defaultTab) {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const completeProfileMissing = useMemo(
     () => phone.trim().length < 7 || !dob.trim() || !fullName.trim(),
@@ -250,6 +269,7 @@ export default function Dashboard() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
+        user_id: user.id,
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
         bio: bio.trim() || null,
@@ -260,8 +280,7 @@ export default function Dashboard() {
 
       const { error } = await supabase
         .from("profiles")
-        .update(payload)
-        .eq("user_id", user.id);
+        .upsert(payload, { onConflict: "user_id" });
       
       if (error) {
         // Ignore AbortError - can happen on navigation or component unmount
@@ -301,8 +320,8 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background px-6 py-6 lg:px-8 lg:py-7">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Website Profile</h1>
-                  <p className="text-muted-foreground mt-1">Your account, trips, saved places, and security in one place.</p>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Account</h1>
+                  <p className="text-muted-foreground mt-1">Your profile, trips, saved places, and security in one place.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-background/90 border border-border px-3 py-1 text-xs font-medium text-foreground">
@@ -437,8 +456,7 @@ export default function Dashboard() {
                     try {
                       const { error } = await supabase
                         .from("profiles")
-                        .update({ avatar_url: next || null })
-                        .eq("user_id", user.id);
+                        .upsert({ user_id: user.id, avatar_url: next || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
                       if (error) throw error;
                       queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
                       toast({ title: "Avatar updated" });
@@ -565,7 +583,7 @@ export default function Dashboard() {
 
           {/* Right content */}
           <div className="lg:col-span-8">
-            <Tabs defaultValue="trips" className="w-full">
+            <Tabs value={activeTab} onValueChange={handleAccountTabChange} className="w-full">
               <TabsList className="w-full justify-start bg-card rounded-xl p-1 border border-border overflow-x-auto">
                 <TabsTrigger value="trips" className="px-4 sm:px-5 gap-2 whitespace-nowrap">
                   <LayoutDashboard className="w-4 h-4" />
@@ -783,15 +801,15 @@ export default function Dashboard() {
                 <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
               </div>
               <div>
-                <Label htmlFor="nickname">Display Name (Nickname)</Label>
+                <Label htmlFor="nickname">Host preferred name / nickname</Label>
                 <Input 
                   id="nickname" 
                   value={nickname} 
                   onChange={(e) => setNickname(e.target.value)} 
-                  placeholder="Optional - shown to guests" 
+                  placeholder="Optional - the name guests should see" 
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  This name will be shown to guests instead of your full name
+                  If you host stays or services, this will be shown to guests instead of your full name.
                 </p>
               </div>
               <div>

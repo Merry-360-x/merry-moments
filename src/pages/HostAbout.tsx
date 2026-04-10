@@ -17,16 +17,18 @@ export default function HostAbout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url, bio, created_at")
+        .select("user_id, full_name, nickname, avatar_url, bio, created_at")
         .or(`user_id.eq.${hostId},id.eq.${hostId}`)
         .maybeSingle();
       if (error) throw error;
       return (data ??
         null) as
-        | { user_id: string; full_name: string | null; avatar_url: string | null; bio: string | null; created_at: string }
+        | { user_id: string; full_name: string | null; nickname: string | null; avatar_url: string | null; bio: string | null; created_at: string }
         | null;
     },
   });
+
+  const hostDisplayName = host?.nickname || host?.full_name || "Host";
 
   const hostUserId = host?.user_id ? String(host.user_id) : hostId;
 
@@ -89,12 +91,12 @@ export default function HostAbout() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-start gap-3">
                 {host?.avatar_url ? (
-                  <img src={host.avatar_url} alt={host.full_name ?? "Host"} className="w-14 h-14 rounded-full object-cover" />
+                  <img src={host.avatar_url} alt={hostDisplayName} className="w-14 h-14 rounded-full object-cover" />
                 ) : (
                   <div className="w-14 h-14 rounded-full bg-muted" />
                 )}
                 <div>
-                  <div className="text-xl font-semibold text-foreground">{host?.full_name ?? "Host"}</div>
+                  <div className="text-xl font-semibold text-foreground">{hostDisplayName}</div>
                   <div className="text-sm text-muted-foreground">
                     {reviewStats?.reviewCount ? `${reviewStats.reviewCount} reviews` : "No reviews yet"}
                     {reviewStats?.rating ? ` · ${reviewStats.rating} overall` : ""}
@@ -103,7 +105,7 @@ export default function HostAbout() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <HostSocialActions hostId={hostUserId} hostName={host?.full_name} />
+                <HostSocialActions hostId={hostUserId} hostName={hostDisplayName} />
                 <Link to={`/hosts/${encodeURIComponent(hostUserId)}/reviews`}>
                   <Button variant="outline">All reviews</Button>
                 </Link>

@@ -553,7 +553,7 @@ const Accommodations = () => {
       const hid = String(hostId ?? "");
       const { data: prof, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url, bio")
+        .select("user_id, full_name, nickname, avatar_url, bio")
         .eq("user_id", hid)
         .maybeSingle();
       if (error) throw error;
@@ -581,7 +581,7 @@ const Accommodations = () => {
       const avg = reviewCount > 0 ? ratings.reduce((a, b) => a + b, 0) / reviewCount : null;
 
       return {
-        profile: prof as { user_id: string; full_name: string | null; avatar_url: string | null; bio: string | null } | null,
+        profile: prof as { user_id: string; full_name: string | null; nickname: string | null; avatar_url: string | null; bio: string | null } | null,
         listings: propIds.length,
         hostingSince: hostingSince ? new Date(hostingSince).toISOString() : null,
         reviewCount,
@@ -589,6 +589,8 @@ const Accommodations = () => {
       };
     },
   });
+
+  const hostPreviewName = hostPreview?.profile?.nickname || hostPreview?.profile?.full_name || "Host";
 
   const { data: favoriteIds = [] } = useQuery({
     queryKey: ["favorites", "ids", user?.id],
@@ -712,7 +714,7 @@ const Accommodations = () => {
                 {hostPreview.profile?.avatar_url ? (
                   <img
                     src={hostPreview.profile.avatar_url}
-                    alt={hostPreview.profile.full_name ?? "Host"}
+                    alt={hostPreviewName}
                     className="w-12 h-12 rounded-full object-cover"
                     loading="lazy"
                   />
@@ -721,7 +723,7 @@ const Accommodations = () => {
                 )}
                 <div>
                   <div className="text-lg font-semibold text-foreground">
-                    Hosted by {hostPreview.profile?.full_name ?? "Host"}
+                    Hosted by {hostPreviewName}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {hostPreview.listings} listings

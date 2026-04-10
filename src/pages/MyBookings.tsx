@@ -81,6 +81,7 @@ interface Booking {
   } | null;
   host_profile?: {
     full_name: string | null;
+    nickname: string | null;
     email: string | null;
     phone: string | null;
   } | null;
@@ -200,7 +201,7 @@ const MyBookings = () => {
             if (hostId) {
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('full_name, email, phone')
+                .select('full_name, nickname, email, phone')
                 .eq('user_id', hostId)
                 .single();
               return { ...booking, host_profile: profile };
@@ -1298,8 +1299,8 @@ const MyBookings = () => {
                           <div className="rounded-lg border border-border bg-muted/20 p-3">
                             <p className="text-xs font-semibold text-foreground mb-2">Host Contact</p>
                             <div className="space-y-2">
-                              {firstBooking.host_profile.full_name && (
-                                <p className="text-sm font-medium">{firstBooking.host_profile.full_name}</p>
+                              {(firstBooking.host_profile.nickname || firstBooking.host_profile.full_name) && (
+                                <p className="text-sm font-medium">{firstBooking.host_profile.nickname || firstBooking.host_profile.full_name}</p>
                               )}
                               {firstBooking.host_profile.email && (
                                 <a href={`mailto:${firstBooking.host_profile.email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
