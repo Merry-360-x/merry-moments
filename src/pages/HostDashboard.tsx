@@ -8062,12 +8062,12 @@ export default function HostDashboard() {
         )}
 
         <Tabs value={tab} onValueChange={setHostTab}>
-          <div className="mb-6 max-w-full overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <TabsList className="inline-flex h-auto min-w-max justify-start gap-1 rounded-xl p-1">
-              <TabsTrigger className="shrink-0 rounded-lg" value="overview">Overview</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="properties">Properties ({(properties || []).length})</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="tours">Tours ({(tours || []).length})</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
+          <div className="mb-6 max-w-full pb-2 sm:overflow-x-auto sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:inline-flex sm:min-w-max sm:flex-nowrap">
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="overview">Overview</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="properties">Properties ({(properties || []).length})</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="tours">Tours ({(tours || []).length})</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="transport">Transport ({(vehicles || []).length})</TabsTrigger>
               <TabsTrigger className="shrink-0 rounded-lg" value="bookings">
                 Bookings ({totalBookingsCount})
                 {pendingBookings > 0 && (
@@ -8076,11 +8076,11 @@ export default function HostDashboard() {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="manual-reviews">Manual Reviews</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="discounts">Discount Codes</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="financial">Financial Reports</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="payout-methods">Payout Methods</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-lg" value="calendar-availability">Calendar & Availability</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="manual-reviews">Manual Reviews</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="discounts">Discount Codes</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="financial">Financial Reports</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="payout-methods">Payout Methods</TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="calendar-availability">Calendar & Availability</TabsTrigger>
             </TabsList>
           </div>
 
@@ -8165,21 +8165,23 @@ export default function HostDashboard() {
 
           {/* Properties */}
           <TabsContent value="properties">
-            <div className="flex justify-between items-center gap-2 mb-4">
-              <div className="text-sm text-muted-foreground">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl text-sm text-muted-foreground">
                 Need to send a direct review link? Use <span className="font-medium text-foreground">Manual Reviews</span>.
               </div>
-              <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setHostTab("manual-reviews")}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setHostTab("manual-reviews")}>
                 <Send className="w-4 h-4 mr-2" /> Send Review Request
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 variant="outline"
                 onClick={() => openRoomWizard()}
               >
                 <Plus className="w-4 h-4 mr-2" /> Create Room
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 variant="outline"
                 onClick={() => {
                   resetPropertyForm();
@@ -8199,7 +8201,7 @@ export default function HostDashboard() {
               >
                 <Plus className="w-4 h-4 mr-2" /> Add Monthly Stay Property
               </Button>
-              <Button onClick={openPropertyWizard}>
+              <Button className="w-full sm:w-auto" onClick={openPropertyWizard}>
                 <Plus className="w-4 h-4 mr-2" /> Add Property
               </Button>
               </div>
