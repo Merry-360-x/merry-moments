@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart,
   ChevronDown,
-  ShoppingBag,
   Moon,
   Sun,
   LogOut,
@@ -38,6 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTripCart } from "@/hooks/useTripCart";
 import { useQuery } from "@tanstack/react-query";
 import { normalizeAdminMetrics } from "@/lib/admin-metrics";
+import tripCartIcon from "../../merry360x_flutter/assets/nav/tripcart.png";
 
 const navLinks = [
   { key: "nav.home", path: "/" },
@@ -491,7 +491,7 @@ const Navbar = () => {
 
             <Link to="/trip-cart">
               <Button variant="outline" size="sm" className="gap-1 xl:gap-2 relative px-2 xl:px-3">
-                <CalendarDays className="w-4 h-4 xl:hidden" />
+                <img src={tripCartIcon} alt="" aria-hidden="true" className="w-4 h-4 shrink-0 object-contain" />
                 <span className="hidden xl:inline">{t("actions.tripCart")}</span>
                 {tripCartCount > 0 ? (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
@@ -758,7 +758,7 @@ const Navbar = () => {
                   </Link>
                   <Link to="/trip-cart" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="outline" size="sm" className="relative max-w-full shrink min-w-0 h-10 px-3 gap-1.5">
-                      <ShoppingBag className="w-4 h-4 shrink-0" />
+                      <img src={tripCartIcon} alt="" aria-hidden="true" className="w-4 h-4 shrink-0 object-contain" />
                       {t("actions.tripCart")}
                       {tripCartCount > 0 ? (
                         <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">

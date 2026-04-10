@@ -842,6 +842,18 @@ export default function PropertyDetails() {
     return { months };
   }, [nights]);
 
+  const effectiveDisplayPrice = useMemo(() => {
+    if (!data) return 0;
+
+    if (isMonthlyOnlyListing) {
+      return Number(data.price_per_month ?? 0);
+    }
+
+    const displayDate = checkIn ?? new Date();
+    const customPrice = getCustomPriceForDate(displayDate);
+    return customPrice ?? Number(data.price_per_night ?? 0);
+  }, [data, isMonthlyOnlyListing, checkIn, getCustomPriceForDate]);
+
   useEffect(() => {
     if (!isMonthlyOnlyListing || !checkIn) return;
     const start = new Date(checkIn);
@@ -1671,7 +1683,7 @@ export default function PropertyDetails() {
                   <div className="text-lg font-bold text-primary">
                     {isMonthlyOnlyListing
                       ? displayMoney(Number(data.price_per_month ?? 0), String(data.currency ?? "RWF"))
-                      : displayMoney(Number(data.price_per_night), String(data.currency ?? "RWF"))}
+                      : displayMoney(effectiveDisplayPrice, String(data.currency ?? "RWF"))}
                     <span className="text-sm text-muted-foreground">
                       {isMonthlyOnlyListing ? ` ${t("common.perMonth", "per month")}` : ` ${t("common.perNight")}`}
                     </span>
@@ -2560,7 +2572,7 @@ export default function PropertyDetails() {
             <div className="min-w-0 leading-tight">
               <p className="text-2xl font-extrabold tracking-tight text-foreground truncate">
                 {displayMoney(
-                  Number(isMonthlyOnlyListing ? data.price_per_month ?? 0 : data.price_per_night ?? 0),
+                  Number(isMonthlyOnlyListing ? data.price_per_month ?? 0 : effectiveDisplayPrice),
                   String(data.currency ?? "RWF")
                 )}
               </p>
