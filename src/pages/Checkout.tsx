@@ -2491,7 +2491,7 @@ export default function CheckoutNew() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 pb-40 md:pb-12">
+      <div className="max-w-6xl mx-auto px-4 py-6 md:py-12 pb-40 md:pb-12">
         <div ref={checkoutStepTopRef} />
         {/* Header */}
         <div className="mb-8">
@@ -2506,7 +2506,7 @@ export default function CheckoutNew() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Progress Steps */}
-            <div className="flex items-center mb-8">
+            <div className="mb-8 flex items-center overflow-hidden">
               {STEP_ORDER.map((step, index) => {
                 const isActive = step === currentStep;
                 const isCompleted = STEP_ORDER.indexOf(currentStep) > index;
@@ -2514,13 +2514,13 @@ export default function CheckoutNew() {
                 const labels = { details: t("checkout.steps.details"), payment: t("checkout.steps.payment"), confirm: t("checkout.steps.confirm") };
                 
                 return (
-                  <div key={step} className="flex items-center flex-1">
+                  <div key={step} className="flex min-w-0 flex-1 items-center">
                     <button
                       onClick={() => {
                         if (isCompleted) goToStep(step);
                       }}
                       className={cn(
-                        "flex items-center gap-2 transition-colors",
+                        "flex min-w-0 items-center gap-2 transition-colors",
                         isActive && "text-foreground",
                         isCompleted && "text-foreground cursor-pointer hover:text-primary",
                         !isActive && !isCompleted && "text-muted-foreground"
@@ -2534,11 +2534,11 @@ export default function CheckoutNew() {
                       )}>
                         {stepNumber}
                       </div>
-                      <span className="text-sm font-medium hidden sm:inline">{labels[step]}</span>
+                      <span className="hidden min-w-0 truncate text-sm font-medium md:inline">{labels[step]}</span>
                     </button>
                     {index < STEP_ORDER.length - 1 && (
                       <div className={cn(
-                        "flex-1 h-px mx-4",
+                        "mx-2 h-px flex-1 md:mx-4",
                         isCompleted ? "bg-green-500" : "bg-border"
                       )} />
                     )}
@@ -2548,7 +2548,7 @@ export default function CheckoutNew() {
             </div>
 
             {/* Step Content */}
-            <div className="bg-card rounded-2xl border border-border/50 p-6 md:p-8">
+            <div className="bg-card rounded-2xl border border-border/50 p-4 sm:p-6 md:p-8">
               {/* Step 1: Details */}
               {currentStep === 'details' && (
                 <div className="space-y-6">
@@ -3246,17 +3246,17 @@ export default function CheckoutNew() {
                   {/* Card/Bank notice */}
                   {(paymentMethod === 'card' || paymentMethod === 'bank') && (
                     <div className="rounded-xl border border-border bg-card p-4">
-                      <div className="flex gap-3">
+                        <div className="flex min-w-0 gap-3">
                         {paymentMethod === 'card' ? (
                           <LockKeyhole className="w-5 h-5 text-foreground shrink-0 mt-0.5" />
                         ) : (
                           <Clock className="w-5 h-5 text-foreground shrink-0 mt-0.5" />
                         )}
-                        <div className="text-sm">
+                          <div className="min-w-0 text-sm">
                           <p className="font-medium text-foreground mb-1">
                             {paymentMethod === 'card' ? 'Secure payment step' : 'Bank transfer follow-up'}
                           </p>
-                          <p className="text-muted-foreground">
+                            <p className="break-words text-muted-foreground">
                             {paymentMethod === 'card'
                               ? <>After clicking "Pay", the Flutterwave secure modal opens on this page. Enter your card details there — no full-page redirect, and card data never touches our servers.</>
                               : <>After clicking "Pay", our payment team will call you at <span className="font-medium text-foreground">{formData.email}</span> to complete your bank transfer.</>}
@@ -3271,14 +3271,14 @@ export default function CheckoutNew() {
                   <div className="bg-muted/30 rounded-xl p-4 space-y-3">
                     <h4 className="text-sm font-medium mb-3">{t("checkout.review.beforeProceed")}</h4>
                     
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <label className="group flex min-w-0 items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={acceptedTerms}
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
                         className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="min-w-0 break-words text-sm text-muted-foreground transition-colors group-hover:text-foreground">
                         {t("checkout.review.agreeTerms")}{' '}
                         <Link to="/terms-and-conditions" target="_blank" className="text-primary hover:underline font-medium">
                           {t("checkout.review.termsConditions")}
@@ -3286,14 +3286,14 @@ export default function CheckoutNew() {
                       </span>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <label className="group flex min-w-0 items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={acceptedPrivacy}
                         onChange={(e) => setAcceptedPrivacy(e.target.checked)}
                         className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="min-w-0 break-words text-sm text-muted-foreground transition-colors group-hover:text-foreground">
                         I have read and understood the{' '}
                         <Link to="/privacy-policy" target="_blank" className="text-primary hover:underline font-medium">
                           {t("checkout.review.privacyPolicy")}
@@ -3301,14 +3301,14 @@ export default function CheckoutNew() {
                       </span>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <label className="group flex min-w-0 items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={acceptedCancellation}
                         onChange={(e) => setAcceptedCancellation(e.target.checked)}
                         className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                       />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="min-w-0 break-words text-sm text-muted-foreground transition-colors group-hover:text-foreground">
                         I understand the{' '}
                         <Link to="/refund-policy" target="_blank" className="text-primary hover:underline font-medium">
                           {t("checkout.review.cancellationPolicy")}
@@ -3316,7 +3316,7 @@ export default function CheckoutNew() {
                       </span>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer group">
+                    <label className="group flex min-w-0 items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={acceptedAdult}
@@ -3324,7 +3324,7 @@ export default function CheckoutNew() {
                         disabled={profileAdultConfirmed}
                         className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-60"
                       />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="min-w-0 break-words text-sm text-muted-foreground transition-colors group-hover:text-foreground">
                         I confirm I am 18 years or older.
                       </span>
                     </label>
@@ -3382,15 +3382,15 @@ export default function CheckoutNew() {
 
                   {/* Validation hint */}
                   {(!acceptedTerms || !acceptedPrivacy || !acceptedCancellation) && (
-                    <p className="text-xs text-center text-muted-foreground">
+                    <p className="text-xs text-muted-foreground md:text-center">
                       {t("checkout.review.acceptAll")}
                     </p>
                   )}
 
                   {/* Security Note */}
-                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">
-                    <Shield className="w-4 h-4" />
-                    {t("checkout.review.securedEncrypted")}
+                  <div className="flex flex-wrap items-center gap-2 pt-4 text-xs text-muted-foreground md:justify-center">
+                    <Shield className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 break-words">{t("checkout.review.securedEncrypted")}</span>
                   </div>
                 </div>
               )}
@@ -3629,10 +3629,10 @@ export default function CheckoutNew() {
       {cartItems.length > 0 && (
         <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
           <div
-            className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+            className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 py-3"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
-            <div className="min-w-0 max-w-[48vw]">
+            <div className="min-w-0 max-w-[42vw] xs:max-w-[48vw] sm:max-w-none">
               <p className="text-xs text-muted-foreground">Total</p>
               <p className="text-base font-semibold text-foreground truncate">{formatMoney(payableAmount, displayCurrency)}</p>
             </div>
