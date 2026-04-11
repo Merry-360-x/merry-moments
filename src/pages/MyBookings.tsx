@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle, CalendarClock, Mail, Phone } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Star, AlertTriangle, CalendarClock, Mail, Phone, CreditCard, Smartphone, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -101,6 +101,108 @@ type SupportTicketRow = {
   status: string | null;
 };
 
+type PostBookingCharge = {
+  id: string;
+  booking_id: string;
+  charge_type: string;
+  amount: number;
+  currency: string;
+  description: string;
+  status: string;
+  created_at: string;
+  payment_reference?: string | null;
+};
+
+type PostBookingDispute = {
+  id: string;
+  charge_id: string | null;
+  status: string;
+};
+
+type GuestPostBookingOverview = {
+  charges: PostBookingCharge[];
+  disputes: PostBookingDispute[];
+};
+
+const mobileProviders = [
+  { value: "MTN", label: "MTN Mobile Money" },
+  { value: "AIRTEL", label: "Airtel Money" },
+  { value: "MPESA", label: "M-Pesa" },
+  { value: "VODACOM", label: "Vodacom M-Pesa" },
+  { value: "ORANGE", label: "Orange Money" },
+];
+
+async function getAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || "";
+}
+
+async function postBookingRequest(action: string, body: Record<string, unknown> = {}) {
+  const token = await getAccessToken();
+  const response = await fetch("/api/post-booking", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ action, ...body }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || "Request failed");
+  }
+  return payload;
+}
+
+async function fetchGuestPostBookingOverview(): Promise<GuestPostBookingOverview> {
+  const token = await getAccessToken();
+  const response = await fetch("/api/post-booking?action=user-overview", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || "Failed to fetch post-booking data");
+  }
+
+  return {
+    charges: payload.charges || [],
+    disputes: payload.disputes || [],
+  };
+}
+
+function humanizePostBookingLabel(value: string) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function postBookingStatusTone(status: string) {
+  const value = String(status || "").toLowerCase();
+  if (value === "paid" || value === "approved" || value === "settled") return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100";
+  if (value === "failed" || value === "rejected" || value === "cancelled") return "bg-rose-100 text-rose-700 hover:bg-rose-100";
+  if (value === "disputed" || value === "in_review") return "bg-amber-100 text-amber-700 hover:bg-amber-100";
+  return "bg-slate-100 text-slate-700 hover:bg-slate-100";
+}
+
+function summarizeChargeTotals(charges: Array<{ amount: number; currency: string }>) {
+  const totals = new Map<string, number>();
+
+  charges.forEach((charge) => {
+    const currency = String(charge.currency || "USD").toUpperCase();
+    const amount = Number(charge.amount || 0);
+    totals.set(currency, (totals.get(currency) || 0) + amount);
+  });
+
+  return Array.from(totals.entries())
+    .map(([currency, amount]) => formatMoney(amount, currency))
+    .join(" · ");
+}
+
 const getLatestBookingDecisionTimestamp = (bookings: Booking[]) => bookings
   .filter((booking) => booking.confirmation_status === "approved" || booking.confirmation_status === "rejected")
   .map((booking) => booking.confirmed_at || booking.rejected_at || "")
@@ -134,6 +236,10 @@ const MyBookings = () => {
   const [requestingRefundKey, setRequestingRefundKey] = useState<string | null>(null);
   const [requestedRefundKeys, setRequestedRefundKeys] = useState<Set<string>>(new Set());
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
+  const [payMethodByCharge, setPayMethodByCharge] = useState<Record<string, string>>({});
+  const [mobileProviderByCharge, setMobileProviderByCharge] = useState<Record<string, string>>({});
+  const [mobilePhoneByCharge, setMobilePhoneByCharge] = useState<Record<string, string>>({});
+  const [processingChargeId, setProcessingChargeId] = useState<string | null>(null);
   const lastDecisionToastRef = useRef<string>("");
 
   useEffect(() => {
@@ -294,6 +400,14 @@ const MyBookings = () => {
       return refs;
     },
     placeholderData: new Set<string>(),
+    staleTime: 30000,
+  });
+
+  const { data: postBookingOverview = { charges: [], disputes: [] }, refetch: refetchPostBookingOverview } = useQuery({
+    queryKey: ["guest-post-booking-overview", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: fetchGuestPostBookingOverview,
+    placeholderData: { charges: [], disputes: [] },
     staleTime: 30000,
   });
 
@@ -799,6 +913,99 @@ const MyBookings = () => {
     }
   };
 
+  const handlePayCharge = useCallback(async (charge: PostBookingCharge) => {
+    const method = payMethodByCharge[charge.id] || "card";
+    const provider = mobileProviderByCharge[charge.id] || "MTN";
+    const phone = mobilePhoneByCharge[charge.id] || "";
+
+    if (method === "mobile_money" && !phone.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Phone number required",
+        description: "Enter a mobile money number to continue.",
+      });
+      return;
+    }
+
+    setProcessingChargeId(charge.id);
+
+    try {
+      const payload: Record<string, unknown> = {
+        charge_id: charge.id,
+        method,
+        initialize: true,
+      };
+
+      if (method === "mobile_money") {
+        payload.provider = provider;
+        payload.phone_number = phone.trim();
+      }
+
+      const result = await postBookingRequest("pay-charge", payload);
+
+      if (method === "card") {
+        if (result?.flutterwave?.ok === false) {
+          const message =
+            result?.flutterwave?.body?.error ||
+            result?.flutterwave?.body?.message ||
+            "Could not initialize card payment.";
+          throw new Error(String(message));
+        }
+
+        const redirectUrl =
+          result?.flutterwave?.body?.redirectUrl ||
+          result?.flutterwave?.body?.link ||
+          result?.redirectUrl;
+
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+          return;
+        }
+
+        if (result.checkout_id) {
+          navigate(`/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&provider=flutterwave`);
+          return;
+        }
+      }
+
+      if (method === "mobile_money") {
+        if (result?.mobile_money?.ok === false) {
+          const message =
+            result?.mobile_money?.body?.error ||
+            result?.mobile_money?.body?.message ||
+            "Could not initialize mobile money payment.";
+          throw new Error(String(message));
+        }
+
+        const depositId =
+          result?.mobile_money?.body?.depositId ||
+          result?.mobile_money?.body?.data?.depositId;
+
+        if (result.checkout_id && depositId) {
+          navigate(
+            `/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&depositId=${encodeURIComponent(String(depositId))}&provider=pawapay`
+          );
+          return;
+        }
+
+        toast({
+          title: "Payment initiated",
+          description: "Follow the mobile-money prompt on your phone to complete payment.",
+        });
+      }
+
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Payment failed",
+        description: error instanceof Error ? error.message : "Could not process payment.",
+      });
+    } finally {
+      setProcessingChargeId(null);
+    }
+  }, [mobilePhoneByCharge, mobileProviderByCharge, navigate, payMethodByCharge, refetchPostBookingOverview, toast]);
+
   if (authLoading) {
     return null;
   }
@@ -817,6 +1024,19 @@ const MyBookings = () => {
     return (params.get("checkoutId") || "").trim();
   }, [location.search]);
 
+  const paymentLinkedBookingGroupKey = useMemo(() => {
+    if (!paymentCheckoutId) return "";
+
+    const matchingCharge = postBookingOverview.charges.find((charge) => charge.payment_reference === paymentCheckoutId);
+    if (!matchingCharge) return "";
+
+    const matchedGroupEntry = Object.entries(groupedBookings).find(([, orderBookings]) =>
+      orderBookings.some((booking) => booking.id === matchingCharge.booking_id)
+    );
+
+    return matchedGroupEntry?.[0] || "";
+  }, [groupedBookings, paymentCheckoutId, postBookingOverview.charges]);
+
   const cameFromPaymentConfirmation = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("payment") === "confirmed";
@@ -825,6 +1045,15 @@ const MyBookings = () => {
   const orderedBookingGroups = useMemo(() => {
     const entries = Object.entries(groupedBookings);
     if (!paymentCheckoutId) return entries;
+
+    if (paymentLinkedBookingGroupKey) {
+      const matchIndex = entries.findIndex(([groupKey]) => groupKey === paymentLinkedBookingGroupKey);
+      if (matchIndex > 0) {
+        const [matched] = entries.splice(matchIndex, 1);
+        return [matched, ...entries];
+      }
+      return entries;
+    }
 
     const matchIndex = entries.findIndex(([groupKey, orderBookings]) => {
       if (groupKey === paymentCheckoutId) return true;
@@ -836,15 +1065,16 @@ const MyBookings = () => {
     if (matchIndex <= 0) return entries;
     const [matched] = entries.splice(matchIndex, 1);
     return [matched, ...entries];
-  }, [groupedBookings, paymentCheckoutId]);
+  }, [groupedBookings, paymentCheckoutId, paymentLinkedBookingGroupKey]);
 
   const paymentBookingFound = useMemo(() => {
     if (!paymentCheckoutId) return false;
+    if (paymentLinkedBookingGroupKey) return true;
     return orderedBookingGroups.some(([groupKey, orderBookings]) => {
       if (groupKey === paymentCheckoutId) return true;
       return orderBookings.some((booking) => booking.id === paymentCheckoutId || booking.order_id === paymentCheckoutId);
     });
-  }, [orderedBookingGroups, paymentCheckoutId]);
+  }, [orderedBookingGroups, paymentCheckoutId, paymentLinkedBookingGroupKey]);
 
   const getConfirmationUi = (booking: Booking) => {
     const status = booking.confirmation_status;
@@ -1025,6 +1255,19 @@ const MyBookings = () => {
                   ? firstBooking.tour_packages.currency
                   : String(firstBooking.currency || "USD");
               const bookingDateLabel = `${new Date(firstBooking.check_in).toLocaleDateString()} - ${new Date(firstBooking.check_out).toLocaleDateString()}`;
+              const orderBookingIds = new Set(orderBookings.map((booking) => booking.id));
+              const orderCharges = postBookingOverview.charges
+                .filter((charge) => orderBookingIds.has(charge.booking_id))
+                .sort((left, right) => {
+                  if (left.status === right.status) {
+                    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+                  }
+                  if (left.status === "pending") return -1;
+                  if (right.status === "pending") return 1;
+                  return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+                });
+              const pendingOrderCharges = orderCharges.filter((charge) => charge.status === "pending");
+              const orderChargeSummary = summarizeChargeTotals(pendingOrderCharges);
               const locationSummary = (() => {
                 const locations = Array.from(new Set(orderBookings.map((booking) => {
                   if (booking.booking_type === "tour" && booking.tour_packages) {
@@ -1049,6 +1292,18 @@ const MyBookings = () => {
                         <p className="text-sm font-semibold text-foreground">Order #{displayReference}</p>
                         <p className="text-sm text-muted-foreground">{bookingDateLabel}</p>
                         <p className="text-sm text-muted-foreground">{locationSummary}</p>
+                        {orderCharges.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <Badge className={pendingOrderCharges.length > 0 ? "bg-rose-100 text-rose-700 hover:bg-rose-100" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"}>
+                              {pendingOrderCharges.length > 0
+                                ? `${pendingOrderCharges.length} add-on charge${pendingOrderCharges.length > 1 ? "s" : ""} due`
+                                : `${orderCharges.length} add-on charge${orderCharges.length > 1 ? "s" : ""}`}
+                            </Badge>
+                            {orderChargeSummary && (
+                              <span className="text-xs text-muted-foreground">{orderChargeSummary}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {nextReviewBooking && (
@@ -1060,6 +1315,159 @@ const MyBookings = () => {
                     </div>
                   </div>
 
+
+                      {orderCharges.length > 0 && (
+                        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 p-3 sm:p-4 space-y-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Add-on charges</p>
+                              <p className="text-[11px] leading-5 text-muted-foreground">
+                                Extras for this order stay here so you can pay fast from My Bookings.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge className={pendingOrderCharges.length > 0 ? "bg-rose-100 text-rose-700 hover:bg-rose-100" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"}>
+                                {pendingOrderCharges.length > 0 ? `Due ${orderChargeSummary}` : "No balance due"}
+                              </Badge>
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => navigate("/post-booking")}>
+                                <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
+                                Resolution tools
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {orderCharges.map((charge) => {
+                              const selectedMethod = payMethodByCharge[charge.id] || "card";
+                              const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.charge_id === charge.id);
+
+                              return (
+                                <div key={charge.id} className="rounded-lg border border-border bg-background p-2.5 sm:p-3 space-y-2.5">
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="space-y-1.5 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge className={postBookingStatusTone(charge.status)}>{charge.status}</Badge>
+                                        <Badge variant="outline">{humanizePostBookingLabel(charge.charge_type)}</Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(charge.created_at).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm font-medium text-foreground break-words">{charge.description}</p>
+                                    </div>
+                                    <div className="sm:text-right shrink-0">
+                                      <p className="text-sm sm:text-base font-semibold text-rose-600">{formatMoney(charge.amount, charge.currency)}</p>
+                                      <p className="text-xs text-muted-foreground">Charge #{charge.id.slice(0, 8).toUpperCase()}</p>
+                                    </div>
+                                  </div>
+
+                                  {linkedDispute && (
+                                    <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                                      <AlertTriangle className="h-4 w-4 text-amber-700" />
+                                      <AlertTitle>Dispute in progress</AlertTitle>
+                                      <AlertDescription>
+                                        This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute. Use the full post-booking tools for follow-up.
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
+
+                                  {charge.status === "pending" && (
+                                    <div className="rounded-lg border border-border p-2.5 sm:p-3 space-y-2.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Quick pay</Label>
+                                        <span className="text-xs font-medium text-foreground">{formatMoney(charge.amount, charge.currency)}</span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "mobile_money" }))}
+                                          className={`border rounded-lg px-2.5 py-2 text-left transition-all ${
+                                            selectedMethod === "mobile_money"
+                                              ? "border-primary bg-primary/5"
+                                              : "border-border hover:border-primary/50"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <Smartphone className="w-4 h-4 text-foreground shrink-0" />
+                                            <div className="min-w-0">
+                                              <p className="font-medium text-sm truncate">Mobile</p>
+                                              <p className="text-[11px] text-muted-foreground truncate">Wallet</p>
+                                            </div>
+                                          </div>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "card" }))}
+                                          className={`border rounded-lg px-2.5 py-2 text-left transition-all ${
+                                            selectedMethod === "card"
+                                              ? "border-primary bg-primary/5"
+                                              : "border-border hover:border-primary/50"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <CreditCard className="w-4 h-4 text-foreground shrink-0" />
+                                            <div className="min-w-0">
+                                              <p className="font-medium text-sm truncate">Card</p>
+                                              <p className="text-[11px] text-muted-foreground truncate">Checkout</p>
+                                            </div>
+                                          </div>
+                                        </button>
+                                      </div>
+
+                                      {selectedMethod === "mobile_money" && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                          <select
+                                            value={mobileProviderByCharge[charge.id] || "MTN"}
+                                            onChange={(event) => {
+                                              const next = event.target.value;
+                                              setMobileProviderByCharge((prev) => ({ ...prev, [charge.id]: next }));
+                                            }}
+                                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                                          >
+                                            {mobileProviders.map((provider) => (
+                                              <option key={provider.value} value={provider.value}>
+                                                {provider.label}
+                                              </option>
+                                            ))}
+                                          </select>
+
+                                          <Input
+                                            value={mobilePhoneByCharge[charge.id] || ""}
+                                            onChange={(event) => {
+                                              const next = event.target.value;
+                                              setMobilePhoneByCharge((prev) => ({ ...prev, [charge.id]: next }));
+                                            }}
+                                            placeholder="Phone number"
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-col gap-2 sm:flex-row">
+                                        <Button
+                                          onClick={() => void handlePayCharge(charge)}
+                                          disabled={processingChargeId === charge.id}
+                                          className="h-10 sm:flex-1"
+                                        >
+                                          {selectedMethod === "mobile_money" ? (
+                                            <Smartphone className="w-4 h-4 mr-2" />
+                                          ) : (
+                                            <CreditCard className="w-4 h-4 mr-2" />
+                                          )}
+                                          {processingChargeId === charge.id ? "Processing..." : "Pay now"}
+                                        </Button>
+                                        <Button variant="outline" onClick={() => navigate("/post-booking")} className="h-10 sm:flex-1 text-xs sm:text-sm">
+                                          <ShieldAlert className="w-4 h-4 mr-2" />
+                                          Dispute or review
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                   <details className="border-t border-border">
                     <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-foreground">
                       More details
@@ -1281,6 +1689,12 @@ const MyBookings = () => {
                                   })()}
                                 </span>
                               </div>
+                              {pendingOrderCharges.length > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-muted-foreground">Pending add-ons</span>
+                                  <span className="text-sm font-semibold text-rose-600">{orderChargeSummary}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Net After PawaPay</span>
                                 <span className="text-sm font-semibold text-foreground">

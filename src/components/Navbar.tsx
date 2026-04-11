@@ -668,10 +668,12 @@ const Navbar = () => {
                       </span>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/post-booking")}> 
-                    <CalendarDays className="w-4 h-4 mr-2" />
-                    Post-Booking Center
-                  </DropdownMenuItem>
+                  {isHost && (
+                    <DropdownMenuItem onClick={() => navigate("/post-booking")}> 
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      Post-Booking Center
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => navigate("/favorites")}>
                     <Heart className="w-4 h-4 mr-2" />
                     {t("actions.favorites")}
@@ -918,7 +920,7 @@ const Navbar = () => {
                       icon: MessageSquare,
                       badge: unreadDirectMessagesCount > 0 ? (unreadDirectMessagesCount > 99 ? "99+" : String(unreadDirectMessagesCount)) : null,
                     }] : []),
-                    ...(user ? [{
+                    ...(user && isHost ? [{
                       to: "/post-booking",
                       label: "Post-Booking",
                       icon: CalendarDays,

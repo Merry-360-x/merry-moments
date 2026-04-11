@@ -330,12 +330,6 @@ export default function Dashboard() {
                   <span className="inline-flex items-center rounded-full bg-background/90 border border-border px-3 py-1 text-xs font-medium text-foreground">
                     {favoritesCount} saved places
                   </span>
-                  <Link to="/post-booking">
-                    <Button variant="outline" className="gap-2">
-                      <Shield className="w-4 h-4" />
-                      Post-Booking Center
-                    </Button>
-                  </Link>
                   {canManagePostBooking ? (
                     <Link to="/admin/post-booking">
                       <Button variant="outline" className="gap-2">
@@ -366,7 +360,7 @@ export default function Dashboard() {
                       <CalendarDays className="w-4 h-4 text-muted-foreground" />
                       My Bookings
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">Track trip status</div>
+                    <div className="text-xs text-muted-foreground mt-1">Trips, add-on charges, and refunds</div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
                 </div>
@@ -400,20 +394,22 @@ export default function Dashboard() {
                 </div>
               </Card>
             </Link>
-            <Link to="/post-booking">
-              <Card className="p-3 hover:bg-muted/40 transition-colors">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-muted-foreground" />
-                      Post-Booking
+            {canManagePostBooking ? (
+              <Link to="/admin/post-booking">
+                <Card className="p-3 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-muted-foreground" />
+                        Post-Booking Console
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">Charges, disputes, and overrides</div>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">Charges, disputes, wallet</div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground mt-0.5" />
-                </div>
-              </Card>
-            </Link>
+                </Card>
+              </Link>
+            ) : null}
             <Link to="/help-center">
               <Card className="p-3 hover:bg-muted/40 transition-colors">
                 <div className="flex items-start justify-between gap-2">
