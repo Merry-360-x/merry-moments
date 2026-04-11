@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
@@ -2506,13 +2506,49 @@ export default function CheckoutNew() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Progress Steps */}
-            <div className="mb-8 flex items-center overflow-hidden">
+            <div className="mb-8 md:hidden">
+              <div className="flex items-center">
+                {STEP_ORDER.map((step, index) => {
+                  const isActive = step === currentStep;
+                  const isCompleted = STEP_ORDER.indexOf(currentStep) > index;
+                  const stepNumber = index + 1;
+
+                  return (
+                    <Fragment key={step}>
+                      <button
+                        onClick={() => {
+                          if (isCompleted) goToStep(step);
+                        }}
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors",
+                          isActive && "bg-primary text-primary-foreground",
+                          isCompleted && "cursor-pointer bg-green-500 text-white hover:bg-green-600",
+                          !isActive && !isCompleted && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {stepNumber}
+                      </button>
+                      {index < STEP_ORDER.length - 1 && (
+                        <div
+                          className={cn(
+                            "mx-2 h-px min-w-0 flex-1",
+                            isCompleted ? "bg-green-500" : "bg-border"
+                          )}
+                        />
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-8 hidden items-center md:flex">
               {STEP_ORDER.map((step, index) => {
                 const isActive = step === currentStep;
                 const isCompleted = STEP_ORDER.indexOf(currentStep) > index;
                 const stepNumber = index + 1;
                 const labels = { details: t("checkout.steps.details"), payment: t("checkout.steps.payment"), confirm: t("checkout.steps.confirm") };
-                
+
                 return (
                   <div key={step} className="flex min-w-0 flex-1 items-center">
                     <button
@@ -2522,25 +2558,27 @@ export default function CheckoutNew() {
                       className={cn(
                         "flex min-w-0 items-center gap-2 transition-colors",
                         isActive && "text-foreground",
-                        isCompleted && "text-foreground cursor-pointer hover:text-primary",
+                        isCompleted && "cursor-pointer text-foreground hover:text-primary",
                         !isActive && !isCompleted && "text-muted-foreground"
                       )}
                     >
                       <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
+                        "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors",
                         isActive && "bg-primary text-primary-foreground",
                         isCompleted && "bg-green-500 text-white",
                         !isActive && !isCompleted && "bg-muted text-muted-foreground"
                       )}>
                         {stepNumber}
                       </div>
-                      <span className="hidden min-w-0 truncate text-sm font-medium md:inline">{labels[step]}</span>
+                      <span className="min-w-0 truncate text-sm font-medium">{labels[step]}</span>
                     </button>
                     {index < STEP_ORDER.length - 1 && (
-                      <div className={cn(
-                        "mx-2 h-px flex-1 md:mx-4",
-                        isCompleted ? "bg-green-500" : "bg-border"
-                      )} />
+                      <div
+                        className={cn(
+                          "mx-4 h-px flex-1",
+                          isCompleted ? "bg-green-500" : "bg-border"
+                        )}
+                      />
                     )}
                   </div>
                 );
@@ -2943,12 +2981,12 @@ export default function CheckoutNew() {
                   {paymentMethod === 'card' && (
                     <div className="rounded-xl border border-border bg-card p-4 md:p-5 space-y-4">
                       {/* Header row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-2">
                           <CreditCard className="w-5 h-5 text-foreground" />
                           <p className="text-sm font-semibold text-foreground">Pay with Card</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {CARD_BRAND_LOGOS.map((brand) => (
                             <span
                               key={brand.alt}
@@ -2975,9 +3013,9 @@ export default function CheckoutNew() {
                         const rawUsd = inRwf ? convertAmount(inRwf, 'RWF', 'USD', usdRates) : null;
                         const usdAmt = rawUsd ? roundToCurrency(rawUsd, 'USD') : null;
                         return usdAmt && usdAmt > 0 ? (
-                          <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-lg px-3 py-2">
+                          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-800/50 dark:bg-emerald-950/30 sm:items-center">
                             <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                            <p className="min-w-0 break-words text-sm text-emerald-700 dark:text-emerald-300">
                               You'll be charged <strong>${usdAmt.toFixed(2)} USD</strong> · Visa, Mastercard and AmEx accepted worldwide
                             </p>
                           </div>
