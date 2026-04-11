@@ -158,67 +158,29 @@ type DisputeReplyDialogState = {
   disputeId: string | null;
 };
 
-type DisputeTimelineEntry = {
-  id: string;
-  label: string;
-  content: string;
-  tone: "default" | "support" | "resolution";
-};
-
 function canGuestRespondToDispute(dispute: PostBookingDispute | undefined) {
   const value = String(dispute?.status || "").toLowerCase();
   return value === "open" || value === "in_review";
 }
 
-function disputeTimelineEntries(dispute: PostBookingDispute | undefined): DisputeTimelineEntry[] {
-  if (!dispute) return [];
+function latestDisputeUpdate(dispute: PostBookingDispute | undefined) {
+  if (!dispute) return "";
 
-  const entries: DisputeTimelineEntry[] = [];
-  const detailBlocks = String(dispute.details || "")
+  const resolution = String(dispute.resolution || "").trim();
+  if (resolution) return resolution;
+
+  const adminNotes = String(dispute.admin_notes || "").trim();
+  if (adminNotes) return adminNotes;
+
+  const details = String(dispute.details || "").trim();
+  if (!details) return "";
+
+  const blocks = details
     .split(/\n\s*\n/)
     .map((part) => part.trim())
     .filter(Boolean);
 
-  detailBlocks.forEach((part, index) => {
-    const lower = part.toLowerCase();
-    const label = lower.startsWith("host")
-      ? "Host update"
-      : lower.startsWith("guest")
-        ? "Your message"
-        : "Update";
-
-    entries.push({
-      id: `detail-${index}`,
-      label,
-      content: part,
-      tone: "default",
-    });
-  });
-
-  if (dispute.admin_notes) {
-    entries.push({
-      id: "admin-notes",
-      label: "Support note",
-      content: dispute.admin_notes,
-      tone: "support",
-    });
-  }
-
-  if (dispute.resolution) {
-    entries.push({
-      id: "resolution",
-      label: "Resolution",
-      content: dispute.resolution,
-      tone: "resolution",
-    });
-  }
-
-  return entries;
-}
-
-function latestDisputeUpdate(dispute: PostBookingDispute | undefined) {
-  const entries = disputeTimelineEntries(dispute);
-  return entries[entries.length - 1]?.content || "";
+  return blocks[blocks.length - 1] || details;
 }
 
 const mobileProviders = [
@@ -285,12 +247,6 @@ function postBookingStatusTone(status: string) {
   if (value === "failed" || value === "rejected" || value === "cancelled") return "bg-rose-100 text-rose-700 hover:bg-rose-100";
   if (value === "disputed" || value === "in_review") return "bg-amber-100 text-amber-700 hover:bg-amber-100";
   return "bg-slate-100 text-slate-700 hover:bg-slate-100";
-}
-
-function disputeTimelineTone(tone: DisputeTimelineEntry["tone"]) {
-  if (tone === "resolution") return "border-emerald-200 bg-emerald-50/70";
-  if (tone === "support") return "border-slate-200 bg-slate-50/80";
-  return "border-border bg-background";
 }
 
 function summarizeChargeTotals(charges: Array<{ amount: number; currency: string }>) {
@@ -1717,7 +1673,6 @@ const MyBookings = () => {
                               const selectedMethod = payMethodByCharge[charge.id] || "card";
                               const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.charge_id === charge.id);
                               const disputeCanRespond = canGuestRespondToDispute(linkedDispute);
-                              const timelineEntries = disputeTimelineEntries(linkedDispute);
 
                               return (
                                 <div key={charge.id} className="rounded-lg border border-border bg-background p-2.5 sm:p-3 space-y-2.5">
@@ -1746,29 +1701,6 @@ const MyBookings = () => {
                                         This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute and will be handled from your booking flow here.
                                       </AlertDescription>
                                     </Alert>
-                                  )}
-
-                                  {timelineEntries.length > 0 && (
-                                    <div className="rounded-lg border border-border bg-muted/20 p-2.5 sm:p-3 space-y-2.5">
-                                      <div className="space-y-1">
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Full dispute timeline</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          Review every message in the thread before deciding whether to pay, continue appealing, or close it.
-                                        </p>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        {timelineEntries.map((entry, index) => (
-                                          <div key={entry.id} className={`rounded-lg border p-2.5 ${disputeTimelineTone(entry.tone)}`}>
-                                            <div className="flex items-center justify-between gap-2">
-                                              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{entry.label}</p>
-                                              <span className="text-[11px] text-muted-foreground">Step {index + 1}</span>
-                                            </div>
-                                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap break-words">{entry.content}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
                                   )}
 
                                   {linkedDispute && disputeCanRespond && (
@@ -2006,7 +1938,6 @@ const MyBookings = () => {
                             {orderModifications.map((modification) => {
                               const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.booking_modification_id === modification.id);
                               const disputeCanRespond = canGuestRespondToDispute(linkedDispute);
-                              const timelineEntries = disputeTimelineEntries(linkedDispute);
                               const linkedCharge = modification.charge_id ? linkedChargeMap.get(modification.charge_id) : null;
                               const difference = Number(modification.difference || 0);
 
@@ -2043,29 +1974,6 @@ const MyBookings = () => {
                                         This booking change already has a {linkedDispute.status.replace(/_/g, " ")} dispute.
                                       </AlertDescription>
                                     </Alert>
-                                  )}
-
-                                  {timelineEntries.length > 0 && (
-                                    <div className="rounded-lg border border-border bg-muted/20 p-2.5 sm:p-3 space-y-2.5">
-                                      <div className="space-y-1">
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Full dispute timeline</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          Review the full conversation before deciding whether to keep appealing or close the dispute.
-                                        </p>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        {timelineEntries.map((entry, index) => (
-                                          <div key={entry.id} className={`rounded-lg border p-2.5 ${disputeTimelineTone(entry.tone)}`}>
-                                            <div className="flex items-center justify-between gap-2">
-                                              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{entry.label}</p>
-                                              <span className="text-[11px] text-muted-foreground">Step {index + 1}</span>
-                                            </div>
-                                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap break-words">{entry.content}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
                                   )}
 
                                   {linkedDispute && disputeCanRespond && (

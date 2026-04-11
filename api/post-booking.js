@@ -1647,17 +1647,55 @@ async function initializeChargePayment({ auth, charge, method, body }) {
   // Server computes/locks amount so the client cannot tamper with charge value.
   const amount = safeAmount(charge.amount);
 
+  let bookingContact = null;
+  if (charge.booking_id) {
+    const { data: bookingRow } = await auth.adminClient
+      .from("bookings")
+      .select("guest_name, guest_email, guest_phone")
+      .eq("id", charge.booking_id)
+      .maybeSingle();
+    bookingContact = bookingRow || null;
+  }
+
   const { data: profile } = await auth.adminClient
     .from("profiles")
     .select("full_name, email, phone")
     .eq("user_id", auth.userId)
     .maybeSingle();
 
+  const userSlug = String(auth.userId || "guest")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 12) || "guest";
+
+  const payerName =
+    safeStr(
+      body.payer_name || body.payerName || profile?.full_name || bookingContact?.guest_name || "Guest",
+      120,
+    ) || "Guest";
+
+  const payerEmail =
+    safeStr(
+      body.payer_email || body.payerEmail || profile?.email || auth.userEmail || bookingContact?.guest_email || "",
+      160,
+    ) || `guest+${userSlug}@merry360x.com`;
+
+  const payerPhone = safeStr(
+    String(
+      body.phone_number ||
+      body.phoneNumber ||
+      body.phone ||
+      profile?.phone ||
+      bookingContact?.guest_phone ||
+      "",
+    ).replace(/\s+/g, ""),
+    40,
+  );
+
   const checkoutPayload = {
     user_id: auth.userId,
-    name: safeStr(profile?.full_name || "Guest", 120),
-    email: safeStr(profile?.email || auth.userEmail || "", 160) || null,
-    phone: safeStr(profile?.phone || "", 40) || null,
+    name: payerName,
+    email: payerEmail,
+    phone: payerPhone || null,
     total_amount: amount,
     base_price_amount: amount,
     service_fee_amount: 0,
@@ -1726,9 +1764,9 @@ async function initializeChargePayment({ auth, charge, method, body }) {
         checkoutId: checkout.id,
         amount: checkout.total_amount,
         currency: checkout.currency,
-        payerName: safeStr(profile?.full_name || "Guest", 120),
-        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
-        phoneNumber: safeStr(profile?.phone || "", 40),
+        payerName,
+        payerEmail,
+        phoneNumber: payerPhone,
         description: `Post-booking charge ${charge.id}`,
         redirectUrl: appUrl(`/payment-pending?checkoutId=${encodeURIComponent(checkout.id)}&provider=flutterwave`),
       }),
@@ -1772,8 +1810,8 @@ async function initializeChargePayment({ auth, charge, method, body }) {
         checkoutId: checkout.id,
         amount: checkout.total_amount,
         phoneNumber,
-        payerName: safeStr(profile?.full_name || "Guest", 120),
-        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
+        payerName,
+        payerEmail,
         provider,
         description: `Post-booking charge ${charge.id}`,
       }),

@@ -725,22 +725,33 @@ async function handleCreatePayment(req, res) {
     return json(res, 400, { error: "Invalid amount" });
   }
 
-  const email = safeStr(payerEmail, 120);
-  if (!email) {
-    return json(res, 400, { error: "Payer email is required" });
-  }
-
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: checkout, error: checkoutError } = await supabase
     .from("checkout_requests")
-    .select("id, metadata")
+    .select("id, name, email, phone, metadata")
     .eq("id", checkoutId)
     .single();
 
   if (checkoutError || !checkout) {
     return json(res, 404, { error: "Checkout not found" });
   }
+
+  const email = safeStr(payerEmail || checkout?.email, 120);
+  if (!email) {
+    return json(res, 400, { error: "Payer email is required" });
+  }
+
+  const resolvedName = safeStr(payerName || checkout?.name, 80) || "Customer";
+  const resolvedPhone =
+    safeStr(
+      phoneNumber ||
+      checkout?.phone ||
+      checkout?.metadata?.guest_info?.phone_number ||
+      checkout?.metadata?.guest_info?.phone ||
+      "",
+      30,
+    ) || "";
 
   const txRef = makeTxRef(checkoutId);
   const isInline = inline === true;
@@ -805,8 +816,9 @@ async function handleCreatePayment(req, res) {
     payment_options: "card",
     customer: {
       email,
-      name: safeStr(payerName, 80) || "Customer",
-      phonenumber: safeStr(phoneNumber, 30) || undefined,
+      name: resolvedName,
+      phonenumber: resolvedPhone || undefined,
+      phone_number: resolvedPhone || undefined,
       address: storedBillingAddress || undefined,
     },
     customizations: {
