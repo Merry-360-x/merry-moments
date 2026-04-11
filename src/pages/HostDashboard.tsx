@@ -398,7 +398,6 @@ type HostTabValue =
   | "financial"
   | "payout-methods";
 
-const HOST_TAB_STORAGE_KEY = "host-dashboard:last-tab";
 const HOST_TAB_VALUES: HostTabValue[] = [
   "overview",
   "properties",
@@ -420,7 +419,7 @@ export default function HostDashboard() {
   const { user, isHost, roles, isLoading: authLoading, rolesLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { usdRates } = useFxRates();
@@ -430,8 +429,7 @@ export default function HostDashboard() {
     if (typeof window === "undefined") return "overview";
     const urlTab = new URLSearchParams(window.location.search).get("tab");
     if (isHostTabValue(urlTab)) return urlTab;
-    const savedTab = window.sessionStorage.getItem(HOST_TAB_STORAGE_KEY);
-    return isHostTabValue(savedTab) ? savedTab : "overview";
+    return "overview";
   });
   const pendingTabSyncRef = useRef<HostTabValue | null>(null);
   const setHostTab = useCallback((nextTab: string) => {
@@ -453,7 +451,18 @@ export default function HostDashboard() {
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
-    if (!isHostTabValue(urlTab)) return;
+    if (!isHostTabValue(urlTab)) {
+      if (pendingTabSyncRef.current === "overview") {
+        pendingTabSyncRef.current = null;
+        return;
+      }
+
+      if (!pendingTabSyncRef.current && tab !== "overview") {
+        setTab("overview");
+      }
+      return;
+    }
+
     if (pendingTabSyncRef.current && urlTab !== pendingTabSyncRef.current) {
       return;
     }
@@ -468,8 +477,21 @@ export default function HostDashboard() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(HOST_TAB_STORAGE_KEY, tab);
+
     const nextParams = new URLSearchParams(location.search);
+
+    if (tab === "overview") {
+      if (!nextParams.has("tab")) {
+        pendingTabSyncRef.current = null;
+        return;
+      }
+
+      pendingTabSyncRef.current = tab;
+      nextParams.delete("tab");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
     if (nextParams.get("tab") === tab) {
       pendingTabSyncRef.current = null;
       return;

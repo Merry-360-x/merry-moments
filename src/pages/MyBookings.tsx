@@ -270,6 +270,37 @@ const getLatestBookingDecisionTimestamp = (bookings: Booking[]) => bookings
   .sort()
   .at(-1) || "";
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const parseLocalDateValue = (value: string | null | undefined) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+
+  if (DATE_ONLY_RE.test(raw)) {
+    const [yearText, monthText, dayText] = raw.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const parsed = new Date(year, month - 1, day);
+    parsed.setHours(0, 0, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const isCheckoutInPast = (checkOutValue: string | null | undefined) => {
+  const checkoutDate = parseLocalDateValue(checkOutValue);
+  if (!checkoutDate) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return checkoutDate <= today;
+};
+
 const MyBookings = () => {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
@@ -315,6 +346,8 @@ const MyBookings = () => {
   const [disputeReplyMessage, setDisputeReplyMessage] = useState("");
   const [respondingDisputeId, setRespondingDisputeId] = useState<string | null>(null);
   const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
+  const [expandedOrderDetails, setExpandedOrderDetails] = useState<Record<string, boolean>>({});
+  const [expandedAdvancedDetails, setExpandedAdvancedDetails] = useState<Record<string, boolean>>({});
   const lastDecisionToastRef = useRef<string>("");
 
   useEffect(() => {
@@ -1409,7 +1442,7 @@ const MyBookings = () => {
     });
   }, [orderedBookingGroups, paymentCheckoutId, paymentLinkedBookingGroupKey]);
 
-  const getConfirmationUi = (booking: Booking) => {
+  const getConfirmationUi = (booking: Booking, hasEnded = false) => {
     const status = booking.confirmation_status;
 
     if (status === 'pending' || booking.status === 'pending') {
@@ -1445,14 +1478,18 @@ const MyBookings = () => {
       };
     }
 
+    const effectiveStatus = hasEnded && booking.status === "confirmed"
+      ? "completed"
+      : booking.status;
+
     return {
       badgeClass:
-        booking.status === "confirmed"
+        effectiveStatus === "confirmed" || effectiveStatus === "completed"
           ? "bg-green-100 text-green-700 hover:bg-green-100"
-          : booking.status === "cancelled"
+          : effectiveStatus === "cancelled"
             ? "bg-red-100 text-red-700 hover:bg-red-100"
             : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100",
-      badgeLabel: booking.status,
+      badgeLabel: effectiveStatus,
       alertClass: "",
       alertTitle: "",
       alertMessage: "",
@@ -1545,17 +1582,18 @@ const MyBookings = () => {
             <p className="text-muted-foreground mb-6">
               {t("bookings.emptySubtitle")}
             </p>
-            <Button onClick={() => navigate("/accommodations")}>{t("bookings.browse")}</Button>
+            <Button type="button" onClick={() => navigate("/accommodations")}>{t("bookings.browse")}</Button>
           </div>
         ) : (
           <div className="space-y-6">
             {orderedBookingGroups.map(([orderId, orderBookings]) => {
               // All bookings in a group share the same status, dates, etc.
               const firstBooking = orderBookings[0];
+              const orderHasEnded = orderBookings.every((booking) => isCheckoutInPast(booking.check_out));
               const isMultiItem = orderBookings.length > 1;
               const displayReference = isMultiItem ? (firstBooking.order_id || orderId) : firstBooking.id;
               const grandTotal = orderBookings.reduce((sum, b) => sum + Number(b.total_price), 0);
-              const confirmationUi = getConfirmationUi(firstBooking);
+              const confirmationUi = getConfirmationUi(firstBooking, orderHasEnded);
               const reviewableBookingsInOrder = orderBookings.filter(
                 (booking) => canReview(booking) && !reviewedBookingIds.has(String(booking.id))
               );
@@ -1643,7 +1681,7 @@ const MyBookings = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {nextReviewBooking && (
-                          <Button size="sm" onClick={() => openReview(nextReviewBooking)}>
+                          <Button size="sm" type="button" onClick={() => openReview(nextReviewBooking)}>
                             <Star className="w-4 h-4 mr-2" /> Leave Review
                           </Button>
                         )}
@@ -1786,6 +1824,7 @@ const MyBookings = () => {
                                           )}
 
                                           <Button
+                                            type="button"
                                             onClick={() => void payDisputedCharge(linkedDispute, charge)}
                                             disabled={processingChargeId === charge.id || respondingDisputeId === linkedDispute.id}
                                             className="h-10 w-full"
@@ -1802,6 +1841,7 @@ const MyBookings = () => {
 
                                       <div className="flex flex-col gap-2 sm:flex-row">
                                         <Button
+                                          type="button"
                                           variant="outline"
                                           onClick={() => openDisputeAppeal(linkedDispute.id)}
                                           disabled={respondingDisputeId === linkedDispute.id || processingChargeId === charge.id}
@@ -1810,6 +1850,7 @@ const MyBookings = () => {
                                           Still appeal
                                         </Button>
                                         <Button
+                                          type="button"
                                           variant="outline"
                                           onClick={() => void closeDispute(linkedDispute.id)}
                                           disabled={respondingDisputeId === linkedDispute.id || processingChargeId === charge.id}
@@ -1895,6 +1936,7 @@ const MyBookings = () => {
 
                                       <div className="flex flex-col gap-2 sm:flex-row">
                                         <Button
+                                          type="button"
                                           onClick={() => void handlePayCharge(charge)}
                                           disabled={processingChargeId === charge.id}
                                           className="h-10 sm:flex-1"
@@ -1906,7 +1948,7 @@ const MyBookings = () => {
                                           )}
                                           {processingChargeId === charge.id ? "Processing..." : "Pay now"}
                                         </Button>
-                                        <Button variant="outline" onClick={() => openDisputeForCharge(charge.id)} className="h-10 sm:flex-1 text-xs sm:text-sm" disabled={Boolean(linkedDispute)}>
+                                        <Button type="button" variant="outline" onClick={() => openDisputeForCharge(charge.id)} className="h-10 sm:flex-1 text-xs sm:text-sm" disabled={Boolean(linkedDispute)}>
                                           <ShieldAlert className="w-4 h-4 mr-2" />
                                           {linkedDispute ? `Dispute ${linkedDispute.status.replace(/_/g, " ")}` : "Open dispute"}
                                         </Button>
@@ -1987,6 +2029,7 @@ const MyBookings = () => {
 
                                       <div className="flex flex-col gap-2 sm:flex-row">
                                         <Button
+                                          type="button"
                                           variant="outline"
                                           onClick={() => openDisputeAppeal(linkedDispute.id)}
                                           disabled={respondingDisputeId === linkedDispute.id}
@@ -1995,6 +2038,7 @@ const MyBookings = () => {
                                           Still appeal
                                         </Button>
                                         <Button
+                                          type="button"
                                           variant="outline"
                                           onClick={() => void closeDispute(linkedDispute.id)}
                                           disabled={respondingDisputeId === linkedDispute.id}
@@ -2019,6 +2063,7 @@ const MyBookings = () => {
                                   {modification.status === "pending" && (
                                     <div className="flex flex-col gap-2 sm:flex-row">
                                       <Button
+                                        type="button"
                                         onClick={() => void handleRespondModification(modification, "accept")}
                                         disabled={respondingModificationId === modification.id}
                                         className="h-10 sm:flex-1"
@@ -2026,6 +2071,7 @@ const MyBookings = () => {
                                         {respondingModificationId === modification.id ? "Saving..." : "Accept change"}
                                       </Button>
                                       <Button
+                                        type="button"
                                         variant="outline"
                                         onClick={() => void handleRespondModification(modification, "reject")}
                                         disabled={respondingModificationId === modification.id}
@@ -2034,6 +2080,7 @@ const MyBookings = () => {
                                         Reject change
                                       </Button>
                                       <Button
+                                        type="button"
                                         variant="outline"
                                         onClick={() => openDisputeForModification(modification.id)}
                                         className="h-10 sm:flex-1 text-xs sm:text-sm"
@@ -2050,7 +2097,14 @@ const MyBookings = () => {
                           </div>
                         </div>
                       )}
-                  <details className="border-t border-border">
+                  <details
+                    className="border-t border-border"
+                    open={Boolean(expandedOrderDetails[orderId])}
+                    onToggle={(event) => {
+                      const nextOpen = event.currentTarget.open;
+                      setExpandedOrderDetails((prev) => ({ ...prev, [orderId]: nextOpen }));
+                    }}
+                  >
                     <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-foreground">
                       More details
                     </summary>
@@ -2072,6 +2126,10 @@ const MyBookings = () => {
                         Math.round((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24))
                       );
                       const serviceLabel = isTour ? 'Tour' : isTransport ? 'Transport' : 'Stay';
+                      const bookingHasEnded = isCheckoutInPast(booking.check_out);
+                      const bookingStatusLabel = booking.status === "confirmed" && bookingHasEnded
+                        ? "completed"
+                        : booking.status;
                       const unitPricingText = (() => {
                         if (!isTour && !isTransport && booking.properties?.price_per_night) {
                           return `${formatMoney(Number(booking.properties.price_per_night), booking.properties.currency || booking.currency || 'USD')} × ${nights} night${nights > 1 ? 's' : ''}`;
@@ -2166,7 +2224,7 @@ const MyBookings = () => {
                             </div>
                             <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Status</p>
-                              <p className="font-medium capitalize">{booking.status}</p>
+                              <p className="font-medium capitalize">{bookingStatusLabel}</p>
                             </div>
                             <div className="rounded-md border border-border bg-muted/20 p-2.5">
                               <p className="text-muted-foreground">Pricing</p>
@@ -2216,12 +2274,12 @@ const MyBookings = () => {
 
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2 pt-4">
-                      {(firstBooking.status === "pending" || firstBooking.status === "confirmed") && (
+                      {(firstBooking.status === "pending" || (firstBooking.status === "confirmed" && !orderHasEnded)) && (
                         <>
-                          <Button variant="outline" size="sm" onClick={() => openDateChangeDialog(firstBooking)} className="flex-1 min-w-[170px]">
+                          <Button type="button" variant="outline" size="sm" onClick={() => openDateChangeDialog(firstBooking)} className="flex-1 min-w-[170px]">
                             <CalendarClock className="w-4 h-4 mr-2" /> Change Dates
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => openCancelDialog(firstBooking)} className="flex-1 min-w-[140px]">
+                          <Button type="button" variant="outline" size="sm" onClick={() => openCancelDialog(firstBooking)} className="flex-1 min-w-[140px]">
                             <XCircle className="w-4 h-4 mr-2" /> Cancel
                           </Button>
                         </>
@@ -2229,6 +2287,7 @@ const MyBookings = () => {
 
                       {firstBooking.status === "cancelled" && firstBooking.payment_status === "paid" && (
                         <Button
+                          type="button"
                           size="sm"
                           variant="default"
                           className="flex-1 min-w-[170px]"
@@ -2244,7 +2303,14 @@ const MyBookings = () => {
                       )}
                     </div>
 
-                    <details className="border-t border-border pt-4">
+                    <details
+                      className="border-t border-border pt-4"
+                      open={Boolean(expandedAdvancedDetails[orderId])}
+                      onToggle={(event) => {
+                        const nextOpen = event.currentTarget.open;
+                        setExpandedAdvancedDetails((prev) => ({ ...prev, [orderId]: nextOpen }));
+                      }}
+                    >
                       <summary className="cursor-pointer list-none text-sm font-medium text-muted-foreground hover:text-foreground">
                         Advanced details
                       </summary>
@@ -2387,6 +2453,7 @@ const MyBookings = () => {
 
             <div className="flex gap-3 pt-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => {
                   setCancelDialogOpen(false);
@@ -2398,6 +2465,7 @@ const MyBookings = () => {
                 Keep Booking
               </Button>
               <Button
+                type="button"
                 variant="destructive"
                 onClick={confirmCancellation}
                 disabled={cancelling}
@@ -2523,6 +2591,7 @@ const MyBookings = () => {
             {/* Actions */}
             <div className="flex gap-3 pt-2">
               <Button 
+                type="button"
                 variant="outline" 
                 onClick={() => {
                   setReviewOpen(false);
@@ -2538,6 +2607,7 @@ const MyBookings = () => {
                 Cancel
               </Button>
               <Button 
+                type="button"
                 onClick={submitReview} 
                 disabled={submittingReview}
                 className="flex-1"
@@ -2580,6 +2650,7 @@ const MyBookings = () => {
 
             <div className="flex gap-3 pt-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setDisputeDialog({ open: false, chargeId: null, modificationId: null })}
                 disabled={submittingDispute}
@@ -2587,7 +2658,7 @@ const MyBookings = () => {
               >
                 Cancel
               </Button>
-              <Button onClick={() => void submitDispute()} disabled={submittingDispute} className="flex-1">
+              <Button type="button" onClick={() => void submitDispute()} disabled={submittingDispute} className="flex-1">
                 {submittingDispute ? "Submitting..." : "Submit Dispute"}
               </Button>
             </div>
@@ -2619,6 +2690,7 @@ const MyBookings = () => {
 
             <div className="flex gap-3 pt-2">
               <Button
+                type="button"
                 variant="outline"
                 onClick={closeDisputeReplyDialog}
                 disabled={respondingDisputeId === disputeReplyDialog.disputeId}
@@ -2627,6 +2699,7 @@ const MyBookings = () => {
                 Cancel
               </Button>
               <Button
+                type="button"
                 onClick={() => void submitDisputeAppeal()}
                 disabled={respondingDisputeId === disputeReplyDialog.disputeId}
                 className="flex-1"
