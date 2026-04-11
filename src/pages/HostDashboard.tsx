@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { HostPostBookingPanel } from "@/components/post-booking/HostPostBookingPanel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -391,6 +392,7 @@ type HostTabValue =
   | "tours"
   | "transport"
   | "bookings"
+  | "post-booking"
   | "manual-reviews"
   | "discounts"
   | "financial"
@@ -404,6 +406,7 @@ const HOST_TAB_VALUES: HostTabValue[] = [
   "tours",
   "transport",
   "bookings",
+  "post-booking",
   "manual-reviews",
   "discounts",
   "financial",
@@ -8032,9 +8035,9 @@ export default function HostDashboard() {
             <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            <Button variant="outline" size="sm" className="w-full justify-center sm:w-auto" onClick={() => navigate("/post-booking")}> 
+            <Button variant="outline" size="sm" className="w-full justify-center sm:w-auto" onClick={() => setHostTab("post-booking")}>
               <CreditCard className="w-4 h-4 mr-2" />
-              Post-Booking Center
+              Post-Booking
             </Button>
           </div>
         </div>
@@ -8076,6 +8079,7 @@ export default function HostDashboard() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="post-booking">Post-Booking</TabsTrigger>
               <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="manual-reviews">Manual Reviews</TabsTrigger>
               <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="discounts">Discount Codes</TabsTrigger>
               <TabsTrigger className="rounded-lg text-xs sm:shrink-0 sm:text-sm" value="financial">Financial Reports</TabsTrigger>
@@ -9038,6 +9042,10 @@ export default function HostDashboard() {
                 })
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="post-booking">
+            <HostPostBookingPanel />
           </TabsContent>
 
           {/* Manual Reviews */}

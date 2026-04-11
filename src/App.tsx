@@ -52,8 +52,8 @@ const CreateAirportTransfer = lazy(() => import("./pages/CreateAirportTransfer")
 const SearchResults = lazy(() => import("./pages/SearchResults"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const PostBookingCenter = lazy(() => import("./pages/PostBookingCenter"));
 const AdminPostBooking = lazy(() => import("./pages/AdminPostBooking"));
+const PostBookingRouteRedirect = lazy(() => import("./components/post-booking/PostBookingRouteRedirect"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
@@ -621,7 +621,7 @@ const App = () => (
                 path="/post-booking"
                 element={
                   <RequireAuth>
-                    <PostBookingCenter />
+                    <PostBookingRouteRedirect />
                   </RequireAuth>
                 }
               />
@@ -629,7 +629,7 @@ const App = () => (
                 path="/resolution-center"
                 element={
                   <RequireAuth>
-                    <PostBookingCenter />
+                    <PostBookingRouteRedirect />
                   </RequireAuth>
                 }
               />

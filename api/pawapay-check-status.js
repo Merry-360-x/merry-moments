@@ -181,8 +181,8 @@ async function sendPostBookingGuestPaidEmail(supabase, charge, checkoutData) {
       { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
       { label: "Status", value: "Paid" },
     ]),
-    ctaText: "Open Post-Booking Center",
-    ctaUrl: "https://merry360x.com/post-booking",
+      ctaText: "Open My Bookings",
+      ctaUrl: "https://merry360x.com/my-bookings",
   });
 
   await fetch("https://api.brevo.com/v3/smtp/email", {

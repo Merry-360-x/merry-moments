@@ -113,15 +113,43 @@ type PostBookingCharge = {
   payment_reference?: string | null;
 };
 
+type BookingModification = {
+  id: string;
+  booking_id: string;
+  modification_type: string;
+  old_price: number;
+  new_price: number;
+  difference: number;
+  currency: string;
+  status: string;
+  payment_status: string;
+  proposal_message: string | null;
+  charge_id: string | null;
+  created_at: string;
+};
+
 type PostBookingDispute = {
   id: string;
   charge_id: string | null;
+  booking_modification_id: string | null;
   status: string;
+  reason?: string | null;
+  details?: string | null;
+  admin_notes?: string | null;
+  resolution?: string | null;
+  created_at?: string;
 };
 
 type GuestPostBookingOverview = {
   charges: PostBookingCharge[];
+  booking_modifications: BookingModification[];
   disputes: PostBookingDispute[];
+};
+
+type DisputeDialogState = {
+  open: boolean;
+  chargeId: string | null;
+  modificationId: string | null;
 };
 
 const mobileProviders = [
@@ -171,6 +199,7 @@ async function fetchGuestPostBookingOverview(): Promise<GuestPostBookingOverview
 
   return {
     charges: payload.charges || [],
+    booking_modifications: payload.booking_modifications || [],
     disputes: payload.disputes || [],
   };
 }
@@ -240,6 +269,15 @@ const MyBookings = () => {
   const [mobileProviderByCharge, setMobileProviderByCharge] = useState<Record<string, string>>({});
   const [mobilePhoneByCharge, setMobilePhoneByCharge] = useState<Record<string, string>>({});
   const [processingChargeId, setProcessingChargeId] = useState<string | null>(null);
+  const [disputeDialog, setDisputeDialog] = useState<DisputeDialogState>({
+    open: false,
+    chargeId: null,
+    modificationId: null,
+  });
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeDetails, setDisputeDetails] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
   const lastDecisionToastRef = useRef<string>("");
 
   useEffect(() => {
@@ -1006,6 +1044,97 @@ const MyBookings = () => {
     }
   }, [mobilePhoneByCharge, mobileProviderByCharge, navigate, payMethodByCharge, refetchPostBookingOverview, toast]);
 
+  const handleRespondModification = useCallback(async (modification: BookingModification, decision: "accept" | "reject") => {
+    setRespondingModificationId(modification.id);
+    try {
+      const result = await postBookingRequest("respond-modification", {
+        booking_modification_id: modification.id,
+        decision,
+      });
+
+      const paymentStatus = String(result?.booking_modification?.payment_status || "");
+      if (decision === "accept" && paymentStatus === "pending") {
+        toast({
+          title: "Change accepted",
+          description: "Complete the linked payment to finalize your booking update.",
+        });
+      } else {
+        toast({
+          title: decision === "accept" ? "Change accepted" : "Change rejected",
+          description: "Your response has been recorded.",
+        });
+      }
+
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not submit response",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setRespondingModificationId(null);
+    }
+  }, [refetchPostBookingOverview, toast]);
+
+  const openDisputeForCharge = useCallback((chargeId: string) => {
+    setDisputeReason("");
+    setDisputeDetails("");
+    setDisputeDialog({ open: true, chargeId, modificationId: null });
+  }, []);
+
+  const openDisputeForModification = useCallback((modificationId: string) => {
+    setDisputeReason("");
+    setDisputeDetails("");
+    setDisputeDialog({ open: true, chargeId: null, modificationId });
+  }, []);
+
+  const submitDispute = useCallback(async () => {
+    if (!disputeReason.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Reason is required",
+        description: "Please describe why you are opening this dispute.",
+      });
+      return;
+    }
+
+    setSubmittingDispute(true);
+    try {
+      await postBookingRequest("open-dispute", {
+        charge_id: disputeDialog.chargeId,
+        booking_modification_id: disputeDialog.modificationId,
+        reason: disputeReason.trim(),
+        details: disputeDetails.trim(),
+      });
+
+      setDisputeDialog({ open: false, chargeId: null, modificationId: null });
+      setDisputeReason("");
+      setDisputeDetails("");
+
+      toast({
+        title: "Dispute opened",
+        description: "Your case is now in review.",
+      });
+
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to open dispute",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setSubmittingDispute(false);
+    }
+  }, [disputeDetails, disputeDialog.chargeId, disputeDialog.modificationId, disputeReason, refetchPostBookingOverview, toast]);
+
+  const linkedChargeMap = useMemo(() => {
+    const map = new Map<string, PostBookingCharge>();
+    postBookingOverview.charges.forEach((charge) => map.set(charge.id, charge));
+    return map;
+  }, [postBookingOverview.charges]);
+
   if (authLoading) {
     return null;
   }
@@ -1268,6 +1397,9 @@ const MyBookings = () => {
                 });
               const pendingOrderCharges = orderCharges.filter((charge) => charge.status === "pending");
               const orderChargeSummary = summarizeChargeTotals(pendingOrderCharges);
+              const orderModifications = postBookingOverview.booking_modifications
+                .filter((modification) => orderBookingIds.has(modification.booking_id))
+                .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
               const locationSummary = (() => {
                 const locations = Array.from(new Set(orderBookings.map((booking) => {
                   if (booking.booking_type === "tour" && booking.tour_packages) {
@@ -1329,10 +1461,6 @@ const MyBookings = () => {
                               <Badge className={pendingOrderCharges.length > 0 ? "bg-rose-100 text-rose-700 hover:bg-rose-100" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"}>
                                 {pendingOrderCharges.length > 0 ? `Due ${orderChargeSummary}` : "No balance due"}
                               </Badge>
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => navigate("/post-booking")}>
-                                <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
-                                Resolution tools
-                              </Button>
                             </div>
                           </div>
 
@@ -1365,7 +1493,7 @@ const MyBookings = () => {
                                       <AlertTriangle className="h-4 w-4 text-amber-700" />
                                       <AlertTitle>Dispute in progress</AlertTitle>
                                       <AlertDescription>
-                                        This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute. Use the full post-booking tools for follow-up.
+                                        This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute and will be handled from your booking flow here.
                                       </AlertDescription>
                                     </Alert>
                                   )}
@@ -1455,11 +1583,111 @@ const MyBookings = () => {
                                           )}
                                           {processingChargeId === charge.id ? "Processing..." : "Pay now"}
                                         </Button>
-                                        <Button variant="outline" onClick={() => navigate("/post-booking")} className="h-10 sm:flex-1 text-xs sm:text-sm">
+                                        <Button variant="outline" onClick={() => openDisputeForCharge(charge.id)} className="h-10 sm:flex-1 text-xs sm:text-sm" disabled={Boolean(linkedDispute)}>
                                           <ShieldAlert className="w-4 h-4 mr-2" />
-                                          Dispute or review
+                                          {linkedDispute ? `Dispute ${linkedDispute.status.replace(/_/g, " ")}` : "Open dispute"}
                                         </Button>
                                       </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {orderModifications.length > 0 && (
+                        <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-3 sm:p-4 space-y-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Booking changes</p>
+                              <p className="text-[11px] leading-5 text-muted-foreground">
+                                Review host-requested changes, accept or reject them, and dispute any request you disagree with.
+                              </p>
+                            </div>
+                            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                              {orderModifications.length} update{orderModifications.length > 1 ? "s" : ""}
+                            </Badge>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {orderModifications.map((modification) => {
+                              const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.booking_modification_id === modification.id);
+                              const linkedCharge = modification.charge_id ? linkedChargeMap.get(modification.charge_id) : null;
+                              const difference = Number(modification.difference || 0);
+
+                              return (
+                                <div key={modification.id} className="rounded-lg border border-border bg-background p-2.5 sm:p-3 space-y-2.5">
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="space-y-1.5 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge className={postBookingStatusTone(modification.status)}>{modification.status}</Badge>
+                                        <Badge className={postBookingStatusTone(modification.payment_status)}>{modification.payment_status}</Badge>
+                                        <Badge variant="outline">{humanizePostBookingLabel(modification.modification_type)}</Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(modification.created_at).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm font-medium text-foreground break-words">
+                                        {modification.proposal_message || "Your host requested a booking update."}
+                                      </p>
+                                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                        <span>Old: {formatMoney(modification.old_price, modification.currency)}</span>
+                                        <span>New: {formatMoney(modification.new_price, modification.currency)}</span>
+                                        <span className={difference > 0 ? "text-rose-600" : difference < 0 ? "text-emerald-600" : ""}>
+                                          Difference: {difference > 0 ? "+" : ""}{formatMoney(difference, modification.currency)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {linkedDispute && (
+                                    <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                                      <AlertTriangle className="h-4 w-4 text-amber-700" />
+                                      <AlertTitle>Dispute in progress</AlertTitle>
+                                      <AlertDescription>
+                                        This booking change already has a {linkedDispute.status.replace(/_/g, " ")} dispute.
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
+
+                                  {modification.status === "accepted" && modification.payment_status === "pending" && linkedCharge && (
+                                    <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                                      <AlertTriangle className="h-4 w-4 text-amber-700" />
+                                      <AlertTitle>Payment required</AlertTitle>
+                                      <AlertDescription>
+                                        Pay the linked add-on charge of {formatMoney(linkedCharge.amount, linkedCharge.currency)} below to finalize this approved change.
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
+
+                                  {modification.status === "pending" && (
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                      <Button
+                                        onClick={() => void handleRespondModification(modification, "accept")}
+                                        disabled={respondingModificationId === modification.id}
+                                        className="h-10 sm:flex-1"
+                                      >
+                                        {respondingModificationId === modification.id ? "Saving..." : "Accept change"}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => void handleRespondModification(modification, "reject")}
+                                        disabled={respondingModificationId === modification.id}
+                                        className="h-10 sm:flex-1"
+                                      >
+                                        Reject change
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => openDisputeForModification(modification.id)}
+                                        className="h-10 sm:flex-1 text-xs sm:text-sm"
+                                        disabled={Boolean(linkedDispute)}
+                                      >
+                                        <ShieldAlert className="w-4 h-4 mr-2" />
+                                        {linkedDispute ? `Dispute ${linkedDispute.status.replace(/_/g, " ")}` : "Open dispute"}
+                                      </Button>
                                     </div>
                                   )}
                                 </div>
@@ -1961,6 +2189,52 @@ const MyBookings = () => {
                 className="flex-1"
               >
                 {submittingReview ? "Submitting..." : "Submit Review"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={disputeDialog.open} onOpenChange={(open) => setDisputeDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Open Dispute</DialogTitle>
+            <DialogDescription>
+              Share what went wrong and the resolution team will review this charge or booking change.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Input
+                value={disputeReason}
+                onChange={(event) => setDisputeReason(event.target.value)}
+                placeholder="Example: The amount is incorrect"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Details</Label>
+              <Textarea
+                value={disputeDetails}
+                onChange={(event) => setDisputeDetails(event.target.value)}
+                placeholder="Add context, timeline, and any evidence summary"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setDisputeDialog({ open: false, chargeId: null, modificationId: null })}
+                disabled={submittingDispute}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void submitDispute()} disabled={submittingDispute} className="flex-1">
+                {submittingDispute ? "Submitting..." : "Submit Dispute"}
               </Button>
             </div>
           </div>

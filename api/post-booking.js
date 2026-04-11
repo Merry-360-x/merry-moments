@@ -428,7 +428,7 @@ async function notifyChargeCreated({ adminClient, booking, charge, userEmail }) 
   const html = renderMinimalEmail({
     eyebrow: "Post-booking charge",
     title: "A new charge was added to your booking",
-    subtitle: "Review the reason and pay securely from your post-booking center.",
+      subtitle: "Review the reason and pay securely from My Bookings.",
     bodyHtml: keyValueRows([
       { label: "Booking", value: escapeHtml(bookingRef) },
       { label: "Type", value: escapeHtml(String(charge.charge_type || "").replaceAll("_", " ")) },
@@ -436,8 +436,8 @@ async function notifyChargeCreated({ adminClient, booking, charge, userEmail }) 
       { label: "Status", value: escapeHtml(String(charge.status || "pending")) },
       { label: "Description", value: escapeHtml(String(charge.description || "")) },
     ]),
-    ctaText: "Open Post-Booking Center",
-    ctaUrl: appUrl("/post-booking"),
+      ctaText: "Open My Bookings",
+      ctaUrl: appUrl("/my-bookings"),
   });
 
   await sendEmailNotification({
@@ -484,8 +484,8 @@ async function notifyModification({ adminClient, booking, modification, userEmai
       { label: "Difference", value: escapeHtml(`${sign}${readableMoney(diff, modification.currency)}`) },
       { label: "Message", value: escapeHtml(String(modification.proposal_message || "")) },
     ]),
-    ctaText: "Review Change",
-    ctaUrl: appUrl("/post-booking"),
+      ctaText: "Review in My Bookings",
+      ctaUrl: appUrl("/my-bookings"),
   });
 
   await sendEmailNotification({
@@ -615,8 +615,8 @@ async function sendGuestPostBookingPaidEmail({ adminClient, charge, method }) {
       { label: "Booking ID", value: escapeHtml(String(charge.booking_id).slice(0, 12).toUpperCase()) },
       { label: "Status", value: "Paid" },
     ]),
-    ctaText: "Open Post-Booking Center",
-    ctaUrl: appUrl("/post-booking"),
+      ctaText: "Open My Bookings",
+      ctaUrl: appUrl("/my-bookings"),
   });
 
   await sendEmailNotification({
