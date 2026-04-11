@@ -2381,25 +2381,25 @@ export default function PropertyDetails() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 flex items-center justify-between gap-4">
-                  <div className="text-sm text-muted-foreground">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-[15rem] flex-1 text-sm leading-relaxed text-muted-foreground">
                     {nights > 0 ? (
                       <>
                         {isMonthlyOnlyListing
                           ? `${stayUnits.months} month${stayUnits.months === 1 ? "" : "s"} • Total: `
                           : `${nights} night${nights === 1 ? "" : "s"} • Total: `}
-                        <span className="font-semibold text-foreground">
+                        <span className="font-semibold text-foreground whitespace-nowrap">
                           {displayMoney(Number(totalWithBreakfast), String(data.currency ?? "RWF"))}
                         </span>
                         {breakfastAddon.breakfastEnabled ? (
-                          <span className="ml-2 text-primary font-medium">
+                          <span className="mt-1 block text-primary font-medium sm:ml-2 sm:mt-0 sm:inline">
                             {breakfastAddon.includeBreakfast && breakfastAddon.total > 0
                               ? `• Breakfast +${displayMoney(Number(breakfastAddon.total), String(data.currency ?? "RWF"))}`
                               : "• Breakfast Free"}
                           </span>
                         ) : null}
                         {stayDiscount.amount > 0 && stayDiscount.label ? (
-                          <span className="ml-2 text-green-600 font-medium">
+                          <span className="mt-1 block text-green-600 font-medium sm:ml-2 sm:mt-0 sm:inline">
                             • You save {displayMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}
                           </span>
                         ) : null}
@@ -2408,7 +2408,7 @@ export default function PropertyDetails() {
                       <>Select valid dates to see total.</>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
                     {(() => {
                       const bookingDisabled = booking || nights <= 0 || (isMonthlyOnlyListing && nights < 30) || (addedAddOn && !isInTripCart);
                       const bookingCtaLabel = booking
@@ -2426,13 +2426,14 @@ export default function PropertyDetails() {
                       onClick={addPropertyToTripCart}
                       disabled={booking}
                       type="button"
+                      className="h-11 flex-1 sm:flex-none"
                     >
                       {isInTripCart ? t("propertyDetails.inTripCart") : t("propertyDetails.addToTripCart")}
                     </Button>
                     {!isMonthlyOnlyListing && breakfastAddon.breakfastEnabled ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button type="button" disabled={bookingDisabled}>
+                          <Button type="button" disabled={bookingDisabled} className="h-11 flex-1 sm:flex-none">
                             {bookingCtaLabel}
                           </Button>
                         </DropdownMenuTrigger>
@@ -2472,6 +2473,7 @@ export default function PropertyDetails() {
                         onClick={() => void submitBooking()}
                         disabled={bookingDisabled}
                         type="button"
+                        className="h-11 flex-1 sm:flex-none"
                       >
                         {bookingCtaLabel}
                       </Button>
