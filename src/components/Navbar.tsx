@@ -30,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,7 @@ const bookingDecisionSeenKey = (userId?: string | null) =>
   `guest_booking_decision_seen_at_${String(userId || "anonymous")}`;
 
 const BOOKING_DECISION_SEEN_EVENT = "guest-booking-decisions-seen";
-const MOBILE_MENU_VISIBILITY_EVENT = "merry-mobile-menu-visibility";
+const MOBILE_MENU_ROUTE = "/menu";
 
 const getLatestBookingDecisionTimestamp = (
   bookings: Array<{ confirmation_status?: string | null; confirmed_at?: string | null; rejected_at?: string | null }>
@@ -95,26 +95,13 @@ const TripCartIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 const Navbar = () => {
-  const headerRef = useRef<HTMLElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCurrencyMenuOpen, setMobileCurrencyMenuOpen] = useState(false);
-  const [mobileMenuTop, setMobileMenuTop] = useState(0);
-  const [mobileMenuViewportHeight, setMobileMenuViewportHeight] = useState<number | null>(null);
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
-
-  const syncMobileMenuViewport = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    const nextViewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
-    const nextMenuTop = Math.max(0, Math.round(headerRef.current?.getBoundingClientRect().bottom ?? 0));
-
-    setMobileMenuViewportHeight(nextViewportHeight);
-    setMobileMenuTop(nextMenuTop);
-  }, []);
+  const mobileMenuOpen = location.pathname === MOBILE_MENU_ROUTE;
 
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
@@ -122,89 +109,12 @@ const Navbar = () => {
   }, [user?.id]);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
     setMobileCurrencyMenuOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     if (!mobileMenuOpen) {
       setMobileCurrencyMenuOpen(false);
-    }
-  }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") return;
-
-    const { body } = document;
-    const previousStyles = {
-      overflow: body.style.overflow,
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-    };
-    const scrollY = window.scrollY;
-
-    if (mobileMenuOpen) {
-      body.style.overflow = "hidden";
-      body.style.position = "fixed";
-      body.style.top = `-${scrollY}px`;
-      body.style.left = "0";
-      body.style.right = "0";
-      body.style.width = "100%";
-    }
-
-    return () => {
-      body.style.overflow = previousStyles.overflow;
-      body.style.position = previousStyles.position;
-      body.style.top = previousStyles.top;
-      body.style.left = previousStyles.left;
-      body.style.right = previousStyles.right;
-      body.style.width = previousStyles.width;
-
-      if (mobileMenuOpen) {
-        window.scrollTo({ top: scrollY, behavior: "auto" });
-      }
-    };
-  }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    if (!mobileMenuOpen || typeof window === "undefined") return;
-
-    syncMobileMenuViewport();
-
-    const handleViewportChange = () => syncMobileMenuViewport();
-    const visualViewport = window.visualViewport;
-
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, { passive: true });
-    visualViewport?.addEventListener("resize", handleViewportChange);
-    visualViewport?.addEventListener("scroll", handleViewportChange);
-
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange);
-      visualViewport?.removeEventListener("resize", handleViewportChange);
-      visualViewport?.removeEventListener("scroll", handleViewportChange);
-    };
-  }, [mobileMenuOpen, syncMobileMenuViewport]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent(MOBILE_MENU_VISIBILITY_EVENT, {
-          detail: { open: mobileMenuOpen },
-        })
-      );
-    }
-
-    if (typeof document !== "undefined") {
-      if (mobileMenuOpen) {
-        document.body.dataset.mobileMenuOpen = "true";
-      } else {
-        delete document.body.dataset.mobileMenuOpen;
-      }
     }
   }, [mobileMenuOpen]);
 
@@ -261,6 +171,27 @@ const Navbar = () => {
     await signOut();
     navigate("/");
   };
+
+  const openMobileMenu = useCallback(() => {
+    setMobileCurrencyMenuOpen(false);
+
+    if (mobileMenuOpen) return;
+
+    navigate(MOBILE_MENU_ROUTE, {
+      state: {
+        mobileMenuReturnTo: `${location.pathname}${location.search}${location.hash}`,
+      },
+    });
+  }, [location.hash, location.pathname, location.search, mobileMenuOpen, navigate]);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileCurrencyMenuOpen(false);
+
+    if (!mobileMenuOpen) return;
+
+    const nextPath = (location.state as { mobileMenuReturnTo?: string } | null)?.mobileMenuReturnTo;
+    navigate(nextPath && nextPath !== MOBILE_MENU_ROUTE ? nextPath : "/", { replace: true });
+  }, [location.state, mobileMenuOpen, navigate]);
 
   const getInitials = () => {
     if (!user?.email) return "U";
@@ -401,7 +332,7 @@ const Navbar = () => {
   }, [bookingDecisions, user?.id]);
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       {(activeAd || fallbackAd) && (
         <div
           className="w-full border-b border-border/60"
@@ -440,9 +371,11 @@ const Navbar = () => {
             className="lg:hidden p-2 -ml-2"
             onClick={() => {
               if (mobileMenuOpen) {
-                setMobileCurrencyMenuOpen(false);
+                closeMobileMenu();
+                return;
               }
-              setMobileMenuOpen(!mobileMenuOpen);
+
+              openMobileMenu();
             }}
             aria-label="Menu"
             type="button"
@@ -460,7 +393,11 @@ const Navbar = () => {
             to="/"
             className="lg:hidden absolute left-1/2 -translate-x-1/2 flex items-center"
             aria-label="Home"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => {
+              if (mobileMenuOpen) {
+                setMobileCurrencyMenuOpen(false);
+              }
+            }}
           >
             <Logo className="scale-90" />
           </Link>
@@ -740,25 +677,10 @@ const Navbar = () => {
           <div className="lg:hidden w-10" aria-hidden="true" />
         </nav>
 
-        {/* Mobile Menu (clean + minimal) */}
+        {/* Mobile Menu Route Content */}
         {mobileMenuOpen && (
-          <>
-            <button
-              type="button"
-              aria-label="Close mobile menu"
-              className="fixed inset-x-0 bottom-0 z-[55] bg-black/20 backdrop-blur-[1px] lg:hidden"
-              style={{ top: mobileMenuTop }}
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            <div
-              className="fixed inset-x-0 z-[60] border-t border-border bg-background/95 backdrop-blur-sm lg:hidden overflow-y-auto overscroll-contain"
-              style={{
-                top: mobileMenuTop,
-                height: mobileMenuViewportHeight ? Math.max(0, mobileMenuViewportHeight - mobileMenuTop) : undefined,
-              }}
-            >
-              <div className="mx-auto w-full max-w-screen-sm space-y-4 px-3 py-4 pb-28">
+          <div className="border-t border-border bg-background lg:hidden">
+            <div className="mx-auto w-full max-w-screen-sm space-y-4 px-3 py-4 pb-10">
               <div className="rounded-2xl border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -798,58 +720,48 @@ const Navbar = () => {
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("RWF");
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>RWF</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("USD");
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>USD</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("EUR");
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>EUR</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("GBP");
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>GBP</DropdownMenuItem>
                       <div className="border-t my-1" />
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("TZS" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>TZS</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("KES" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>KES</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("UGX" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>UGX</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("ZMW" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>ZMW</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("BIF" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>BIF</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {
                         setCurrency("ZAR" as any);
                         setMobileCurrencyMenuOpen(false);
-                        setMobileMenuOpen(false);
                       }}>ZAR</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  <Link to="/favorites" onClick={() => setMobileMenuOpen(false)} className="shrink-0">
+                  <Link to="/favorites" className="shrink-0">
                     <button
                       type="button"
                       className="h-11 w-11 rounded-xl border border-border bg-background flex items-center justify-center"
@@ -879,7 +791,6 @@ const Navbar = () => {
                       <Link
                         key={item.to}
                         to={item.to}
-                        onClick={() => setMobileMenuOpen(false)}
                         className={`flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
                           isActive
                             ? "bg-primary/10 text-primary border-primary"
@@ -923,7 +834,6 @@ const Navbar = () => {
                         to={item.to}
                         onClick={() => {
                           if (item.to === "/my-bookings") markBookingDecisionsSeen();
-                          setMobileMenuOpen(false);
                         }}
                         className={`relative flex min-h-[72px] min-w-0 flex-col justify-between rounded-xl border px-3 py-3 transition-colors ${
                           isActive
@@ -981,7 +891,6 @@ const Navbar = () => {
                         size="sm"
                         className="shrink-0 gap-2"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/profile");
                         }}
                       >
@@ -996,7 +905,6 @@ const Navbar = () => {
                       className="w-full justify-start gap-2 border-destructive text-destructive hover:bg-destructive/10"
                       onClick={() => {
                         handleSignOut();
-                        setMobileMenuOpen(false);
                       }}
                     >
                       <LogOut className="w-4 h-4" /> {t("actions.signOut")}
@@ -1005,7 +913,7 @@ const Navbar = () => {
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm text-muted-foreground">Sign in to book your next trip.</div>
-                    <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                    <Link to="/auth">
                       <Button size="sm">{t("actions.signIn")}</Button>
                     </Link>
                   </div>
@@ -1023,7 +931,6 @@ const Navbar = () => {
                         size="sm"
                         className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/host-dashboard");
                         }}
                       >
@@ -1035,7 +942,6 @@ const Navbar = () => {
                         size="sm"
                         className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/become-host");
                         }}
                       >
@@ -1049,7 +955,6 @@ const Navbar = () => {
                         size="sm"
                         className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/admin?tab=overview");
                         }}
                       >
@@ -1063,7 +968,6 @@ const Navbar = () => {
                         size="sm"
                         className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/financial-dashboard");
                         }}
                       >
@@ -1077,7 +981,6 @@ const Navbar = () => {
                         size="sm"
                         className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/operations-dashboard");
                         }}
                       >
@@ -1091,7 +994,6 @@ const Navbar = () => {
                         size="sm"
                         className="min-h-12 h-auto w-full items-start justify-start gap-2 px-3 py-3 text-left whitespace-normal"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/customer-support-dashboard");
                         }}
                       >
@@ -1105,7 +1007,6 @@ const Navbar = () => {
                         size="sm"
                         className="w-full justify-start gap-2 min-[560px]:col-span-2"
                         onClick={() => {
-                          setMobileMenuOpen(false);
                           navigate("/admin/post-booking");
                         }}
                       >
@@ -1115,9 +1016,8 @@ const Navbar = () => {
                   </div>
                 </div>
               ) : null}
-              </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </header>

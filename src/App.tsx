@@ -9,6 +9,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
+import MobileMenuPage from "./pages/MobileMenuPage";
 import RequireAuth from "@/components/RequireAuth";
 import RequireRole from "@/components/RequireRole";
 import { setWebAnalyticsContext, startWebAnalyticsHeartbeat, trackPageView } from "@/lib/web-analytics";
@@ -478,6 +479,7 @@ const App = () => (
               <Route path="/tours" element={<Tours />} />
               <Route path="/tours/:id" element={<TourDetails />} />
               <Route path="/search" element={<SearchResults />} />
+              <Route path="/menu" element={<MobileMenuPage />} />
               <Route path="/transport" element={<Transport />} />
               <Route path="/services" element={<Navigate to="/" replace />} />
               <Route path="/announcements" element={<Announcements />} />

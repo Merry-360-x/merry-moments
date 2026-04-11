@@ -115,6 +115,7 @@ const readTypingPreset = (): TypingSpeedPreset => {
 const SUPPORT_TYPING_PRESET = readTypingPreset();
 const SUPPORT_TYPING_TIMEOUT_MS = TYPING_TIMEOUT_MS_BY_PRESET[SUPPORT_TYPING_PRESET];
 const MOBILE_MENU_VISIBILITY_EVENT = "merry-mobile-menu-visibility";
+const MOBILE_MENU_ROUTE = "/menu";
 
 const AI_STARTER_OPTIONS = [
   {
@@ -183,6 +184,7 @@ const MONTH_INDEX: Record<string, number> = {
 export default function SupportCenterLauncher() {
   const location = useLocation();
   const navigate = useNavigate();
+  const hideForMobileMenuPage = location.pathname === MOBILE_MENU_ROUTE;
   const { toast } = useToast();
   const { user } = useAuth();
   const { addToCart } = useTripCart();
@@ -410,6 +412,13 @@ export default function SupportCenterLauncher() {
       setOpen(false);
     }
   }, [mobileMenuVisible]);
+
+  useEffect(() => {
+    if (hideForMobileMenuPage) {
+      setOpen(false);
+    }
+  }, [hideForMobileMenuPage]);
+
   // Get user's display name
   useEffect(() => {
     const fetchName = async () => {
@@ -1398,7 +1407,7 @@ export default function SupportCenterLauncher() {
     location.pathname.startsWith("/secure-card-handoff") ||
     location.pathname.startsWith("/payment-");
 
-  if (hideLauncherOnRoute || mobileMenuVisible) {
+  if (hideLauncherOnRoute || hideForMobileMenuPage || mobileMenuVisible) {
     return null;
   }
 
