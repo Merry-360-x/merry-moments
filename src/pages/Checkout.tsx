@@ -57,6 +57,7 @@ interface CartItem {
   item_type: string;
   reference_id: string;
   quantity: number;
+  host_id?: string | null;
   title: string;
   price: number;
   currency: string;
@@ -1283,17 +1284,17 @@ export default function CheckoutNew() {
     const serviceIds = items.filter(i => i.item_type === 'transport_service').map(i => String(i.reference_id));
 
     const [tours, packages, properties, vehicles, airportPricing, routes, services] = await Promise.all([
-      tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days, pricing_tiers') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
-      packageIds.length ? ((supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration, pricing_tiers') as any).in('id', packageIds).then((r: any) => r.data || [])) : [],
-      propertyIds.length ? ((supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount, breakfast_available, breakfast_price_per_night') as any).in('id', propertyIds).then((r: any) => r.data || [])) : [],
-      vehicleIds.length ? ((supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats') as any).in('id', vehicleIds).then((r: any) => r.data || [])) : [],
+      tourIds.length ? ((supabase.from('tours').select('id, title, price_per_person, currency, images, duration_days, pricing_tiers, created_by, host_id') as any).in('id', tourIds).then((r: any) => r.data || [])) : [],
+      packageIds.length ? ((supabase.from('tour_packages').select('id, title, price_per_adult, currency, cover_image, gallery_images, duration, pricing_tiers, host_id') as any).in('id', packageIds).then((r: any) => r.data || [])) : [],
+      propertyIds.length ? ((supabase.from('properties').select('id, title, price_per_night, currency, images, location, weekly_discount, monthly_discount, breakfast_available, breakfast_price_per_night, host_id') as any).in('id', propertyIds).then((r: any) => r.data || [])) : [],
+      vehicleIds.length ? ((supabase.from('transport_vehicles').select('id, title, price_per_day, currency, image_url, vehicle_type, seats, owner_id') as any).in('id', vehicleIds).then((r: any) => r.data || [])) : [],
       airportPricingIds.length
         ? ((supabase as any)
             .from('airport_transfer_pricing')
             .select(`
               id, route_id, vehicle_id, price, currency,
               route:airport_transfer_routes(from_location, to_location, distance_km, currency),
-              vehicle:transport_vehicles(title, image_url, vehicle_type, seats)
+              vehicle:transport_vehicles(title, image_url, vehicle_type, seats, owner_id)
             `)
             .in('id', airportPricingIds)
             .then((r: any) => r.data || []))
@@ -1351,6 +1352,7 @@ export default function CheckoutNew() {
               price: perPersonPrice,
               currency: data.currency || 'RWF',
               image: data.images?.[0],
+              host_id: data.created_by || data.host_id || null,
               meta: `${data.duration_days} days • ${getTourPriceSuffix(pricingModel)}`,
             };
             }
@@ -1370,13 +1372,14 @@ export default function CheckoutNew() {
                 price: perPersonPrice,
                 currency: data.currency || 'RWF',
                 image: data.cover_image || data.gallery_images?.[0],
+                host_id: data.host_id || null,
                 meta: `${parseInt(data.duration) || 1} days • ${getTourPriceSuffix(pricingModel)}`,
               };
             }
           case 'property':
-            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location, weekly_discount: data.weekly_discount, monthly_discount: data.monthly_discount };
+            return { title: data.title, price: data.price_per_night, currency: data.currency || 'RWF', image: data.images?.[0], meta: data.location, weekly_discount: data.weekly_discount, monthly_discount: data.monthly_discount, host_id: data.host_id || null };
           case 'transport_vehicle':
-            return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats` };
+            return { title: data.title, price: data.price_per_day, currency: data.currency || 'RWF', image: data.image_url, meta: `${data.vehicle_type} • ${data.seats} seats`, host_id: data.owner_id || null };
           case 'airport_transfer_pricing': {
             const route = data.route || null;
             const vehicle = data.vehicle || null;
@@ -1387,6 +1390,7 @@ export default function CheckoutNew() {
               currency: data.currency || route?.currency || 'RWF',
               image: vehicle?.image_url,
               meta: vehicle?.title ? `Airport transfer • ${vehicle.title}` : 'Airport transfer',
+              host_id: vehicle?.owner_id || null,
               transport_vehicle_id: data.vehicle_id || null,
             };
           }
@@ -2171,6 +2175,7 @@ export default function CheckoutNew() {
           return {
             order_id: checkoutId,
             guest_id: user?.id || null,
+            host_id: item.host_id || null,
             property_id: item.item_type === 'property' ? item.reference_id : null,
             tour_id: (item.item_type === 'tour' || item.item_type === 'tour_package') ? item.reference_id : null,
             transport_id: item.item_type === 'transport_vehicle'

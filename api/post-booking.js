@@ -145,10 +145,170 @@ function requireHost(auth) {
   }
 }
 
+async function resolveBookingHostId(adminClient, booking) {
+  if (!booking) return null;
+
+  const directHostId = safeStr(booking.host_id, 80);
+  if (directHostId) return directHostId;
+
+  let resolvedHostId = "";
+
+  if (booking.property_id) {
+    const { data: property } = await adminClient
+      .from("properties")
+      .select("host_id")
+      .eq("id", booking.property_id)
+      .maybeSingle();
+    resolvedHostId = safeStr(property?.host_id, 80);
+  }
+
+  if (!resolvedHostId && booking.tour_id) {
+    const { data: tourPackage } = await adminClient
+      .from("tour_packages")
+      .select("host_id")
+      .eq("id", booking.tour_id)
+      .maybeSingle();
+    resolvedHostId = safeStr(tourPackage?.host_id, 80);
+  }
+
+  if (!resolvedHostId && booking.tour_id) {
+    const { data: tour } = await adminClient
+      .from("tours")
+      .select("host_id, created_by")
+      .eq("id", booking.tour_id)
+      .maybeSingle();
+    resolvedHostId = safeStr(tour?.host_id || tour?.created_by, 80);
+  }
+
+  if (!resolvedHostId && booking.transport_id) {
+    const { data: vehicle } = await adminClient
+      .from("transport_vehicles")
+      .select("owner_id")
+      .eq("id", booking.transport_id)
+      .maybeSingle();
+    resolvedHostId = safeStr(vehicle?.owner_id, 80);
+  }
+
+  if (resolvedHostId && booking.id) {
+    await adminClient
+      .from("bookings")
+      .update({ host_id: resolvedHostId })
+      .eq("id", booking.id)
+      .is("host_id", null);
+  }
+
+  return resolvedHostId || null;
+}
+
+async function attachResolvedBookingHost(adminClient, booking) {
+  if (!booking) return booking;
+
+  const resolvedHostId = await resolveBookingHostId(adminClient, booking);
+  if (!resolvedHostId || booking.host_id === resolvedHostId) {
+    return booking;
+  }
+
+  return {
+    ...booking,
+    host_id: resolvedHostId,
+  };
+}
+
+async function listOwnedBookingsForHost({ adminClient, hostId, select }) {
+  const [directBookingsRes, propertyRes, packageRes, tourRes, vehicleRes] = await Promise.all([
+    adminClient
+      .from("bookings")
+      .select(select)
+      .eq("host_id", hostId)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    adminClient
+      .from("properties")
+      .select("id")
+      .eq("host_id", hostId)
+      .limit(500),
+    adminClient
+      .from("tour_packages")
+      .select("id")
+      .eq("host_id", hostId)
+      .limit(500),
+    adminClient
+      .from("tours")
+      .select("id")
+      .or(`host_id.eq.${hostId},created_by.eq.${hostId}`)
+      .limit(500),
+    adminClient
+      .from("transport_vehicles")
+      .select("id")
+      .eq("owner_id", hostId)
+      .limit(500),
+  ]);
+
+  const propertyIds = (propertyRes.data || []).map((row) => row.id).filter(Boolean);
+  const packageIds = (packageRes.data || []).map((row) => row.id).filter(Boolean);
+  const tourIds = (tourRes.data || []).map((row) => row.id).filter(Boolean);
+  const vehicleIds = (vehicleRes.data || []).map((row) => row.id).filter(Boolean);
+
+  const fallbackQueryPromises = [];
+
+  if (propertyIds.length) {
+    fallbackQueryPromises.push(
+      adminClient
+        .from("bookings")
+        .select(select)
+        .in("property_id", propertyIds)
+        .order("created_at", { ascending: false })
+        .limit(500)
+    );
+  }
+
+  const tourBookingIds = Array.from(new Set([...packageIds, ...tourIds]));
+  if (tourBookingIds.length) {
+    fallbackQueryPromises.push(
+      adminClient
+        .from("bookings")
+        .select(select)
+        .in("tour_id", tourBookingIds)
+        .order("created_at", { ascending: false })
+        .limit(500)
+    );
+  }
+
+  if (vehicleIds.length) {
+    fallbackQueryPromises.push(
+      adminClient
+        .from("bookings")
+        .select(select)
+        .in("transport_id", vehicleIds)
+        .order("created_at", { ascending: false })
+        .limit(500)
+    );
+  }
+
+  const fallbackResults = await Promise.all(fallbackQueryPromises);
+  const bookingMap = new Map();
+
+  for (const row of directBookingsRes.data || []) {
+    bookingMap.set(row.id, row);
+  }
+
+  for (const result of fallbackResults) {
+    for (const row of result.data || []) {
+      if (!bookingMap.has(row.id)) {
+        bookingMap.set(row.id, row);
+      }
+    }
+  }
+
+  return Array.from(bookingMap.values())
+    .sort((left, right) => new Date(String(right.created_at || 0)).getTime() - new Date(String(left.created_at || 0)).getTime())
+    .slice(0, 500);
+}
+
 async function getBookingOrThrow(adminClient, bookingId) {
   const { data: booking, error } = await adminClient
     .from("bookings")
-    .select("id, guest_id, guest_email, guest_name, host_id, property_id, check_in, check_out, total_price, currency, booking_type")
+    .select("id, guest_id, guest_email, guest_name, host_id, property_id, tour_id, transport_id, check_in, check_out, total_price, currency, booking_type")
     .eq("id", bookingId)
     .single();
 
@@ -156,7 +316,7 @@ async function getBookingOrThrow(adminClient, bookingId) {
     throw Object.assign(new Error("Booking not found"), { status: 404 });
   }
 
-  return booking;
+  return attachResolvedBookingHost(adminClient, booking);
 }
 
 async function ensureUserOwnsCharge(adminClient, chargeId, userId) {
@@ -396,11 +556,13 @@ function paymentMethodLabel(method) {
 async function ensureHostAdjustmentForPostBookingCharge({ adminClient, charge }) {
   if (!charge?.id || !charge?.booking_id) return;
 
-  const { data: booking } = await adminClient
+  const { data: bookingRow } = await adminClient
     .from("bookings")
-    .select("id, host_id")
+    .select("id, host_id, property_id, tour_id, transport_id")
     .eq("id", charge.booking_id)
     .maybeSingle();
+
+  const booking = await attachResolvedBookingHost(adminClient, bookingRow);
 
   if (!booking?.host_id) return;
 
@@ -467,11 +629,13 @@ async function sendGuestPostBookingPaidEmail({ adminClient, charge, method }) {
 }
 
 async function sendHostPostBookingPaidEmail({ adminClient, charge, method }) {
-  const { data: booking } = await adminClient
+  const { data: bookingRow } = await adminClient
     .from("bookings")
-    .select("id, host_id, guest_name")
+    .select("id, host_id, property_id, tour_id, transport_id, guest_name")
     .eq("id", charge.booking_id)
     .maybeSingle();
+
+  const booking = await attachResolvedBookingHost(adminClient, bookingRow);
 
   if (!booking?.host_id) return;
 
@@ -649,12 +813,11 @@ async function reconcileChargesFromCheckout({ adminClient, charges }) {
 }
 
 async function listHostOverview({ adminClient, hostId }) {
-  const { data: bookingRows } = await adminClient
-    .from("bookings")
-    .select("id")
-    .eq("host_id", hostId)
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const bookingRows = await listOwnedBookingsForHost({
+    adminClient,
+    hostId,
+    select: "id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at",
+  });
 
   const bookingIds = (bookingRows || []).map((booking) => booking.id).filter(Boolean);
   if (!bookingIds.length) {
@@ -666,7 +829,7 @@ async function listHostOverview({ adminClient, hostId }) {
     };
   }
 
-  const [chargesRes, modificationsRes, disputesRes, hostBookingsRes] = await Promise.all([
+  const [chargesRes, modificationsRes, disputesRes] = await Promise.all([
     adminClient
       .from("charges")
       .select("*")
@@ -685,12 +848,6 @@ async function listHostOverview({ adminClient, hostId }) {
       .in("booking_id", bookingIds)
       .order("created_at", { ascending: false })
       .limit(500),
-    adminClient
-      .from("bookings")
-      .select("id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at")
-      .in("id", bookingIds)
-      .order("created_at", { ascending: false })
-      .limit(500),
   ]);
 
   const reconciledCharges = await reconcileChargesFromCheckout({
@@ -702,17 +859,16 @@ async function listHostOverview({ adminClient, hostId }) {
     charges: reconciledCharges,
     booking_modifications: modificationsRes.data || [],
     disputes: disputesRes.data || [],
-    host_bookings: hostBookingsRes.data || [],
+    host_bookings: bookingRows || [],
   };
 }
 
 async function listHostBookings({ adminClient, hostId }) {
-  const { data: bookings } = await adminClient
-    .from("bookings")
-    .select("id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at")
-    .eq("host_id", hostId)
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const bookings = await listOwnedBookingsForHost({
+    adminClient,
+    hostId,
+    select: "id, guest_name, guest_email, check_in, check_out, total_price, currency, status, created_at",
+  });
 
   return { bookings: bookings || [] };
 }

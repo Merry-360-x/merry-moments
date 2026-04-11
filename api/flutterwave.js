@@ -115,22 +115,7 @@ async function sendFlwGuestEmail(checkout, items, bookingIds, reviewTokens) {
 async function sendFlwHostNotification(supabase, booking, item) {
   if (!BREVO_API_KEY) return;
   try {
-    let hostId = null;
-    let itemTitle = item.title || item.name || "Your Service";
-    let itemType = "service";
-
-    if (item.item_type === "property") {
-      const { data: prop } = await supabase.from("properties").select("title, host_id").eq("id", item.reference_id).single();
-      if (prop) { itemTitle = prop.title; itemType = "property"; hostId = prop.host_id; }
-    } else if (item.item_type === "tour" || item.item_type === "tour_package") {
-      const table = item.item_type === "tour" ? "tours" : "tour_packages";
-      const hostField = item.item_type === "tour" ? "created_by" : "host_id";
-      const { data: tour } = await supabase.from(table).select(`title, ${hostField}`).eq("id", item.reference_id).single();
-      if (tour) { itemTitle = tour.title; itemType = "tour"; hostId = tour[hostField]; }
-    } else if (item.item_type === "transport_vehicle") {
-      const { data: veh } = await supabase.from("transport_vehicles").select("title, owner_id").eq("id", item.reference_id).single();
-      if (veh) { itemTitle = veh.title; itemType = "transport"; hostId = veh.owner_id; }
-    }
+    const { hostId, itemTitle, itemType } = await resolveCheckoutItemHostContext(supabase, item);
 
     if (!hostId) return;
 
@@ -176,6 +161,43 @@ async function sendFlwHostNotification(supabase, booking, item) {
   } catch (err) {
     console.error("❌ Flutterwave host notification failed:", err.message);
   }
+}
+
+async function resolveCheckoutItemHostContext(supabase, item) {
+  let hostId = item?.host_id || item?.hostId || null;
+  let itemTitle = item?.title || item?.name || "Your Service";
+  let itemType = "service";
+
+  if (item?.item_type === "property") {
+    const { data: prop } = await supabase.from("properties").select("title, host_id").eq("id", item.reference_id).single();
+    if (prop) {
+      itemTitle = prop.title;
+      itemType = "property";
+      hostId = hostId || prop.host_id;
+    }
+  } else if (item?.item_type === "tour" || item?.item_type === "tour_package") {
+    const table = item.item_type === "tour" ? "tours" : "tour_packages";
+    const hostField = item.item_type === "tour" ? "created_by" : "host_id";
+    const { data: tour } = await supabase.from(table).select(`title, ${hostField}`).eq("id", item.reference_id).single();
+    if (tour) {
+      itemTitle = tour.title;
+      itemType = "tour";
+      hostId = hostId || tour[hostField];
+    }
+  } else if (item?.item_type === "transport_vehicle") {
+    const { data: veh } = await supabase.from("transport_vehicles").select("title, owner_id").eq("id", item.reference_id).single();
+    if (veh) {
+      itemTitle = veh.title;
+      itemType = "transport";
+      hostId = hostId || veh.owner_id;
+    }
+  }
+
+  return {
+    hostId,
+    itemTitle,
+    itemType,
+  };
 }
 
 async function sendFlwPostPaymentEmails(supabase, checkoutData, items, bookingIds) {
@@ -311,6 +333,11 @@ async function createBookingsForPaidCheckout(supabase, checkoutData) {
         guests: bookingDetails?.guests || item.metadata?.guests || 1,
         review_token: crypto.randomUUID(),
       };
+
+      const { hostId } = await resolveCheckoutItemHostContext(supabase, item);
+      if (hostId) {
+        bookingData.host_id = hostId;
+      }
 
       if (item.item_type === "property") {
         bookingData.booking_type = "property";
