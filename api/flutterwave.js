@@ -780,29 +780,11 @@ async function handleCreatePayment(req, res) {
     return json(res, 200, { success: true, provider: "flutterwave", checkoutId, txRef });
   }
 
-  // Hosted payment flow (Flutter app): call Flutterwave to get a hosted payment link.
-  // Flutterwave card payments require a supported currency — RWF is not supported for cards,
-  // so convert RWF to USD using Flutterwave's own rates endpoint.
-  let chargeAmount = total;
-  let chargeCurrency = (safeStr(currency, 10) || "USD").toUpperCase();
-
-  if (chargeCurrency === "RWF") {
-    try {
-      const rateRes = await fetch(
-        `${FLW_BASE_URL}/rates?from=RWF&to=USD&amount=${total}`,
-        { headers: { Authorization: `Bearer ${FLW_SECRET_KEY}`, "Content-Type": "application/json" } }
-      );
-      const rateData = await rateRes.json().catch(() => ({}));
-      if (rateData?.status === "success" && rateData?.data?.converted_amount > 0) {
-        chargeAmount = Math.round(rateData.data.converted_amount * 100) / 100;
-      } else {
-        chargeAmount = Math.round((total / 1300) * 100) / 100; // fallback ~1300 RWF/USD
-      }
-    } catch {
-      chargeAmount = Math.round((total / 1300) * 100) / 100;
-    }
-    chargeCurrency = "USD";
-  }
+  // Hosted payment flow: call Flutterwave to get a hosted payment link.
+  // Keep the original checkout currency/amount so card transactions in local
+  // currencies (including RWF) are initialized with the exact payable value.
+  const chargeAmount = total;
+  const chargeCurrency = (safeStr(currency, 10) || "USD").toUpperCase();
 
   const callbackUrl =
     safeStr(redirectUrl, 500) ||
