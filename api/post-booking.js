@@ -717,6 +717,164 @@ async function sendAdminPostBookingPaidEmail({ adminClient, charge, method }) {
   }
 }
 
+function humanizeLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .trim();
+}
+
+function appendDisputeTimelineEntry(existingDetails, actorLabel, message) {
+  const previous = safeStr(existingDetails || "", 6000);
+  const actor = safeStr(actorLabel || "Update", 120) || "Update";
+  const note = safeStr(message || "", 3000);
+  if (!note) return previous;
+
+  const timestamp = new Date().toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const nextEntry = `${actor} (${timestamp}): ${note}`;
+
+  return previous ? `${previous}\n\n${nextEntry}` : nextEntry;
+}
+
+async function getDisputeParticipants(adminClient, bookingId) {
+  const booking = await getBookingOrThrow(adminClient, bookingId);
+
+  let hostProfile = null;
+  if (booking?.host_id) {
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("email, full_name")
+      .eq("user_id", booking.host_id)
+      .maybeSingle();
+
+    hostProfile = profile || null;
+  }
+
+  return { booking, hostProfile };
+}
+
+async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostProfile, event, latestUpdate }) {
+  const bookingLabel = escapeHtml(String(booking?.id || dispute?.booking_id || "").slice(0, 12).toUpperCase());
+  const disputeLabel = escapeHtml(String(dispute?.id || "").slice(0, 12).toUpperCase());
+  const reasonLabel = safeStr(dispute?.reason || "Post-booking dispute", 160) || "Post-booking dispute";
+  const detailsExcerpt = safeStr(dispute?.details || "", 600);
+  const resolutionExcerpt = safeStr(dispute?.resolution || "", 600);
+  const adminNotesExcerpt = safeStr(dispute?.admin_notes || "", 600);
+  const latestUpdateExcerpt = safeStr(latestUpdate || "", 600);
+  const statusLabel = humanizeLabel(dispute?.status || "open") || "open";
+
+  const sendGuest = true;
+  const sendHost = event !== "host_reply";
+
+  const guestCopy = event === "opened"
+    ? {
+        eyebrow: "Dispute Received",
+        title: "We received your dispute",
+        subtitle: "The host and support team can now review the issue and follow up with next steps.",
+        subject: `Dispute received - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+      }
+    : event === "host_reply"
+      ? {
+          eyebrow: "Host Update",
+          title: "Your host replied to the dispute",
+          subtitle: "Review the latest host response and continue tracking the case from My Bookings.",
+          subject: `Host replied - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+        }
+      : {
+          eyebrow: "Dispute Update",
+          title: "Your dispute has been updated",
+          subtitle: "There is a new update on your post-booking dispute.",
+          subject: `Dispute update - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+        };
+
+  const hostCopy = event === "opened"
+    ? {
+        eyebrow: "Host Alert",
+        title: "A guest opened a dispute",
+        subtitle: "A guest raised a post-booking issue for one of your bookings.",
+        subject: `New dispute opened - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+      }
+    : {
+        eyebrow: "Dispute Update",
+        title: "A dispute has been updated",
+        subtitle: "There is a new update on a post-booking dispute tied to your booking.",
+        subject: `Dispute update - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+      };
+
+  const detailRows = [
+    { label: "Dispute ID", value: disputeLabel },
+    { label: "Booking ID", value: bookingLabel },
+    { label: "Status", value: escapeHtml(statusLabel) },
+    { label: "Reason", value: escapeHtml(reasonLabel) },
+  ];
+
+  if (latestUpdateExcerpt) {
+    detailRows.push({ label: "Latest Update", value: escapeHtml(latestUpdateExcerpt) });
+  }
+
+  if (detailsExcerpt) {
+    detailRows.push({ label: "Details", value: escapeHtml(detailsExcerpt) });
+  }
+
+  if (resolutionExcerpt) {
+    detailRows.push({ label: "Resolution", value: escapeHtml(resolutionExcerpt) });
+  }
+
+  if (adminNotesExcerpt) {
+    detailRows.push({ label: "Admin Notes", value: escapeHtml(adminNotesExcerpt) });
+  }
+
+  const guestEmail = safeStr(booking?.guest_email, 160);
+  if (sendGuest && guestEmail) {
+    const guestHtml = renderMinimalEmail({
+      eyebrow: guestCopy.eyebrow,
+      title: guestCopy.title,
+      subtitle: guestCopy.subtitle,
+      bodyHtml: keyValueRows(detailRows),
+      ctaText: "Open My Bookings",
+      ctaUrl: appUrl("/my-bookings"),
+    });
+
+    await sendEmailNotification({
+      toEmail: guestEmail,
+      toName: safeStr(booking?.guest_name || "Guest", 120) || "Guest",
+      subject: guestCopy.subject,
+      html: guestHtml,
+      tags: ["post-booking", "dispute", event === "opened" ? "dispute-opened" : event === "host_reply" ? "host-replied" : "dispute-updated"],
+    });
+  }
+
+  const hostEmail = safeStr(hostProfile?.email, 160);
+  if (sendHost && hostEmail) {
+    const hostRows = [
+      ...detailRows,
+      { label: "Guest", value: escapeHtml(safeStr(booking?.guest_name || "Guest", 120) || "Guest") },
+    ];
+
+    const hostHtml = renderMinimalEmail({
+      eyebrow: hostCopy.eyebrow,
+      title: hostCopy.title,
+      subtitle: hostCopy.subtitle,
+      bodyHtml: keyValueRows(hostRows),
+      ctaText: "Open Host Dashboard",
+      ctaUrl: appUrl("/host-dashboard?tab=post-booking"),
+    });
+
+    await sendEmailNotification({
+      toEmail: hostEmail,
+      toName: safeStr(hostProfile?.full_name || "Host", 120) || "Host",
+      subject: hostCopy.subject,
+      html: hostHtml,
+      tags: ["post-booking", "dispute", "host-notice", event === "opened" ? "dispute-opened" : "dispute-updated"],
+    });
+  }
+}
+
 async function reconcileChargesFromCheckout({ adminClient, charges }) {
   const rows = Array.isArray(charges) ? charges : [];
   if (!rows.length) return rows;
@@ -846,7 +1004,7 @@ async function listHostOverview({ adminClient, hostId }) {
       .from("disputes")
       .select("*")
       .in("booking_id", bookingIds)
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(500),
   ]);
 
@@ -896,7 +1054,7 @@ async function listUserOverview({ adminClient, userId }) {
       .from("disputes")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(200),
     adminClient
       .from("notifications")
@@ -936,7 +1094,7 @@ async function listAdminOverview({ adminClient }) {
     adminClient
       .from("disputes")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(500),
   ]);
 
@@ -1176,6 +1334,8 @@ async function openDispute({ auth, body }) {
     throw Object.assign(new Error("Unable to resolve booking for dispute"), { status: 400 });
   }
 
+  const { booking, hostProfile } = await getDisputeParticipants(auth.adminClient, bookingId);
+
   const { data: dispute, error: disputeErr } = await auth.adminClient
     .from("disputes")
     .insert({
@@ -1204,6 +1364,8 @@ async function openDispute({ auth, body }) {
       .eq("user_id", auth.userId);
   }
 
+  const bookingRef = String(booking.id).slice(0, 12).toUpperCase();
+
   await createInAppNotification(auth.adminClient, {
     userId: auth.userId,
     title: "Dispute opened",
@@ -1212,6 +1374,25 @@ async function openDispute({ auth, body }) {
     channel: "in_app",
     data: { dispute_id: dispute.id, booking_id: bookingId, charge_id: chargeId || null },
   });
+
+  if (booking.host_id && booking.host_id !== auth.userId) {
+    await createInAppNotification(auth.adminClient, {
+      userId: booking.host_id,
+      title: "Guest dispute opened",
+      body: `A guest opened a dispute for booking ${bookingRef}.`,
+      type: "dispute_opened_host",
+      channel: "in_app",
+      data: { dispute_id: dispute.id, booking_id: bookingId, charge_id: chargeId || null },
+    });
+  }
+
+  await sendDisputeLifecycleEmails({
+    adminClient: auth.adminClient,
+    dispute,
+    booking,
+    hostProfile,
+    event: "opened",
+  }).catch(() => null);
 
   return { dispute };
 }
@@ -1252,6 +1433,8 @@ async function resolveDispute({ auth, body }) {
     throw Object.assign(new Error(disputeErr?.message || "Failed to resolve dispute"), { status: 400 });
   }
 
+  const { booking, hostProfile } = await getDisputeParticipants(auth.adminClient, dispute.booking_id);
+
   if (dispute.charge_id) {
     const mappedChargeStatus = nextStatus === "approved"
       ? "cancelled"
@@ -1269,16 +1452,106 @@ async function resolveDispute({ auth, body }) {
     }
   }
 
+    const bookingRef = String(booking.id).slice(0, 12).toUpperCase();
+
   await createInAppNotification(auth.adminClient, {
     userId: dispute.user_id,
     title: "Dispute update",
-    body: `Your dispute status is now ${nextStatus.replaceAll("_", " ")}.`,
+      body: `Your dispute status is now ${humanizeLabel(nextStatus)}.`,
     type: "dispute_update",
     channel: "in_app",
     data: { dispute_id: dispute.id, status: nextStatus },
   });
 
+    if (booking.host_id && booking.host_id !== dispute.user_id) {
+      await createInAppNotification(auth.adminClient, {
+        userId: booking.host_id,
+        title: "Dispute update",
+        body: `Dispute for booking ${bookingRef} is now ${humanizeLabel(nextStatus)}.`,
+        type: "dispute_update_host",
+        channel: "in_app",
+        data: { dispute_id: dispute.id, booking_id: dispute.booking_id, status: nextStatus },
+      });
+    }
+
+    await sendDisputeLifecycleEmails({
+      adminClient: auth.adminClient,
+      dispute,
+      booking,
+      hostProfile,
+      event: "updated",
+    }).catch(() => null);
+
   return { dispute };
+}
+
+async function respondDisputeAsHost({ auth, body }) {
+  requireHost(auth);
+
+  const disputeId = safeStr(body.dispute_id, 80);
+  const message = safeStr(body.message || body.response || body.note, 3000);
+
+  if (!disputeId || !message) {
+    throw Object.assign(new Error("dispute_id and message are required"), { status: 400 });
+  }
+
+  const { data: dispute, error: disputeErr } = await auth.adminClient
+    .from("disputes")
+    .select("*")
+    .eq("id", disputeId)
+    .single();
+
+  if (disputeErr || !dispute) {
+    throw Object.assign(new Error("Dispute not found"), { status: 404 });
+  }
+
+  if (!["open", "in_review"].includes(safeStr(dispute.status, 32).toLowerCase())) {
+    throw Object.assign(new Error(`Dispute status is ${dispute.status}; host replies are only allowed while the dispute is open or in review`), { status: 400 });
+  }
+
+  const { booking, hostProfile } = await getDisputeParticipants(auth.adminClient, dispute.booking_id);
+  if (!booking?.host_id || booking.host_id !== auth.userId) {
+    throw Object.assign(new Error("Forbidden: dispute is not linked to one of your bookings"), { status: 403 });
+  }
+
+  const nowIso = new Date().toISOString();
+  const hostName = safeStr(hostProfile?.full_name || "Host", 120) || "Host";
+  const nextDetails = appendDisputeTimelineEntry(dispute.details, hostName, message);
+
+  const { data: updated, error: updateErr } = await auth.adminClient
+    .from("disputes")
+    .update({
+      details: nextDetails,
+      status: "in_review",
+      updated_at: nowIso,
+    })
+    .eq("id", dispute.id)
+    .select("*")
+    .single();
+
+  if (updateErr || !updated) {
+    throw Object.assign(new Error(updateErr?.message || "Failed to send dispute response"), { status: 400 });
+  }
+
+  await createInAppNotification(auth.adminClient, {
+    userId: dispute.user_id,
+    title: "Host replied to your dispute",
+    body: safeStr(message, 220) || "Your host sent an update on the dispute.",
+    type: "dispute_update",
+    channel: "in_app",
+    data: { dispute_id: dispute.id, booking_id: dispute.booking_id, status: "in_review", source: "host" },
+  });
+
+  await sendDisputeLifecycleEmails({
+    adminClient: auth.adminClient,
+    dispute: updated,
+    booking,
+    hostProfile,
+    event: "host_reply",
+    latestUpdate: message,
+  }).catch(() => null);
+
+  return { dispute: updated };
 }
 
 async function updateChargeStatus({ auth, body }) {
@@ -1779,6 +2052,8 @@ export default async function handler(req, res) {
       result = await createModification({ auth, body: normalizedBody });
     } else if (action === "open-dispute") {
       result = await openDispute({ auth, body });
+    } else if (action === "host-respond-dispute") {
+      result = await respondDisputeAsHost({ auth, body });
     } else if (action === "resolve-dispute") {
       result = await resolveDispute({ auth, body });
     } else if (action === "pay-charge") {

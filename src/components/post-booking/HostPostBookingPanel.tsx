@@ -29,8 +29,23 @@ type HostBooking = {
   currency: string;
 };
 
+type Dispute = {
+  id: string;
+  booking_id: string;
+  charge_id: string | null;
+  booking_modification_id: string | null;
+  reason: string;
+  details: string | null;
+  admin_notes?: string | null;
+  resolution?: string | null;
+  status: string;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 type HostPostBookingOverview = {
   charges: Charge[];
+  disputes: Dispute[];
   host_bookings: HostBooking[];
 };
 
@@ -73,6 +88,7 @@ async function fetchHostOverview(): Promise<HostPostBookingOverview> {
 
   return {
     charges: payload.charges || [],
+    disputes: payload.disputes || [],
     host_bookings: payload.host_bookings || [],
   };
 }
@@ -102,10 +118,13 @@ export function HostPostBookingPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [creatingCharge, setCreatingCharge] = useState(false);
+  const [respondingDisputeId, setRespondingDisputeId] = useState<string | null>(null);
   const [overview, setOverview] = useState<HostPostBookingOverview>({
     charges: [],
+    disputes: [],
     host_bookings: [],
   });
+  const [disputeDrafts, setDisputeDrafts] = useState<Record<string, string>>({});
   const [hostChargeForm, setHostChargeForm] = useState({
     booking_id: "",
     charge_type: "extra_service",
@@ -143,6 +162,16 @@ export function HostPostBookingPanel() {
       .map(([currency, amount]) => formatMoney(amount, currency))
       .join(" · ");
   }, [pendingChargeTotals]);
+
+  const bookingById = useMemo(
+    () => new Map(overview.host_bookings.map((booking) => [booking.id, booking])),
+    [overview.host_bookings]
+  );
+
+  const activeDisputes = useMemo(
+    () => overview.disputes.filter((dispute) => ["open", "in_review"].includes(String(dispute.status || "").toLowerCase())),
+    [overview.disputes]
+  );
 
   const loadOverview = useCallback(async (withSpinner = true) => {
     if (withSpinner) setLoading(true);
@@ -219,6 +248,42 @@ export function HostPostBookingPanel() {
     }
   }, [hostChargeForm, loadOverview, toast]);
 
+  const handleHostRespondToDispute = useCallback(async (disputeId: string) => {
+    const message = (disputeDrafts[disputeId] || "").trim();
+    if (!message) {
+      toast({
+        variant: "destructive",
+        title: "Add an update first",
+        description: "Enter the reply or fix you want to send to the guest.",
+      });
+      return;
+    }
+
+    setRespondingDisputeId(disputeId);
+    try {
+      await postBookingRequest("host-respond-dispute", {
+        dispute_id: disputeId,
+        message,
+      });
+
+      toast({
+        title: "Dispute update sent",
+        description: "The guest was notified by email and in-app notification.",
+      });
+
+      setDisputeDrafts((prev) => ({ ...prev, [disputeId]: "" }));
+      await loadOverview(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not send update",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setRespondingDisputeId(null);
+    }
+  }, [disputeDrafts, loadOverview, toast]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -247,7 +312,7 @@ export function HostPostBookingPanel() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2 text-rose-600">
@@ -268,11 +333,22 @@ export function HostPostBookingPanel() {
             <CardTitle className="text-2xl">{overview.host_bookings.length}</CardTitle>
           </CardHeader>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2 text-amber-600">
+              <ShieldAlert className="w-4 h-4" />
+              Active Disputes
+            </CardDescription>
+            <CardTitle className="text-2xl">{activeDisputes.length}</CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
           <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
+          <TabsTrigger className="shrink-0" value="disputes">Disputes</TabsTrigger>
           <TabsTrigger className="shrink-0" value="create-charge">Create Charge</TabsTrigger>
         </TabsList>
 
@@ -303,6 +379,69 @@ export function HostPostBookingPanel() {
                 </CardContent>
               </Card>
             ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="disputes" className="mt-6 space-y-4">
+          {overview.disputes.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                No disputes have been raised on your bookings.
+              </CardContent>
+            </Card>
+          ) : (
+            overview.disputes.map((dispute) => {
+              const booking = bookingById.get(dispute.booking_id);
+              const canReply = ["open", "in_review"].includes(String(dispute.status || "").toLowerCase());
+
+              return (
+                <Card key={dispute.id} className="border-border/70">
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={statusTone(dispute.status)}>{humanizeLabel(dispute.status)}</Badge>
+                          <Badge variant="outline">{humanizeLabel(dispute.reason)}</Badge>
+                          <span className="text-xs text-muted-foreground">Booking {dispute.booking_id.slice(0, 8).toUpperCase()}</span>
+                          {booking?.guest_name ? <span className="text-xs text-muted-foreground">Guest: {booking.guest_name}</span> : null}
+                        </div>
+
+                        {dispute.details ? (
+                          <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-foreground whitespace-pre-wrap break-words">
+                            {dispute.details}
+                          </div>
+                        ) : null}
+
+                        {dispute.resolution ? <p className="text-sm text-emerald-700">Resolution: {dispute.resolution}</p> : null}
+                        {dispute.admin_notes ? <p className="text-sm text-muted-foreground">Support note: {dispute.admin_notes}</p> : null}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(dispute.updated_at || dispute.created_at).toLocaleString()}
+                      </div>
+                    </div>
+
+                    {canReply ? (
+                      <div className="space-y-2">
+                        <Label htmlFor={`dispute-reply-${dispute.id}`}>Reply or proposed fix</Label>
+                        <Textarea
+                          id={`dispute-reply-${dispute.id}`}
+                          value={disputeDrafts[dispute.id] || ""}
+                          onChange={(event) => setDisputeDrafts((prev) => ({ ...prev, [dispute.id]: event.target.value }))}
+                          placeholder="Explain the fix, reimbursement, or clarification you want to send to the guest"
+                          rows={4}
+                        />
+                        <Button onClick={() => void handleHostRespondToDispute(dispute.id)} disabled={respondingDisputeId === dispute.id}>
+                          {respondingDisputeId === dispute.id ? "Sending..." : "Send dispute update"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">This dispute is no longer open for host replies.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </TabsContent>
 

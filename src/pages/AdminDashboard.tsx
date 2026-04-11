@@ -288,6 +288,25 @@ type SupportTicketRow = {
   created_at: string;
 };
 
+type AdminPostBookingDisputeRow = {
+  id: string;
+  booking_id: string;
+  user_id: string | null;
+  charge_id: string | null;
+  booking_modification_id: string | null;
+  reason: string | null;
+  details: string | null;
+  status: string;
+  resolution: string | null;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+type AdminPostBookingOverview = {
+  disputes: AdminPostBookingDisputeRow[];
+};
+
 type IncidentRow = {
   id: string;
   reporter_id: string | null;
@@ -567,6 +586,43 @@ const getBookingRegionLabel = (booking: BookingRow): string => {
   if (!countryCode) return "Outside Africa / Unknown";
   return AFRICAN_BOOKING_COUNTRY_BY_CODE[countryCode] ?? "Outside Africa / Unknown";
 };
+
+const humanizeAdminLabel = (value: string | null | undefined): string =>
+  String(value ?? "")
+    .replace(/_/g, " ")
+    .trim();
+
+async function getAdminAccessToken() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+
+  const accessToken = data.session?.access_token;
+  if (!accessToken) {
+    throw new Error("Missing auth session");
+  }
+
+  return accessToken;
+}
+
+async function fetchAdminPostBookingOverview(): Promise<AdminPostBookingOverview> {
+  const accessToken = await getAdminAccessToken();
+  const response = await fetch("/api/post-booking?action=admin-overview", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error((payload as { error?: string } | null)?.error || "Failed to load post-booking disputes");
+  }
+
+  return {
+    disputes: Array.isArray((payload as { disputes?: unknown[] } | null)?.disputes)
+      ? (((payload as { disputes?: unknown[] }).disputes || []) as AdminPostBookingDisputeRow[])
+      : [],
+  };
+}
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -2044,6 +2100,27 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
+
+  const {
+    data: postBookingOverview,
+    refetch: refetchPostBookingOverview,
+    isLoading: isPostBookingOverviewLoading,
+  } = useQuery({
+    queryKey: ["admin-post-booking-overview"],
+    queryFn: fetchAdminPostBookingOverview,
+    enabled: true,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const postBookingDisputes = postBookingOverview?.disputes ?? [];
+  const openPostBookingDisputesCount = postBookingDisputes.filter((dispute) => {
+    const status = String(dispute.status || "").toLowerCase();
+    return status === "open" || status === "in_review";
+  }).length;
+  const recentPostBookingDisputes = postBookingDisputes.slice(0, 5);
 
   const refundRequestRefs = useMemo(() => {
     const refs = new Set<string>();
@@ -3967,7 +4044,7 @@ For support, contact: support@merry360x.com
   };
 
   const isActiveTabLoading =
-    (tab === "overview" && (isMetricsLoading || isApplicationsLoading || isBookingsLoading || isTicketsLoading)) ||
+    (tab === "overview" && (isMetricsLoading || isApplicationsLoading || isBookingsLoading || isTicketsLoading || isPostBookingOverviewLoading)) ||
     (tab === "ads" && isAdsLoading) ||
     (tab === "host-applications" && isApplicationsLoading) ||
     (tab === "users" && isUsersLoading) ||
@@ -3979,7 +4056,7 @@ For support, contact: support@merry360x.com
     (tab === "payments" && isBookingsLoading) ||
     (tab === "payouts" && isPayoutsLoading) ||
     (tab === "reviews" && isReviewsLoading) ||
-    (tab === "support" && isTicketsLoading) ||
+    (tab === "support" && (isTicketsLoading || isPostBookingOverviewLoading)) ||
     (tab === "safety" && (isIncidentsLoading || isBlacklistLoading));
 
   if (isActiveTabLoading) {
@@ -4001,8 +4078,21 @@ For support, contact: support@merry360x.com
             <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}>
               <Shield className="w-4 h-4 mr-2" />
               Post-Booking Console
+              {openPostBookingDisputesCount > 0 && (
+                <Badge variant="destructive" className="ml-2 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {openPostBookingDisputesCount}
+                </Badge>
+              )}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => refetchMetrics()}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void refetchMetrics();
+                void refetchTickets();
+                void refetchPostBookingOverview();
+              }}
+            >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
@@ -4067,6 +4157,11 @@ For support, contact: support@merry360x.com
               onClick={() => navigate("/admin/post-booking")}
             >
               <Shield className="w-4 h-4" /> Post-Booking
+              {openPostBookingDisputesCount > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
+                  {openPostBookingDisputesCount}
+                </Badge>
+              )}
             </Button>
             <TabsTrigger value="payouts" className="gap-1">
               <Banknote className="w-4 h-4" /> Payouts
@@ -7274,6 +7369,63 @@ For support, contact: support@merry360x.com
                       <SelectItem value="closed">Closed</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="rounded-lg border bg-muted/20 p-4 mb-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-medium">Recent post-booking disputes</h3>
+                        <Badge variant={openPostBookingDisputesCount > 0 ? "destructive" : "secondary"}>
+                          {openPostBookingDisputesCount} open
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Support can monitor new disputes here and jump into the post-booking console to intervene.
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => navigate("/admin/post-booking")}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Open Post-Booking Console
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3 mt-4">
+                    {isPostBookingOverviewLoading && recentPostBookingDisputes.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Loading recent disputes...</p>
+                    )}
+
+                    {!isPostBookingOverviewLoading && recentPostBookingDisputes.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No post-booking disputes yet.</p>
+                    )}
+
+                    {recentPostBookingDisputes.map((dispute) => {
+                      const detailPreview = dispute.details || dispute.admin_notes || dispute.resolution || "No additional notes yet.";
+
+                      return (
+                        <div key={dispute.id} className="rounded-lg border bg-background/80 p-3">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <StatusBadge status={dispute.status} />
+                                <span className="font-medium text-sm">
+                                  {humanizeAdminLabel(dispute.reason) || "Post-booking dispute"}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{detailPreview}</p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                {new Date(dispute.created_at).toLocaleString()} · Booking: {dispute.booking_id.slice(0, 8)}... · Dispute: {dispute.id.slice(0, 8)}...
+                              </p>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={() => navigate("/admin/post-booking")}>
+                              Review
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
               <div className="space-y-3">

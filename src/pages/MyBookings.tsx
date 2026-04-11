@@ -70,7 +70,7 @@ interface Booking {
   } | null;
   transport_vehicles?: {
     title: string;
-    vehicle_type: string;
+    updated_at?: string | null; // Added updated_at field
     seats: number;
   } | null;
   tours?: {
@@ -138,6 +138,7 @@ type PostBookingDispute = {
   admin_notes?: string | null;
   resolution?: string | null;
   created_at?: string;
+  updated_at?: string | null;
 };
 
 type GuestPostBookingOverview = {
@@ -151,6 +152,19 @@ type DisputeDialogState = {
   chargeId: string | null;
   modificationId: string | null;
 };
+
+function latestDisputeUpdate(dispute: PostBookingDispute | undefined) {
+  if (!dispute) return "";
+  if (dispute.resolution) return dispute.resolution;
+  if (dispute.admin_notes) return dispute.admin_notes;
+
+  const detailBlocks = String(dispute.details || "")
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return detailBlocks[detailBlocks.length - 1] || "";
+}
 
 const mobileProviders = [
   { value: "MTN", label: "MTN Mobile Money" },
@@ -1494,6 +1508,7 @@ const MyBookings = () => {
                                       <AlertTitle>Dispute in progress</AlertTitle>
                                       <AlertDescription>
                                         This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute and will be handled from your booking flow here.
+                                        {latestDisputeUpdate(linkedDispute) ? ` Latest update: ${latestDisputeUpdate(linkedDispute)}` : ""}
                                       </AlertDescription>
                                     </Alert>
                                   )}
@@ -1648,6 +1663,7 @@ const MyBookings = () => {
                                       <AlertTitle>Dispute in progress</AlertTitle>
                                       <AlertDescription>
                                         This booking change already has a {linkedDispute.status.replace(/_/g, " ")} dispute.
+                                        {latestDisputeUpdate(linkedDispute) ? ` Latest update: ${latestDisputeUpdate(linkedDispute)}` : ""}
                                       </AlertDescription>
                                     </Alert>
                                   )}
