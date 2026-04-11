@@ -30,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,13 +95,26 @@ const TripCartIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 const Navbar = () => {
+  const headerRef = useRef<HTMLElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isHost, isAdmin, isStaff, isFinancialStaff, isOperationsStaff, isCustomerSupport } = useAuth();
   const { guestCart } = useTripCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCurrencyMenuOpen, setMobileCurrencyMenuOpen] = useState(false);
+  const [mobileMenuTop, setMobileMenuTop] = useState(0);
+  const [mobileMenuViewportHeight, setMobileMenuViewportHeight] = useState<number | null>(null);
   const [decisionSeenAt, setDecisionSeenAt] = useState<string>("");
+
+  const syncMobileMenuViewport = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const nextViewportHeight = Math.round(window.visualViewport?.height ?? window.innerHeight);
+    const nextMenuTop = Math.max(0, Math.round(headerRef.current?.getBoundingClientRect().bottom ?? 0));
+
+    setMobileMenuViewportHeight(nextViewportHeight);
+    setMobileMenuTop(nextMenuTop);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
@@ -120,15 +133,62 @@ const Navbar = () => {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const previousOverflow = document.body.style.overflow;
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    const { body } = document;
+    const previousStyles = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    };
+    const scrollY = window.scrollY;
+
     if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      body.style.position = "fixed";
+      body.style.top = `-${scrollY}px`;
+      body.style.left = "0";
+      body.style.right = "0";
+      body.style.width = "100%";
     }
+
     return () => {
-      document.body.style.overflow = previousOverflow;
+      body.style.overflow = previousStyles.overflow;
+      body.style.position = previousStyles.position;
+      body.style.top = previousStyles.top;
+      body.style.left = previousStyles.left;
+      body.style.right = previousStyles.right;
+      body.style.width = previousStyles.width;
+
+      if (mobileMenuOpen) {
+        window.scrollTo({ top: scrollY, behavior: "auto" });
+      }
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen || typeof window === "undefined") return;
+
+    syncMobileMenuViewport();
+
+    const handleViewportChange = () => syncMobileMenuViewport();
+    const visualViewport = window.visualViewport;
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, { passive: true });
+    visualViewport?.addEventListener("resize", handleViewportChange);
+    visualViewport?.addEventListener("scroll", handleViewportChange);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange);
+      visualViewport?.removeEventListener("resize", handleViewportChange);
+      visualViewport?.removeEventListener("scroll", handleViewportChange);
+    };
+  }, [mobileMenuOpen, syncMobileMenuViewport]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -341,7 +401,7 @@ const Navbar = () => {
   }, [bookingDecisions, user?.id]);
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header ref={headerRef} className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       {(activeAd || fallbackAd) && (
         <div
           className="w-full border-b border-border/60"
@@ -686,8 +746,23 @@ const Navbar = () => {
 
         {/* Mobile Menu (clean + minimal) */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-border max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
-            <div className="space-y-4 px-3 py-4 pb-28">
+          <>
+            <button
+              type="button"
+              aria-label="Close mobile menu"
+              className="fixed inset-x-0 bottom-0 z-[55] bg-black/20 backdrop-blur-[1px] lg:hidden"
+              style={{ top: mobileMenuTop }}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            <div
+              className="fixed inset-x-0 z-[60] border-t border-border bg-background/95 backdrop-blur-sm lg:hidden overflow-y-auto overscroll-contain"
+              style={{
+                top: mobileMenuTop,
+                height: mobileMenuViewportHeight ? Math.max(0, mobileMenuViewportHeight - mobileMenuTop) : undefined,
+              }}
+            >
+              <div className="mx-auto w-full max-w-screen-sm space-y-4 px-3 py-4 pb-28">
               <div className="rounded-2xl border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -1050,8 +1125,9 @@ const Navbar = () => {
                   </div>
                 </div>
               ) : null}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </header>

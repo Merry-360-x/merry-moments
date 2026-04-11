@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -228,6 +228,8 @@ export default function PropertyDetails() {
     return inferred > 0 ? inferred : 1;
   });
   const [booking, setBooking] = useState(false);
+  const [checkInCalendarOpen, setCheckInCalendarOpen] = useState(false);
+  const [checkOutCalendarOpen, setCheckOutCalendarOpen] = useState(false);
   const [breakfastPlan, setBreakfastPlan] = useState<"no_breakfast" | "with_breakfast">(() => {
     const withBreakfastParam = searchParams.get("withBreakfast") === "1";
     return withBreakfastParam ? "with_breakfast" : "no_breakfast";
@@ -906,6 +908,48 @@ export default function PropertyDetails() {
     }
   }, [isMonthlyOnlyListing, checkIn, checkOut]);
 
+  const getMinimumCheckoutDate = useCallback((startDate: Date) => {
+    const minimumCheckout = new Date(startDate);
+    minimumCheckout.setHours(0, 0, 0, 0);
+    minimumCheckout.setDate(minimumCheckout.getDate() + (isMonthlyOnlyListing ? 30 : 1));
+    return minimumCheckout;
+  }, [isMonthlyOnlyListing]);
+
+  const handleCheckInSelect = useCallback((selected?: Date) => {
+    if (!selected) return;
+
+    setCheckInCalendarOpen(false);
+
+    startTransition(() => {
+      const normalizedCheckIn = new Date(selected);
+      normalizedCheckIn.setHours(0, 0, 0, 0);
+
+      setCheckIn(normalizedCheckIn);
+      setCheckOut((currentCheckOut) => {
+        const minimumCheckout = getMinimumCheckoutDate(normalizedCheckIn);
+
+        if (!currentCheckOut) return minimumCheckout;
+
+        const normalizedCheckOut = new Date(currentCheckOut);
+        normalizedCheckOut.setHours(0, 0, 0, 0);
+
+        return normalizedCheckOut < minimumCheckout ? minimumCheckout : normalizedCheckOut;
+      });
+    });
+  }, [getMinimumCheckoutDate]);
+
+  const handleCheckOutSelect = useCallback((selected?: Date) => {
+    if (!selected) return;
+
+    setCheckOutCalendarOpen(false);
+
+    startTransition(() => {
+      const normalizedCheckOut = new Date(selected);
+      normalizedCheckOut.setHours(0, 0, 0, 0);
+      setCheckOut(normalizedCheckOut);
+    });
+  }, []);
+
   const media = useMemo(() => {
     const currentImages = (data?.images ?? []).filter(Boolean) as string[];
     const values = currentImages.length > 0
@@ -1172,7 +1216,7 @@ export default function PropertyDetails() {
   );
 
   const { data: relatedTours = [], isLoading: isLoadingRelatedTours } = useQuery({
-    queryKey: ["related-tours", propertyId, nights, guests, checkIn ? formatDateOnlyLocal(checkIn) : undefined, checkOut ? formatDateOnlyLocal(checkOut) : undefined, locationHints.join("|")],
+    queryKey: ["related-tours", propertyId, guests, locationHints.join("|")],
     enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
@@ -1275,7 +1319,7 @@ export default function PropertyDetails() {
   });
 
   const { data: relatedTransportVehicles = [], isLoading: isLoadingRelatedTransportVehicles } = useQuery({
-    queryKey: ["related-transport-vehicles", propertyId, checkIn ? formatDateOnlyLocal(checkIn) : undefined, checkOut ? formatDateOnlyLocal(checkOut) : undefined, guests, locationHints.join("|")],
+    queryKey: ["related-transport-vehicles", propertyId, guests, locationHints.join("|")],
     enabled: Boolean(propertyId && data?.id),
     queryFn: async () => {
       const locationHint = locationHints[0] || "";
@@ -2161,9 +2205,13 @@ export default function PropertyDetails() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label>{t("propertyDetails.checkIn")}</Label>
-                    <Popover>
+                    <Popover open={checkInCalendarOpen} onOpenChange={(open) => {
+                      setCheckInCalendarOpen(open);
+                      if (open) setCheckOutCalendarOpen(false);
+                    }}>
                       <PopoverTrigger asChild>
                         <Button
+                          type="button"
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
                         >
@@ -2171,12 +2219,17 @@ export default function PropertyDetails() {
                           {checkIn ? format(checkIn, "MMM dd, yyyy") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="w-auto p-0"
+                        align="start"
+                        onOpenAutoFocus={(event) => event.preventDefault()}
+                        onCloseAutoFocus={(event) => event.preventDefault()}
+                      >
                         <TooltipProvider delayDuration={120}>
                           <Calendar
                             mode="single"
                             selected={checkIn}
-                            onSelect={setCheckIn}
+                            onSelect={handleCheckInSelect}
                             disabled={disabledDates}
                             modifiers={{ blocked: blockedDateRanges }}
                             modifiersClassNames={{ blocked: "line-through text-destructive font-medium" }}
@@ -2204,7 +2257,6 @@ export default function PropertyDetails() {
                                 );
                               },
                             }}
-                            initialFocus
                           />
                         </TooltipProvider>
                       </PopoverContent>
@@ -2212,9 +2264,13 @@ export default function PropertyDetails() {
                   </div>
                   <div>
                     <Label>{t("propertyDetails.checkOut")}</Label>
-                    <Popover>
+                    <Popover open={checkOutCalendarOpen} onOpenChange={(open) => {
+                      setCheckOutCalendarOpen(open);
+                      if (open) setCheckInCalendarOpen(false);
+                    }}>
                       <PopoverTrigger asChild>
                         <Button
+                          type="button"
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
                         >
@@ -2222,12 +2278,17 @@ export default function PropertyDetails() {
                           {checkOut ? format(checkOut, "MMM dd, yyyy") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="w-auto p-0"
+                        align="start"
+                        onOpenAutoFocus={(event) => event.preventDefault()}
+                        onCloseAutoFocus={(event) => event.preventDefault()}
+                      >
                         <TooltipProvider delayDuration={120}>
                           <Calendar
                             mode="single"
                             selected={checkOut}
-                            onSelect={setCheckOut}
+                            onSelect={handleCheckOutSelect}
                             disabled={isCheckoutDateDisabled}
                             modifiers={{ blocked: blockedDateRanges }}
                             modifiersClassNames={{ blocked: "line-through text-destructive font-medium" }}
@@ -2255,7 +2316,6 @@ export default function PropertyDetails() {
                                 );
                               },
                             }}
-                            initialFocus
                           />
                         </TooltipProvider>
                       </PopoverContent>
