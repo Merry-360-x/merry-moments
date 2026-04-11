@@ -767,8 +767,19 @@ async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostP
   const adminNotesExcerpt = safeStr(dispute?.admin_notes || "", 600);
   const latestUpdateExcerpt = safeStr(latestUpdate || "", 600);
   const statusLabel = humanizeLabel(dispute?.status || "open") || "open";
+  const eventLabel = event === "guest_appeal"
+    ? "Guest appealed"
+    : event === "guest_close"
+      ? "Guest closed dispute"
+      : event === "guest_pay"
+        ? "Guest chose to pay"
+        : event === "host_reply"
+          ? "Host replied"
+          : event === "opened"
+            ? "Dispute opened"
+            : "Dispute updated";
 
-  const sendGuest = true;
+  const sendGuest = !["guest_appeal", "guest_close", "guest_pay"].includes(event);
   const sendHost = event !== "host_reply";
 
   const guestCopy = event === "opened"
@@ -799,6 +810,27 @@ async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostP
         subtitle: "A guest raised a post-booking issue for one of your bookings.",
         subject: `New dispute opened - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
       }
+    : event === "guest_appeal"
+      ? {
+          eyebrow: "Guest Appeal",
+          title: "The guest wants to continue the dispute",
+          subtitle: "The guest reviewed your response and sent another appeal.",
+          subject: `Guest appealed dispute - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+        }
+      : event === "guest_close"
+        ? {
+            eyebrow: "Dispute Closed",
+            title: "The guest closed the dispute",
+            subtitle: "The guest ended the dispute thread for this booking.",
+            subject: `Guest closed dispute - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+          }
+        : event === "guest_pay"
+          ? {
+              eyebrow: "Guest Payment Choice",
+              title: "The guest chose to pay and close the dispute",
+              subtitle: "The guest accepted the outcome and started payment on the disputed charge.",
+              subject: `Guest chose to pay - booking ${String(booking?.id || "").slice(0, 12).toUpperCase()}`,
+            }
     : {
         eyebrow: "Dispute Update",
         title: "A dispute has been updated",
@@ -811,6 +843,7 @@ async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostP
     { label: "Booking ID", value: bookingLabel },
     { label: "Status", value: escapeHtml(statusLabel) },
     { label: "Reason", value: escapeHtml(reasonLabel) },
+    { label: "Event", value: escapeHtml(eventLabel) },
   ];
 
   if (latestUpdateExcerpt) {
@@ -845,7 +878,15 @@ async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostP
       toName: safeStr(booking?.guest_name || "Guest", 120) || "Guest",
       subject: guestCopy.subject,
       html: guestHtml,
-      tags: ["post-booking", "dispute", event === "opened" ? "dispute-opened" : event === "host_reply" ? "host-replied" : "dispute-updated"],
+      tags: [
+        "post-booking",
+        "dispute",
+        event === "opened"
+          ? "dispute-opened"
+          : event === "host_reply"
+            ? "host-replied"
+            : "dispute-updated",
+      ],
     });
   }
 
@@ -870,7 +911,20 @@ async function sendDisputeLifecycleEmails({ adminClient, dispute, booking, hostP
       toName: safeStr(hostProfile?.full_name || "Host", 120) || "Host",
       subject: hostCopy.subject,
       html: hostHtml,
-      tags: ["post-booking", "dispute", "host-notice", event === "opened" ? "dispute-opened" : "dispute-updated"],
+      tags: [
+        "post-booking",
+        "dispute",
+        "host-notice",
+        event === "opened"
+          ? "dispute-opened"
+          : event === "guest_appeal"
+            ? "guest-appealed"
+            : event === "guest_close"
+              ? "guest-closed-dispute"
+              : event === "guest_pay"
+                ? "guest-chose-pay"
+                : "dispute-updated",
+      ],
     });
   }
 }
@@ -1335,6 +1389,8 @@ async function openDispute({ auth, body }) {
   }
 
   const { booking, hostProfile } = await getDisputeParticipants(auth.adminClient, bookingId);
+  const guestLabel = safeStr(booking?.guest_name || "Guest", 120) || "Guest";
+  const initialDetails = details ? appendDisputeTimelineEntry("", guestLabel, details) : null;
 
   const { data: dispute, error: disputeErr } = await auth.adminClient
     .from("disputes")
@@ -1345,7 +1401,7 @@ async function openDispute({ auth, body }) {
       user_id: auth.userId,
       opened_by: auth.userId,
       reason,
-      details: details || null,
+      details: initialDetails,
       evidence_urls: evidenceUrls,
       status: "open",
     })
@@ -1554,6 +1610,448 @@ async function respondDisputeAsHost({ auth, body }) {
   return { dispute: updated };
 }
 
+async function resolveDisputeChargeForUser(adminClient, dispute, userId) {
+  if (dispute?.charge_id) {
+    return ensureUserOwnsCharge(adminClient, dispute.charge_id, userId);
+  }
+
+  if (!dispute?.booking_modification_id) {
+    return null;
+  }
+
+  const { data: modification, error: modificationErr } = await adminClient
+    .from("booking_modifications")
+    .select("id, charge_id, user_id")
+    .eq("id", dispute.booking_modification_id)
+    .single();
+
+  if (modificationErr || !modification) {
+    throw Object.assign(new Error("Booking modification linked to dispute was not found"), { status: 404 });
+  }
+
+  if (modification.user_id !== userId) {
+    throw Object.assign(new Error("Forbidden: modification does not belong to current user"), { status: 403 });
+  }
+
+  if (!modification.charge_id) {
+    return null;
+  }
+
+  return ensureUserOwnsCharge(adminClient, modification.charge_id, userId);
+}
+
+async function initializeChargePayment({ auth, charge, method, body }) {
+  const nowIso = new Date().toISOString();
+
+  // Card/mobile money flow initialization through existing checkout + payment endpoints.
+  // Server computes/locks amount so the client cannot tamper with charge value.
+  const amount = safeAmount(charge.amount);
+
+  const { data: profile } = await auth.adminClient
+    .from("profiles")
+    .select("full_name, email, phone")
+    .eq("user_id", auth.userId)
+    .maybeSingle();
+
+  const checkoutPayload = {
+    user_id: auth.userId,
+    name: safeStr(profile?.full_name || "Guest", 120),
+    email: safeStr(profile?.email || auth.userEmail || "", 160) || null,
+    phone: safeStr(profile?.phone || "", 40) || null,
+    total_amount: amount,
+    base_price_amount: amount,
+    service_fee_amount: 0,
+    currency: safeStr(charge.currency || "USD", 12),
+    payment_method: method,
+    payment_status: "pending",
+    status: "pending",
+    items: [
+      {
+        id: charge.id,
+        item_type: "post_booking_charge",
+        reference_id: charge.id,
+        title: `Post-booking charge (${charge.charge_type})`,
+        price: amount,
+        currency: safeStr(charge.currency || "USD", 12),
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      post_booking_charge_id: charge.id,
+      booking_id: charge.booking_id,
+      amount,
+      currency: charge.currency,
+      payment_flow: "post_booking",
+    },
+    message: safeStr(charge.description, 1000) || null,
+  };
+
+  const { data: checkout, error: checkoutErr } = await auth.adminClient
+    .from("checkout_requests")
+    .insert(checkoutPayload)
+    .select("id, currency, total_amount")
+    .single();
+
+  if (checkoutErr || !checkout) {
+    throw Object.assign(new Error(checkoutErr?.message || "Failed to create checkout request"), { status: 400 });
+  }
+
+  await auth.adminClient
+    .from("charges")
+    .update({
+      payment_method: method,
+      payment_provider: method,
+      payment_reference: checkout.id,
+      updated_at: nowIso,
+    })
+    .eq("id", charge.id)
+    .eq("user_id", auth.userId);
+
+  const response = {
+    payment_status: "pending",
+    charge_id: charge.id,
+    checkout_id: checkout.id,
+    amount: checkout.total_amount,
+    currency: checkout.currency,
+    method,
+    next_step: "client_should_invoke_existing_payment_endpoint",
+  };
+
+  if (method === "card" && body.initialize === true) {
+    const flwResp = await fetch(appUrl("/api/flutterwave"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create-payment",
+        checkoutId: checkout.id,
+        amount: checkout.total_amount,
+        currency: checkout.currency,
+        payerName: safeStr(profile?.full_name || "Guest", 120),
+        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
+        phoneNumber: safeStr(profile?.phone || "", 40),
+        description: `Post-booking charge ${charge.id}`,
+        redirectUrl: appUrl(`/payment-pending?checkoutId=${encodeURIComponent(checkout.id)}&provider=flutterwave`),
+      }),
+    }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
+      .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "flutterwave_init_failed" } }));
+
+    response.flutterwave = flwResp;
+
+    const flwBody = flwResp?.body || {};
+    const flwRedirectUrl =
+      flwBody?.redirectUrl ||
+      flwBody?.link ||
+      flwBody?.data?.link ||
+      null;
+
+    if (!flwResp.ok || flwBody?.success === false || !flwRedirectUrl) {
+      throw Object.assign(
+        new Error(
+          safeStr(
+            flwBody?.error || flwBody?.message || "Unable to initialize card payment",
+            300,
+          ) || "Unable to initialize card payment",
+        ),
+        { status: 502 },
+      );
+    }
+  }
+
+  if (method === "mobile_money" && body.initialize === true) {
+    const provider = safeStr(body.provider, 80);
+    const phoneNumber = safeStr(body.phone_number || body.phone, 32);
+
+    if (!provider || !phoneNumber) {
+      throw Object.assign(new Error("provider and phone_number are required for mobile money"), { status: 400 });
+    }
+
+    const mpResp = await fetch(appUrl("/api/pawapay-create-payment"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        checkoutId: checkout.id,
+        amount: checkout.total_amount,
+        phoneNumber,
+        payerName: safeStr(profile?.full_name || "Guest", 120),
+        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
+        provider,
+        description: `Post-booking charge ${charge.id}`,
+      }),
+    }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
+      .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "pawapay_init_failed" } }));
+
+    response.mobile_money = mpResp;
+
+    const mpBody = mpResp?.body || {};
+    const depositId = mpBody?.depositId || mpBody?.data?.depositId || null;
+
+    if (!mpResp.ok || mpBody?.success === false || !depositId) {
+      throw Object.assign(
+        new Error(
+          safeStr(
+            mpBody?.error || mpBody?.message || "Unable to initialize mobile money payment",
+            300,
+          ) || "Unable to initialize mobile money payment",
+        ),
+        { status: 502 },
+      );
+    }
+  }
+
+  return response;
+}
+
+async function respondDisputeAsGuest({ auth, body }) {
+  const disputeId = safeStr(body.dispute_id, 80);
+  const decision = safeStr(body.decision || body.action, 32).toLowerCase();
+  const message = safeStr(body.message || body.note || body.details, 3000);
+
+  if (!disputeId || !["appeal", "close", "pay"].includes(decision)) {
+    throw Object.assign(new Error("dispute_id and decision (appeal|close|pay) are required"), { status: 400 });
+  }
+
+  const { data: dispute, error: disputeErr } = await auth.adminClient
+    .from("disputes")
+    .select("*")
+    .eq("id", disputeId)
+    .single();
+
+  if (disputeErr || !dispute) {
+    throw Object.assign(new Error("Dispute not found"), { status: 404 });
+  }
+
+  if (dispute.user_id !== auth.userId) {
+    throw Object.assign(new Error("Forbidden: dispute does not belong to current user"), { status: 403 });
+  }
+
+  if (!["open", "in_review"].includes(safeStr(dispute.status, 32).toLowerCase())) {
+    throw Object.assign(new Error(`Dispute status is ${dispute.status}; guest actions are only allowed while the dispute is open or in review`), { status: 400 });
+  }
+
+  if (decision === "appeal" && !message) {
+    throw Object.assign(new Error("A message is required to continue the appeal"), { status: 400 });
+  }
+
+  const { booking, hostProfile } = await getDisputeParticipants(auth.adminClient, dispute.booking_id);
+  const bookingRef = String(booking?.id || dispute.booking_id || "").slice(0, 12).toUpperCase();
+  const guestLabel = safeStr(booking?.guest_name || "Guest", 120) || "Guest";
+  const nowIso = new Date().toISOString();
+
+  const notifyHost = async (title, bodyText, extraData = {}) => {
+    if (!booking?.host_id || booking.host_id === auth.userId) return;
+
+    await createInAppNotification(auth.adminClient, {
+      userId: booking.host_id,
+      title,
+      body: bodyText,
+      type: "dispute_update_host",
+      channel: "in_app",
+      data: {
+        dispute_id: dispute.id,
+        booking_id: dispute.booking_id,
+        status: dispute.status,
+        ...extraData,
+      },
+    }).catch(() => null);
+  };
+
+  if (decision === "appeal") {
+    const nextDetails = appendDisputeTimelineEntry(dispute.details, guestLabel, message);
+
+    const { data: updated, error: updateErr } = await auth.adminClient
+      .from("disputes")
+      .update({
+        details: nextDetails,
+        status: "open",
+        resolution: null,
+        resolved_by: null,
+        resolved_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", dispute.id)
+      .select("*")
+      .single();
+
+    if (updateErr || !updated) {
+      throw Object.assign(new Error(updateErr?.message || "Failed to continue dispute"), { status: 400 });
+    }
+
+    await notifyHost(
+      "Guest appealed dispute",
+      safeStr(message, 220) || `The guest sent another response for booking ${bookingRef}.`,
+      { status: "open", source: "guest" },
+    );
+
+    await sendDisputeLifecycleEmails({
+      adminClient: auth.adminClient,
+      dispute: updated,
+      booking,
+      hostProfile,
+      event: "guest_appeal",
+      latestUpdate: message,
+    }).catch(() => null);
+
+    return { dispute: updated };
+  }
+
+  const resolveNote = decision === "pay"
+    ? "Guest accepted the response and chose to pay the charge."
+    : "Guest closed the dispute.";
+
+  const nextDetails = appendDisputeTimelineEntry(dispute.details, guestLabel, resolveNote);
+
+  if (decision === "pay") {
+    const rawMethod = safeStr(body.method || body.payment_method || "", 64).toLowerCase();
+    const method = rawMethod === "mobile" ? "mobile_money" : rawMethod;
+
+    if (!method || !["card", "mobile_money"].includes(method)) {
+      throw Object.assign(new Error("A valid payment method is required to pay from a dispute"), { status: 400 });
+    }
+
+    const charge = await resolveDisputeChargeForUser(auth.adminClient, dispute, auth.userId);
+    if (!charge) {
+      throw Object.assign(new Error("This dispute is not linked to a payable charge"), { status: 400 });
+    }
+
+    if (!["pending", "disputed"].includes(safeStr(charge.status, 32).toLowerCase())) {
+      throw Object.assign(new Error(`Charge status is ${charge.status}; it cannot be paid from this dispute`), { status: 400 });
+    }
+
+    let payableCharge = charge;
+    const shouldRevertCharge = safeStr(charge.status, 32).toLowerCase() === "disputed";
+
+    if (shouldRevertCharge) {
+      const { data: reopenedCharge, error: reopenedChargeErr } = await auth.adminClient
+        .from("charges")
+        .update({
+          status: "pending",
+          disputed_at: null,
+          updated_at: nowIso,
+        })
+        .eq("id", charge.id)
+        .eq("user_id", auth.userId)
+        .select("*")
+        .single();
+
+      if (reopenedChargeErr || !reopenedCharge) {
+        throw Object.assign(new Error(reopenedChargeErr?.message || "Failed to prepare charge for payment"), { status: 400 });
+      }
+
+      payableCharge = reopenedCharge;
+    }
+
+    let paymentResult = null;
+    try {
+      paymentResult = await initializeChargePayment({
+        auth,
+        charge: payableCharge,
+        method,
+        body,
+      });
+    } catch (error) {
+      if (shouldRevertCharge) {
+        await auth.adminClient
+          .from("charges")
+          .update({
+            status: "disputed",
+            disputed_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", charge.id)
+          .eq("user_id", auth.userId);
+      }
+
+      throw error;
+    }
+
+    const { data: updated, error: updateErr } = await auth.adminClient
+      .from("disputes")
+      .update({
+        details: nextDetails,
+        status: "closed",
+        resolution: resolveNote,
+        resolved_by: auth.userId,
+        resolved_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", dispute.id)
+      .select("*")
+      .single();
+
+    if (updateErr || !updated) {
+      throw Object.assign(new Error(updateErr?.message || "Failed to close dispute after payment decision"), { status: 400 });
+    }
+
+    await notifyHost(
+      "Guest chose to pay",
+      `The guest accepted the dispute outcome and started payment for booking ${bookingRef}.`,
+      { status: "closed", source: "guest", decision: "pay" },
+    );
+
+    await sendDisputeLifecycleEmails({
+      adminClient: auth.adminClient,
+      dispute: updated,
+      booking,
+      hostProfile,
+      event: "guest_pay",
+      latestUpdate: resolveNote,
+    }).catch(() => null);
+
+    return {
+      dispute: updated,
+      ...paymentResult,
+    };
+  }
+
+  const charge = await resolveDisputeChargeForUser(auth.adminClient, dispute, auth.userId).catch(() => null);
+  if (charge && safeStr(charge.status, 32).toLowerCase() === "disputed") {
+    await auth.adminClient
+      .from("charges")
+      .update({
+        status: "pending",
+        disputed_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", charge.id)
+      .eq("user_id", auth.userId);
+  }
+
+  const { data: updated, error: updateErr } = await auth.adminClient
+    .from("disputes")
+    .update({
+      details: nextDetails,
+      status: "closed",
+      resolution: resolveNote,
+      resolved_by: auth.userId,
+      resolved_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("id", dispute.id)
+    .select("*")
+    .single();
+
+  if (updateErr || !updated) {
+    throw Object.assign(new Error(updateErr?.message || "Failed to close dispute"), { status: 400 });
+  }
+
+  await notifyHost(
+    "Guest closed dispute",
+    `The guest closed the dispute for booking ${bookingRef}.`,
+    { status: "closed", source: "guest", decision: "close" },
+  );
+
+  await sendDisputeLifecycleEmails({
+    adminClient: auth.adminClient,
+    dispute: updated,
+    booking,
+    hostProfile,
+    event: "guest_close",
+    latestUpdate: resolveNote,
+  }).catch(() => null);
+
+  return { dispute: updated };
+}
+
 async function updateChargeStatus({ auth, body }) {
   requireAdminOrStaff(auth);
 
@@ -1709,165 +2207,7 @@ async function payCharge({ auth, body }) {
     throw Object.assign(new Error(`Charge status is ${charge.status}; only pending charges can be paid`), { status: 400 });
   }
 
-  const nowIso = new Date().toISOString();
-
-  // Card/mobile money flow initialization through existing checkout + payment endpoints.
-  // Server computes/locks amount so the client cannot tamper with charge value.
-  const amount = safeAmount(charge.amount);
-
-  const { data: profile } = await auth.adminClient
-    .from("profiles")
-    .select("full_name, email, phone")
-    .eq("user_id", auth.userId)
-    .maybeSingle();
-
-  const checkoutPayload = {
-    user_id: auth.userId,
-    name: safeStr(profile?.full_name || "Guest", 120),
-    email: safeStr(profile?.email || auth.userEmail || "", 160) || null,
-    phone: safeStr(profile?.phone || "", 40) || null,
-    total_amount: amount,
-    base_price_amount: amount,
-    service_fee_amount: 0,
-    currency: safeStr(charge.currency || "USD", 12),
-    payment_method: method,
-    payment_status: "pending",
-    status: "pending",
-    items: [
-      {
-        id: charge.id,
-        item_type: "post_booking_charge",
-        reference_id: charge.id,
-        title: `Post-booking charge (${charge.charge_type})`,
-        price: amount,
-        currency: safeStr(charge.currency || "USD", 12),
-        quantity: 1,
-      },
-    ],
-    metadata: {
-      post_booking_charge_id: charge.id,
-      booking_id: charge.booking_id,
-      amount,
-      currency: charge.currency,
-      payment_flow: "post_booking",
-    },
-    message: safeStr(charge.description, 1000) || null,
-  };
-
-  const { data: checkout, error: checkoutErr } = await auth.adminClient
-    .from("checkout_requests")
-    .insert(checkoutPayload)
-    .select("id, currency, total_amount")
-    .single();
-
-  if (checkoutErr || !checkout) {
-    throw Object.assign(new Error(checkoutErr?.message || "Failed to create checkout request"), { status: 400 });
-  }
-
-  await auth.adminClient
-    .from("charges")
-    .update({
-      payment_method: method,
-      payment_provider: method,
-      payment_reference: checkout.id,
-      updated_at: nowIso,
-    })
-    .eq("id", charge.id)
-    .eq("user_id", auth.userId);
-
-  const response = {
-    payment_status: "pending",
-    charge_id: charge.id,
-    checkout_id: checkout.id,
-    amount: checkout.total_amount,
-    currency: checkout.currency,
-    method,
-    next_step: "client_should_invoke_existing_payment_endpoint",
-  };
-
-  // Optional convenience: initialize provider in one call if enough details are supplied.
-  if (method === "card" && body.initialize === true) {
-    const flwResp = await fetch(appUrl("/api/flutterwave"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "create-payment",
-        checkoutId: checkout.id,
-        amount: checkout.total_amount,
-        currency: checkout.currency,
-        payerName: safeStr(profile?.full_name || "Guest", 120),
-        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
-        phoneNumber: safeStr(profile?.phone || "", 40),
-        description: `Post-booking charge ${charge.id}`,
-        redirectUrl: appUrl(`/payment-pending?checkoutId=${encodeURIComponent(checkout.id)}&provider=flutterwave`),
-      }),
-    }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
-      .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "flutterwave_init_failed" } }));
-
-    response.flutterwave = flwResp;
-
-    const flwBody = flwResp?.body || {};
-    const flwRedirectUrl =
-      flwBody?.redirectUrl ||
-      flwBody?.link ||
-      flwBody?.data?.link ||
-      null;
-
-    if (!flwResp.ok || flwBody?.success === false || !flwRedirectUrl) {
-      throw Object.assign(
-        new Error(
-          safeStr(
-            flwBody?.error || flwBody?.message || "Unable to initialize card payment",
-            300,
-          ) || "Unable to initialize card payment",
-        ),
-        { status: 502 },
-      );
-    }
-  }
-
-  if (method === "mobile_money" && body.initialize === true) {
-    const provider = safeStr(body.provider, 80);
-    const phoneNumber = safeStr(body.phone_number || body.phone, 32);
-
-    if (!provider || !phoneNumber) {
-      throw Object.assign(new Error("provider and phone_number are required for mobile money"), { status: 400 });
-    }
-
-    const mpResp = await fetch(appUrl("/api/pawapay-create-payment"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        checkoutId: checkout.id,
-        amount: checkout.total_amount,
-        phoneNumber,
-        payerName: safeStr(profile?.full_name || "Guest", 120),
-        payerEmail: safeStr(profile?.email || auth.userEmail || "", 160),
-        provider,
-        description: `Post-booking charge ${charge.id}`,
-      }),
-    }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
-      .catch((err) => ({ ok: false, body: { error: err instanceof Error ? err.message : "pawapay_init_failed" } }));
-
-    response.mobile_money = mpResp;
-
-    const mpBody = mpResp?.body || {};
-    const depositId = mpBody?.depositId || mpBody?.data?.depositId || null;
-
-    if (!mpResp.ok || mpBody?.success === false || !depositId) {
-      throw Object.assign(
-        new Error(
-          safeStr(
-            mpBody?.error || mpBody?.message || "Unable to initialize mobile money payment",
-            300,
-          ) || "Unable to initialize mobile money payment",
-        ),
-        { status: 502 },
-      );
-    }
-  }
-
-  return response;
+  return initializeChargePayment({ auth, charge, method, body });
 }
 
 async function respondModification({ auth, body }) {
@@ -2054,6 +2394,8 @@ export default async function handler(req, res) {
       result = await openDispute({ auth, body });
     } else if (action === "host-respond-dispute") {
       result = await respondDisputeAsHost({ auth, body });
+    } else if (action === "guest-respond-dispute") {
+      result = await respondDisputeAsGuest({ auth, body });
     } else if (action === "resolve-dispute") {
       result = await resolveDispute({ auth, body });
     } else if (action === "pay-charge") {

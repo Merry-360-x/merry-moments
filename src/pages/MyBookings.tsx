@@ -153,17 +153,72 @@ type DisputeDialogState = {
   modificationId: string | null;
 };
 
-function latestDisputeUpdate(dispute: PostBookingDispute | undefined) {
-  if (!dispute) return "";
-  if (dispute.resolution) return dispute.resolution;
-  if (dispute.admin_notes) return dispute.admin_notes;
+type DisputeReplyDialogState = {
+  open: boolean;
+  disputeId: string | null;
+};
 
+type DisputeTimelineEntry = {
+  id: string;
+  label: string;
+  content: string;
+  tone: "default" | "support" | "resolution";
+};
+
+function canGuestRespondToDispute(dispute: PostBookingDispute | undefined) {
+  const value = String(dispute?.status || "").toLowerCase();
+  return value === "open" || value === "in_review";
+}
+
+function disputeTimelineEntries(dispute: PostBookingDispute | undefined): DisputeTimelineEntry[] {
+  if (!dispute) return [];
+
+  const entries: DisputeTimelineEntry[] = [];
   const detailBlocks = String(dispute.details || "")
     .split(/\n\s*\n/)
     .map((part) => part.trim())
     .filter(Boolean);
 
-  return detailBlocks[detailBlocks.length - 1] || "";
+  detailBlocks.forEach((part, index) => {
+    const lower = part.toLowerCase();
+    const label = lower.startsWith("host")
+      ? "Host update"
+      : lower.startsWith("guest")
+        ? "Your message"
+        : "Update";
+
+    entries.push({
+      id: `detail-${index}`,
+      label,
+      content: part,
+      tone: "default",
+    });
+  });
+
+  if (dispute.admin_notes) {
+    entries.push({
+      id: "admin-notes",
+      label: "Support note",
+      content: dispute.admin_notes,
+      tone: "support",
+    });
+  }
+
+  if (dispute.resolution) {
+    entries.push({
+      id: "resolution",
+      label: "Resolution",
+      content: dispute.resolution,
+      tone: "resolution",
+    });
+  }
+
+  return entries;
+}
+
+function latestDisputeUpdate(dispute: PostBookingDispute | undefined) {
+  const entries = disputeTimelineEntries(dispute);
+  return entries[entries.length - 1]?.content || "";
 }
 
 const mobileProviders = [
@@ -232,6 +287,12 @@ function postBookingStatusTone(status: string) {
   return "bg-slate-100 text-slate-700 hover:bg-slate-100";
 }
 
+function disputeTimelineTone(tone: DisputeTimelineEntry["tone"]) {
+  if (tone === "resolution") return "border-emerald-200 bg-emerald-50/70";
+  if (tone === "support") return "border-slate-200 bg-slate-50/80";
+  return "border-border bg-background";
+}
+
 function summarizeChargeTotals(charges: Array<{ amount: number; currency: string }>) {
   const totals = new Map<string, number>();
 
@@ -291,6 +352,12 @@ const MyBookings = () => {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDetails, setDisputeDetails] = useState("");
   const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [disputeReplyDialog, setDisputeReplyDialog] = useState<DisputeReplyDialogState>({
+    open: false,
+    disputeId: null,
+  });
+  const [disputeReplyMessage, setDisputeReplyMessage] = useState("");
+  const [respondingDisputeId, setRespondingDisputeId] = useState<string | null>(null);
   const [respondingModificationId, setRespondingModificationId] = useState<string | null>(null);
   const lastDecisionToastRef = useRef<string>("");
 
@@ -1143,6 +1210,173 @@ const MyBookings = () => {
     }
   }, [disputeDetails, disputeDialog.chargeId, disputeDialog.modificationId, disputeReason, refetchPostBookingOverview, toast]);
 
+  const closeDisputeReplyDialog = useCallback(() => {
+    setDisputeReplyDialog({ open: false, disputeId: null });
+    setDisputeReplyMessage("");
+  }, []);
+
+  const openDisputeAppeal = useCallback((disputeId: string) => {
+    setDisputeReplyMessage("");
+    setDisputeReplyDialog({ open: true, disputeId });
+  }, []);
+
+  const submitDisputeAppeal = useCallback(async () => {
+    if (!disputeReplyDialog.disputeId) return;
+
+    if (!disputeReplyMessage.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Appeal message required",
+        description: "Explain why you want to keep the dispute open.",
+      });
+      return;
+    }
+
+    setRespondingDisputeId(disputeReplyDialog.disputeId);
+    try {
+      await postBookingRequest("guest-respond-dispute", {
+        dispute_id: disputeReplyDialog.disputeId,
+        decision: "appeal",
+        message: disputeReplyMessage.trim(),
+      });
+
+      closeDisputeReplyDialog();
+      toast({
+        title: "Appeal sent",
+        description: "Your dispute remains open and the host will see your response.",
+      });
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not continue dispute",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setRespondingDisputeId(null);
+    }
+  }, [closeDisputeReplyDialog, disputeReplyDialog.disputeId, disputeReplyMessage, refetchPostBookingOverview, toast]);
+
+  const closeDispute = useCallback(async (disputeId: string) => {
+    setRespondingDisputeId(disputeId);
+    try {
+      await postBookingRequest("guest-respond-dispute", {
+        dispute_id: disputeId,
+        decision: "close",
+      });
+
+      toast({
+        title: "Dispute closed",
+        description: "The dispute is closed. If a payment is still due, you can pay it from this booking.",
+      });
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not close dispute",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setRespondingDisputeId(null);
+    }
+  }, [refetchPostBookingOverview, toast]);
+
+  const payDisputedCharge = useCallback(async (dispute: PostBookingDispute, charge: PostBookingCharge) => {
+    const method = payMethodByCharge[charge.id] || "card";
+    const provider = mobileProviderByCharge[charge.id] || "MTN";
+    const phone = mobilePhoneByCharge[charge.id] || "";
+
+    if (method === "mobile_money" && !phone.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Phone number required",
+        description: "Enter a mobile money number to continue.",
+      });
+      return;
+    }
+
+    setRespondingDisputeId(dispute.id);
+    setProcessingChargeId(charge.id);
+
+    try {
+      const payload: Record<string, unknown> = {
+        dispute_id: dispute.id,
+        decision: "pay",
+        method,
+        initialize: true,
+      };
+
+      if (method === "mobile_money") {
+        payload.provider = provider;
+        payload.phone_number = phone.trim();
+      }
+
+      const result = await postBookingRequest("guest-respond-dispute", payload);
+
+      if (method === "card") {
+        if (result?.flutterwave?.ok === false) {
+          const message =
+            result?.flutterwave?.body?.error ||
+            result?.flutterwave?.body?.message ||
+            "Could not initialize card payment.";
+          throw new Error(String(message));
+        }
+
+        const redirectUrl =
+          result?.flutterwave?.body?.redirectUrl ||
+          result?.flutterwave?.body?.link ||
+          result?.redirectUrl;
+
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+          return;
+        }
+
+        if (result.checkout_id) {
+          navigate(`/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&provider=flutterwave`);
+          return;
+        }
+      }
+
+      if (method === "mobile_money") {
+        if (result?.mobile_money?.ok === false) {
+          const message =
+            result?.mobile_money?.body?.error ||
+            result?.mobile_money?.body?.message ||
+            "Could not initialize mobile money payment.";
+          throw new Error(String(message));
+        }
+
+        const depositId =
+          result?.mobile_money?.body?.depositId ||
+          result?.mobile_money?.body?.data?.depositId;
+
+        if (result.checkout_id && depositId) {
+          navigate(
+            `/payment-pending?checkoutId=${encodeURIComponent(String(result.checkout_id))}&depositId=${encodeURIComponent(String(depositId))}&provider=pawapay`
+          );
+          return;
+        }
+
+        toast({
+          title: "Payment initiated",
+          description: "Follow the mobile-money prompt on your phone to complete payment.",
+        });
+      }
+
+      await refetchPostBookingOverview();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Payment failed",
+        description: error instanceof Error ? error.message : "Could not process payment.",
+      });
+    } finally {
+      setRespondingDisputeId(null);
+      setProcessingChargeId(null);
+    }
+  }, [mobilePhoneByCharge, mobileProviderByCharge, navigate, payMethodByCharge, refetchPostBookingOverview, toast]);
+
   const linkedChargeMap = useMemo(() => {
     const map = new Map<string, PostBookingCharge>();
     postBookingOverview.charges.forEach((charge) => map.set(charge.id, charge));
@@ -1482,6 +1716,8 @@ const MyBookings = () => {
                             {orderCharges.map((charge) => {
                               const selectedMethod = payMethodByCharge[charge.id] || "card";
                               const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.charge_id === charge.id);
+                              const disputeCanRespond = canGuestRespondToDispute(linkedDispute);
+                              const timelineEntries = disputeTimelineEntries(linkedDispute);
 
                               return (
                                 <div key={charge.id} className="rounded-lg border border-border bg-background p-2.5 sm:p-3 space-y-2.5">
@@ -1508,9 +1744,149 @@ const MyBookings = () => {
                                       <AlertTitle>Dispute in progress</AlertTitle>
                                       <AlertDescription>
                                         This charge already has a {linkedDispute.status.replace(/_/g, " ")} dispute and will be handled from your booking flow here.
-                                        {latestDisputeUpdate(linkedDispute) ? ` Latest update: ${latestDisputeUpdate(linkedDispute)}` : ""}
                                       </AlertDescription>
                                     </Alert>
+                                  )}
+
+                                  {timelineEntries.length > 0 && (
+                                    <div className="rounded-lg border border-border bg-muted/20 p-2.5 sm:p-3 space-y-2.5">
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Full dispute timeline</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Review every message in the thread before deciding whether to pay, continue appealing, or close it.
+                                        </p>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        {timelineEntries.map((entry, index) => (
+                                          <div key={entry.id} className={`rounded-lg border p-2.5 ${disputeTimelineTone(entry.tone)}`}>
+                                            <div className="flex items-center justify-between gap-2">
+                                              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{entry.label}</p>
+                                              <span className="text-[11px] text-muted-foreground">Step {index + 1}</span>
+                                            </div>
+                                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap break-words">{entry.content}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {linkedDispute && disputeCanRespond && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 sm:p-3 space-y-3">
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">Your next step</p>
+                                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                                          {latestDisputeUpdate(linkedDispute) || "Review the dispute and choose what to do next."}
+                                        </p>
+                                      </div>
+
+                                      {charge.status === "disputed" && (
+                                        <div className="rounded-lg border border-border bg-background p-2.5 sm:p-3 space-y-2.5">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Accept and pay</Label>
+                                            <span className="text-xs font-medium text-foreground">{formatMoney(charge.amount, charge.currency)}</span>
+                                          </div>
+
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "mobile_money" }))}
+                                              className={`border rounded-lg px-2.5 py-2 text-left transition-all ${
+                                                selectedMethod === "mobile_money"
+                                                  ? "border-primary bg-primary/5"
+                                                  : "border-border hover:border-primary/50"
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <Smartphone className="w-4 h-4 text-foreground shrink-0" />
+                                                <div className="min-w-0">
+                                                  <p className="font-medium text-sm truncate">Mobile</p>
+                                                  <p className="text-[11px] text-muted-foreground truncate">Wallet</p>
+                                                </div>
+                                              </div>
+                                            </button>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => setPayMethodByCharge((prev) => ({ ...prev, [charge.id]: "card" }))}
+                                              className={`border rounded-lg px-2.5 py-2 text-left transition-all ${
+                                                selectedMethod === "card"
+                                                  ? "border-primary bg-primary/5"
+                                                  : "border-border hover:border-primary/50"
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <CreditCard className="w-4 h-4 text-foreground shrink-0" />
+                                                <div className="min-w-0">
+                                                  <p className="font-medium text-sm truncate">Card</p>
+                                                  <p className="text-[11px] text-muted-foreground truncate">Checkout</p>
+                                                </div>
+                                              </div>
+                                            </button>
+                                          </div>
+
+                                          {selectedMethod === "mobile_money" && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                              <select
+                                                value={mobileProviderByCharge[charge.id] || "MTN"}
+                                                onChange={(event) => {
+                                                  const next = event.target.value;
+                                                  setMobileProviderByCharge((prev) => ({ ...prev, [charge.id]: next }));
+                                                }}
+                                                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                                              >
+                                                {mobileProviders.map((provider) => (
+                                                  <option key={provider.value} value={provider.value}>
+                                                    {provider.label}
+                                                  </option>
+                                                ))}
+                                              </select>
+
+                                              <Input
+                                                value={mobilePhoneByCharge[charge.id] || ""}
+                                                onChange={(event) => {
+                                                  const next = event.target.value;
+                                                  setMobilePhoneByCharge((prev) => ({ ...prev, [charge.id]: next }));
+                                                }}
+                                                placeholder="Phone number"
+                                              />
+                                            </div>
+                                          )}
+
+                                          <Button
+                                            onClick={() => void payDisputedCharge(linkedDispute, charge)}
+                                            disabled={processingChargeId === charge.id || respondingDisputeId === linkedDispute.id}
+                                            className="h-10 w-full"
+                                          >
+                                            {selectedMethod === "mobile_money" ? (
+                                              <Smartphone className="w-4 h-4 mr-2" />
+                                            ) : (
+                                              <CreditCard className="w-4 h-4 mr-2" />
+                                            )}
+                                            {processingChargeId === charge.id ? "Processing..." : "Pay and close dispute"}
+                                          </Button>
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-col gap-2 sm:flex-row">
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => openDisputeAppeal(linkedDispute.id)}
+                                          disabled={respondingDisputeId === linkedDispute.id || processingChargeId === charge.id}
+                                          className="h-10 sm:flex-1"
+                                        >
+                                          Still appeal
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => void closeDispute(linkedDispute.id)}
+                                          disabled={respondingDisputeId === linkedDispute.id || processingChargeId === charge.id}
+                                          className="h-10 sm:flex-1"
+                                        >
+                                          {respondingDisputeId === linkedDispute.id ? "Saving..." : "Close dispute"}
+                                        </Button>
+                                      </div>
+                                    </div>
                                   )}
 
                                   {charge.status === "pending" && (
@@ -1629,6 +2005,8 @@ const MyBookings = () => {
                           <div className="space-y-2.5">
                             {orderModifications.map((modification) => {
                               const linkedDispute = postBookingOverview.disputes.find((dispute) => dispute.booking_modification_id === modification.id);
+                              const disputeCanRespond = canGuestRespondToDispute(linkedDispute);
+                              const timelineEntries = disputeTimelineEntries(linkedDispute);
                               const linkedCharge = modification.charge_id ? linkedChargeMap.get(modification.charge_id) : null;
                               const difference = Number(modification.difference || 0);
 
@@ -1663,9 +2041,61 @@ const MyBookings = () => {
                                       <AlertTitle>Dispute in progress</AlertTitle>
                                       <AlertDescription>
                                         This booking change already has a {linkedDispute.status.replace(/_/g, " ")} dispute.
-                                        {latestDisputeUpdate(linkedDispute) ? ` Latest update: ${latestDisputeUpdate(linkedDispute)}` : ""}
                                       </AlertDescription>
                                     </Alert>
+                                  )}
+
+                                  {timelineEntries.length > 0 && (
+                                    <div className="rounded-lg border border-border bg-muted/20 p-2.5 sm:p-3 space-y-2.5">
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Full dispute timeline</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Review the full conversation before deciding whether to keep appealing or close the dispute.
+                                        </p>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        {timelineEntries.map((entry, index) => (
+                                          <div key={entry.id} className={`rounded-lg border p-2.5 ${disputeTimelineTone(entry.tone)}`}>
+                                            <div className="flex items-center justify-between gap-2">
+                                              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{entry.label}</p>
+                                              <span className="text-[11px] text-muted-foreground">Step {index + 1}</span>
+                                            </div>
+                                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap break-words">{entry.content}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {linkedDispute && disputeCanRespond && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 sm:p-3 space-y-3">
+                                      <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">Your next step</p>
+                                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                                          {latestDisputeUpdate(linkedDispute) || "Review the dispute and choose what to do next."}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex flex-col gap-2 sm:flex-row">
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => openDisputeAppeal(linkedDispute.id)}
+                                          disabled={respondingDisputeId === linkedDispute.id}
+                                          className="h-10 sm:flex-1"
+                                        >
+                                          Still appeal
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => void closeDispute(linkedDispute.id)}
+                                          disabled={respondingDisputeId === linkedDispute.id}
+                                          className="h-10 sm:flex-1"
+                                        >
+                                          {respondingDisputeId === linkedDispute.id ? "Saving..." : "Close dispute"}
+                                        </Button>
+                                      </div>
+                                    </div>
                                   )}
 
                                   {modification.status === "accepted" && modification.payment_status === "pending" && linkedCharge && (
@@ -2251,6 +2681,49 @@ const MyBookings = () => {
               </Button>
               <Button onClick={() => void submitDispute()} disabled={submittingDispute} className="flex-1">
                 {submittingDispute ? "Submitting..." : "Submit Dispute"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={disputeReplyDialog.open} onOpenChange={(open) => {
+        if (!open) closeDisputeReplyDialog();
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Continue Dispute</DialogTitle>
+            <DialogDescription>
+              Tell the host why you still want the dispute reviewed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Why are you still appealing?</Label>
+              <Textarea
+                value={disputeReplyMessage}
+                onChange={(event) => setDisputeReplyMessage(event.target.value)}
+                placeholder="Explain what is still unresolved or what part of the host response you disagree with"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={closeDisputeReplyDialog}
+                disabled={respondingDisputeId === disputeReplyDialog.disputeId}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void submitDisputeAppeal()}
+                disabled={respondingDisputeId === disputeReplyDialog.disputeId}
+                className="flex-1"
+              >
+                {respondingDisputeId === disputeReplyDialog.disputeId ? "Sending..." : "Send appeal"}
               </Button>
             </div>
           </div>
