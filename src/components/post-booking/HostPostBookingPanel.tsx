@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatMoney } from "@/lib/money";
@@ -119,11 +119,13 @@ export function HostPostBookingPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [creatingCharge, setCreatingCharge] = useState(false);
   const [respondingDisputeId, setRespondingDisputeId] = useState<string | null>(null);
+  const [highlightedDisputeId, setHighlightedDisputeId] = useState<string | null>(null);
   const [overview, setOverview] = useState<HostPostBookingOverview>({
     charges: [],
     disputes: [],
     host_bookings: [],
   });
+  const didAutoSelectDisputes = useRef(false);
   const [disputeDrafts, setDisputeDrafts] = useState<Record<string, string>>({});
   const [hostChargeForm, setHostChargeForm] = useState({
     booking_id: "",
@@ -172,6 +174,16 @@ export function HostPostBookingPanel() {
     () => overview.disputes.filter((dispute) => ["open", "in_review"].includes(String(dispute.status || "").toLowerCase())),
     [overview.disputes]
   );
+
+  useEffect(() => {
+    if (loading || didAutoSelectDisputes.current) return;
+
+    if (activeDisputes.length > 0) {
+      setActiveTab("disputes");
+    }
+
+    didAutoSelectDisputes.current = true;
+  }, [activeDisputes.length, loading]);
 
   const loadOverview = useCallback(async (withSpinner = true) => {
     if (withSpinner) setLoading(true);
@@ -347,8 +359,8 @@ export function HostPostBookingPanel() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full justify-start gap-1.5 overflow-x-auto rounded-2xl p-1.5 pr-16 md:pr-2">
-          <TabsTrigger className="shrink-0" value="charges">Charges</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="disputes">Disputes</TabsTrigger>
+          <TabsTrigger className="shrink-0" value="charges">Charges ({overview.charges.length})</TabsTrigger>
+          <TabsTrigger className="shrink-0" value="disputes">Disputes ({overview.disputes.length})</TabsTrigger>
           <TabsTrigger className="shrink-0" value="create-charge">Create Charge</TabsTrigger>
         </TabsList>
 
@@ -360,25 +372,49 @@ export function HostPostBookingPanel() {
               </CardContent>
             </Card>
           ) : (
-            overview.charges.map((charge) => (
-              <Card key={charge.id} className="border-border/70">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={statusTone(charge.status)}>{charge.status}</Badge>
-                        <Badge variant="outline">{humanizeLabel(charge.charge_type)}</Badge>
-                        <span className="text-xs text-muted-foreground">Booking {charge.booking_id.slice(0, 8).toUpperCase()}</span>
+            overview.charges.map((charge) => {
+              const linkedDispute = overview.disputes.find((dispute) => dispute.charge_id === charge.id);
+
+              return (
+                <Card key={charge.id} className="border-border/70">
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={statusTone(charge.status)}>{charge.status}</Badge>
+                          <Badge variant="outline">{humanizeLabel(charge.charge_type)}</Badge>
+                          <span className="text-xs text-muted-foreground">Booking {charge.booking_id.slice(0, 8).toUpperCase()}</span>
+                        </div>
+                        <p className="font-medium">{charge.description}</p>
+                        <p className="text-2xl font-semibold text-rose-600">{formatMoney(charge.amount, charge.currency)}</p>
                       </div>
-                      <p className="font-medium">{charge.description}</p>
-                      <p className="text-2xl font-semibold text-rose-600">{formatMoney(charge.amount, charge.currency)}</p>
+
+                      <div className="text-xs text-muted-foreground">{new Date(charge.created_at).toLocaleString()}</div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground">{new Date(charge.created_at).toLocaleString()}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                    {linkedDispute ? (
+                      <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-amber-800">This charge has an active dispute thread.</p>
+                          <p className="text-xs text-amber-700">Open the dispute tab to reply to the guest or propose a fix.</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
+                          onClick={() => {
+                            setHighlightedDisputeId(linkedDispute.id);
+                            setActiveTab("disputes");
+                          }}
+                        >
+                          Open dispute thread
+                        </Button>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </TabsContent>
 
@@ -395,7 +431,10 @@ export function HostPostBookingPanel() {
               const canReply = ["open", "in_review"].includes(String(dispute.status || "").toLowerCase());
 
               return (
-                <Card key={dispute.id} className="border-border/70">
+                <Card
+                  key={dispute.id}
+                  className={`border-border/70 transition-colors ${highlightedDisputeId === dispute.id ? "border-amber-300 ring-2 ring-amber-200" : ""}`}
+                >
                   <CardContent className="pt-6 space-y-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-2 min-w-0">
