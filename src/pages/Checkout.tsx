@@ -2502,9 +2502,9 @@ export default function CheckoutNew() {
           <h1 className="text-3xl md:text-4xl font-light tracking-tight">{t("checkout.title")}</h1>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid gap-8 lg:grid-cols-3">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             {/* Progress Steps */}
             <div className="mb-8 md:hidden">
               <div className="flex items-center">
@@ -2586,7 +2586,7 @@ export default function CheckoutNew() {
             </div>
 
             {/* Step Content */}
-            <div className="bg-card rounded-2xl border border-border/50 p-4 sm:p-6 md:p-8">
+            <div className="min-w-0 overflow-hidden bg-card rounded-2xl border border-border/50 p-4 sm:p-6 md:p-8">
               {/* Step 1: Details */}
               {currentStep === 'details' && (
                 <div className="space-y-6">
@@ -3207,27 +3207,30 @@ export default function CheckoutNew() {
                       const guests = searchParams.get("guests");
                       
                       return (
-                        <div key={item.id} className="flex gap-4 p-4 min-w-0 overflow-hidden">
-                          <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
-                            {item.image ? (
-                              <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                {getItemIcon(item.item_type)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{item.title}</h4>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {mode === 'booking' && checkIn && checkOut && item.item_type === 'property' 
-                                ? `${formatDateForDisplay(checkIn)} - ${formatDateForDisplay(checkOut)} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
-                                : `Qty: ${item.quantity}`
-                              }
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-medium whitespace-nowrap text-sm md:text-base">{formatMoney(itemPrice, displayCurrency)}</p>
+                        <div key={item.id} className="min-w-0 overflow-hidden p-4">
+                          <div className="flex min-w-0 gap-4">
+                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+                              {item.image ? (
+                                <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  {getItemIcon(item.item_type)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate font-medium">{item.title}</h4>
+                              <p className="break-words text-sm text-muted-foreground sm:truncate">
+                                {mode === 'booking' && checkIn && checkOut && item.item_type === 'property' 
+                                  ? `${formatDateForDisplay(checkIn)} - ${formatDateForDisplay(checkOut)} • ${guests || 1} guest(s) • ${item.quantity} night(s)`
+                                  : `Qty: ${item.quantity}`
+                                }
+                              </p>
+                              <p className="mt-2 text-sm font-medium sm:hidden">{formatMoney(itemPrice, displayCurrency)}</p>
+                            </div>
+                            <div className="hidden shrink-0 text-right sm:block">
+                              <p className="whitespace-nowrap text-sm font-medium md:text-base">{formatMoney(itemPrice, displayCurrency)}</p>
+                            </div>
                           </div>
                         </div>
                       );
@@ -3235,11 +3238,11 @@ export default function CheckoutNew() {
                   </div>
 
                   {/* Contact & Payment Summary */}
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                     <div className="bg-muted/30 rounded-xl p-4">
                       <h4 className="text-sm font-medium mb-2">{t("checkout.review.contactDetails")}</h4>
-                      <p className="text-sm">{formData.fullName}</p>
-                      <p className="text-sm text-muted-foreground">{formData.email}</p>
+                      <p className="break-words text-sm">{formData.fullName}</p>
+                      <p className="break-words text-sm text-muted-foreground">{formData.email}</p>
                     </div>
                     <div className="bg-muted/30 rounded-xl p-4">
                       <h4 className="text-sm font-medium mb-2">{t("checkout.review.paymentMethod")}</h4>
@@ -3249,9 +3252,9 @@ export default function CheckoutNew() {
                         
                         return (
                           <>
-                            <p className="text-sm">
+                            <div className="min-w-0 text-sm">
                               {isMobileMoney && selectedMethodInfo && (
-                                <span className="flex items-center gap-2">
+                                <span className="flex min-w-0 items-center gap-2">
                                   {selectedMethodInfo.name}
                                 </span>
                               )}
@@ -3261,15 +3264,15 @@ export default function CheckoutNew() {
                               )}
                               {paymentMethod === 'bank' && 'Bank Transfer'}
                               {!isMobileMoney && paymentMethod !== 'card' && paymentMethod !== 'bank' && 'No payment method selected'}
-                            </p>
+                            </div>
                             {isMobileMoney && (
-                              <p className="text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
+                              <p className="break-words text-sm text-muted-foreground">{countryCode} {phoneNumber}</p>
                             )}
                             {paymentMethod === 'card' && selectedSavedCardMethod?.card_expiry && (
                               <p className="text-sm text-muted-foreground">Exp {selectedSavedCardMethod.card_expiry}</p>
                             )}
                             {(paymentMethod === 'card' || paymentMethod === 'bank') && (
-                              <p className="text-sm text-muted-foreground">
+                              <p className="break-words text-sm text-muted-foreground">
                                 {paymentMethod === 'card'
                                   ? 'Secure hover window (no iframe styling)'
                                   : 'Agent will call you'}
@@ -3436,7 +3439,7 @@ export default function CheckoutNew() {
           </div>
 
           {/* Booking Summary Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="min-w-0 lg:col-span-1">
             <div className="bg-card rounded-2xl border border-border/50 p-4 md:p-6 lg:sticky lg:top-24">
               <h2 className="text-lg font-semibold mb-4">{t("checkout.summary.title")}</h2>
               
@@ -3454,7 +3457,7 @@ export default function CheckoutNew() {
                   const itemPrice = convertAmount(rawItemTotal, item.currency, displayCurrency, usdRates) ?? rawItemTotal;
                   
                   return (
-                    <div key={item.id} className="flex items-start gap-3 min-w-0 overflow-hidden">
+                    <div key={item.id} className="flex min-w-0 items-start gap-3 overflow-hidden">
                       <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden shrink-0">
                         {item.image ? (
                           <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
@@ -3468,10 +3471,10 @@ export default function CheckoutNew() {
                         <p className="text-sm font-medium truncate">{item.title}</p>
                         {isProperty && item.metadata?.check_in && item.metadata?.check_out ? (
                           <>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <p className="break-words text-xs text-muted-foreground sm:truncate">
                               {new Date(item.metadata.check_in).toLocaleDateString()} - {new Date(item.metadata.check_out).toLocaleDateString()} ({nights} {nights === 1 ? 'night' : 'nights'})
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <p className="break-words text-xs text-muted-foreground sm:truncate">
                               {item.metadata?.breakfast_included ? 'With breakfast' : 'Without breakfast'}
                             </p>
                           </>
