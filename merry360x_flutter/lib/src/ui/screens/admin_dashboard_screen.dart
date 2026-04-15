@@ -3076,16 +3076,45 @@ class _AdminNotifyTab extends StatefulWidget {
 }
 
 class _AdminNotifyTabState extends State<_AdminNotifyTab> {
+  // ── form controllers ──
   final _titleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final _customUserIdsCtrl = TextEditingController();
   final _typeCtrl = TextEditingController(text: 'special');
   final _deepLinkCtrl = TextEditingController();
 
+  // ── state ──
   String _audience = 'all';
   String _delivery = 'both';
   bool _sending = false;
   String? _lastSummary;
+  bool _lastWasError = false;
+  int _titleChars = 0;
+  int _bodyChars = 0;
+  bool _showPreview = false;
+
+  // ── history ──
+  List<Map<String, dynamic>> _history = [];
+  bool _historyLoading = false;
+
+  static const _maxTitle = 120;
+  static const _maxBody = 500;
+
+  // Quick templates
+  static const _kTemplates = [
+    (icon: '🎉', label: 'Special offer', title: '🎉 Exclusive deal just for you', body: 'Check out the latest offers and book your next adventure today!', type: 'special'),
+    (icon: '📢', label: 'Announcement', title: '📢 Important update', body: 'We have an important update to share with you. Tap to read more.', type: 'announcement'),
+    (icon: '✅', label: 'Booking reminder', title: '✅ Your trip is coming up!', body: "Don't forget — your booking is confirmed. Tap to view details.", type: 'booking'),
+    (icon: '💬', label: 'Check messages', title: '💬 You have a new message', body: 'Someone left you a message. Open the app to read and reply.', type: 'support'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl.addListener(() => setState(() => _titleChars = _titleCtrl.text.length));
+    _bodyCtrl.addListener(() => setState(() => _bodyChars = _bodyCtrl.text.length));
+    _loadHistory();
+  }
 
   @override
   void dispose() {
@@ -3097,17 +3126,28 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
     super.dispose();
   }
 
+  Future<void> _loadHistory() async {
+    setState(() => _historyLoading = true);
+    final data = await widget.api.fetchAdminNotificationBroadcasts();
+    if (mounted) setState(() { _history = data; _historyLoading = false; });
+  }
+
   void _showSnack(String message, {bool error = false}) {
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
         backgroundColor: error ? const Color(0xFFB42318) : const Color(0xFF256029),
-      ),
-    );
+      ));
+  }
+
+  void _applyTemplate(({String icon, String label, String title, String body, String type}) t) {
+    _titleCtrl.text = t.title;
+    _bodyCtrl.text = t.body;
+    _typeCtrl.text = t.type;
+    setState(() => _showPreview = true);
   }
 
   List<String> _parseCustomUserIds() {
@@ -3131,6 +3171,14 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
       _showSnack('Message must be at least 3 characters.', error: true);
       return;
     }
+    if (title.length > _maxTitle) {
+      _showSnack('Title too long (max $_maxTitle chars).', error: true);
+      return;
+    }
+    if (body.length > _maxBody) {
+      _showSnack('Body too long (max $_maxBody chars).', error: true);
+      return;
+    }
 
     final customUserIds = _audience == 'custom' ? _parseCustomUserIds() : <String>[];
     if (_audience == 'custom' && customUserIds.isEmpty) {
@@ -3140,25 +3188,19 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
 
     setState(() => _sending = true);
     try {
-      final sendPush = _delivery != 'in_app_only';
-      final sendInApp = _delivery != 'push_only';
-
       final result = await widget.api.sendAdminGeneralNotification(
         title: title,
         body: body,
         audience: _audience,
         userIds: customUserIds,
-        notificationType: _typeCtrl.text.trim().isEmpty
-            ? 'special'
-            : _typeCtrl.text.trim(),
+        notificationType: _typeCtrl.text.trim().isEmpty ? 'special' : _typeCtrl.text.trim(),
         deepLink: _deepLinkCtrl.text.trim(),
-        sendPush: sendPush,
-        sendInApp: sendInApp,
+        sendPush: _delivery != 'in_app_only',
+        sendInApp: _delivery != 'push_only',
       );
 
       final recipientCount = (result['recipientCount'] as num?)?.toInt() ?? 0;
       final inAppInserted = (result['inAppInserted'] as num?)?.toInt() ?? 0;
-
       var pushSent = 0;
       var pushFailed = 0;
       var pushSkipped = '';
@@ -3169,107 +3211,263 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
         pushSkipped = (push['skippedReason'] ?? '').toString();
       }
 
-      final summaryBits = <String>[
+      final bits = [
         'Recipients: $recipientCount',
         'In-app: $inAppInserted',
         'Push sent: $pushSent',
+        if (pushFailed > 0) 'Push failed: $pushFailed',
+        if (pushSkipped.isNotEmpty) 'Push: ${pushSkipped.replaceAll('_', ' ')}',
       ];
-      if (pushFailed > 0) summaryBits.add('Push failed: $pushFailed');
-      if (pushSkipped.isNotEmpty) {
-        summaryBits.add('Push: ${pushSkipped.replaceAll('_', ' ')}');
-      }
-
-      final summary = summaryBits.join(' • ');
-      setState(() {
-        _lastSummary = summary;
-      });
-
-      _showSnack('Notification sent');
+      setState(() { _lastSummary = bits.join(' • '); _lastWasError = false; });
+      _showSnack('Notification sent ✓');
       _titleCtrl.clear();
       _bodyCtrl.clear();
       _customUserIdsCtrl.clear();
       _deepLinkCtrl.clear();
+      _loadHistory();
     } catch (e) {
-      final msg = e.toString().toLowerCase();
-      if (msg.contains('invalid jwt') || msg.contains('session expired')) {
-        var details = e.toString();
-        if (details.length > 420) {
-          details = '${details.substring(0, 420)}...';
-        }
-        _showSnack(
-          details,
-          error: true,
-        );
-      } else {
-        _showSnack('Failed to send: $e', error: true);
-      }
+      var msg = e.toString();
+      if (msg.length > 420) msg = '${msg.substring(0, 420)}...';
+      setState(() { _lastSummary = msg; _lastWasError = true; });
+      _showSnack('Failed: $e', error: true);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+  // ── Widgets ──────────────────────────────────────────────────────────────
+
+  String _audienceLabel(String a) => switch (a) {
+        'customers' => 'Customers',
+        'hosts' => 'Hosts',
+        'staff' => 'Staff',
+        'custom' => 'Custom',
+        _ => 'All users',
+      };
+
+  Color _audienceColor(String a) => switch (a) {
+        'customers' => const Color(0xFF1565C0),
+        'hosts' => const Color(0xFF2E7D32),
+        'staff' => const Color(0xFF6A1B9A),
+        'custom' => const Color(0xFFE65100),
+        _ => const Color(0xFF37474F),
+      };
+
+  Widget _buildPreviewCard() {
+    final title = _titleCtrl.text.trim().isEmpty ? 'Notification title' : _titleCtrl.text.trim();
+    final body = _bodyCtrl.text.trim().isEmpty ? 'Your message will appear here…' : _bodyCtrl.text.trim();
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 6))],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(children: [
+            Container(
+              width: 26, height: 26,
+              decoration: BoxDecoration(color: AppColors.rausch, borderRadius: BorderRadius.circular(6)),
+              child: const Icon(Icons.notifications_rounded, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 8),
+            const Text('Merry360x', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+            const Spacer(),
+            Text(
+              'now',
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            body,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75), height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyCard(Map<String, dynamic> item) {
+    final audience = item['audience']?.toString() ?? 'all';
+    final count = item['_count'] as int? ?? 0;
+    final type = (item['notification_type'] ?? 'special').toString();
+    final sentAt = item['sent_at'] is String
+        ? DateTime.tryParse(item['sent_at'].toString())?.toLocal()
+        : null;
+    final deepLink = (item['deep_link'] ?? '').toString();
+
+    String timeAgo() {
+      if (sentAt == null) return '';
+      final diff = DateTime.now().difference(sentAt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSubtle,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text(
+                (item['title'] ?? '').toString(),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(timeAgo(), style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            (item['body'] ?? '').toString(),
+            style: const TextStyle(fontSize: 12, color: AppColors.hof),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, children: [
+            _badge(_audienceLabel(audience), _audienceColor(audience)),
+            _badge(type, const Color(0xFF546E7A)),
+            _badge('$count recipients', const Color(0xFF00695C)),
+            if (deepLink.isNotEmpty) _badge('→ $deepLink', const Color(0xFF6D4C41)),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+        ),
+      );
+
+  Widget _charCounter(int current, int max) {
+    final over = current > max;
+    return Text(
+      '$current / $max',
+      style: TextStyle(
+        fontSize: 10,
+        color: over ? AppColors.rausch : AppColors.foggy,
+        fontWeight: over ? FontWeight.w700 : FontWeight.w400,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Compose card ────────────────────────────────────────────────
           _SectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
-                    Icon(Icons.campaign_outlined, size: 20, color: AppColors.rausch),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Special Notification Generator',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.black,
-                        ),
-                      ),
+                // Header
+                Row(children: [
+                  const Icon(Icons.campaign_outlined, size: 20, color: AppColors.rausch),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Compose Notification',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _showPreview = !_showPreview),
+                    icon: Icon(
+                      _showPreview ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 15,
+                    ),
+                    label: Text(_showPreview ? 'Hide preview' : 'Preview'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.foggy,
+                      textStyle: const TextStyle(fontSize: 12),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 2),
                 const Text(
                   'Send targeted announcements by push, in-app, or both.',
                   style: TextStyle(fontSize: 12, color: AppColors.foggy),
                 ),
+
+                // ── Quick templates ──
                 const SizedBox(height: 14),
-                const Text(
-                  'Audience',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.hof,
+                const Text('Quick templates', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final t in _kTemplates)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ActionChip(
+                            label: Text('${t.icon} ${t.label}'),
+                            onPressed: () => _applyTemplate(t),
+                            labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            side: const BorderSide(color: AppColors.border),
+                            backgroundColor: AppColors.surfaceSubtle,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+
+                // ── Audience ──
+                const SizedBox(height: 14),
+                const Text('Audience', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 8, runSpacing: 8,
                   children: [
-                    for (final option in const [
-                      ('all', 'All'),
-                      ('customers', 'Customers'),
-                      ('hosts', 'Hosts'),
-                      ('staff', 'Staff'),
-                      ('custom', 'Custom'),
+                    for (final o in const [
+                      ('all', 'All'), ('customers', 'Customers'),
+                      ('hosts', 'Hosts'), ('staff', 'Staff'), ('custom', 'Custom'),
                     ])
                       ChoiceChip(
-                        label: Text(option.$2),
-                        selected: _audience == option.$1,
-                        onSelected: (_) => setState(() => _audience = option.$1),
+                        label: Text(o.$2),
+                        selected: _audience == o.$1,
+                        onSelected: (_) => setState(() => _audience = o.$1),
                         selectedColor: AppColors.rausch,
                         labelStyle: TextStyle(
-                          color: _audience == option.$1 ? Colors.white : AppColors.hof,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: _audience == o.$1 ? Colors.white : AppColors.hof,
+                          fontSize: 12, fontWeight: FontWeight.w600,
                         ),
                         backgroundColor: AppColors.surfaceSubtle,
                         side: const BorderSide(color: AppColors.border),
@@ -3280,118 +3478,127 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: _customUserIdsCtrl,
-                    minLines: 2,
-                    maxLines: 4,
+                    minLines: 2, maxLines: 4,
                     decoration: InputDecoration(
-                      labelText: 'Custom user IDs',
-                      hintText: 'uuid-1, uuid-2, uuid-3',
+                      labelText: 'User IDs (comma / newline separated)',
+                      hintText: 'uuid-1, uuid-2',
                       labelStyle: const TextStyle(fontSize: 12),
-                      hintStyle: const TextStyle(fontSize: 12),
-                      filled: true,
-                      fillColor: AppColors.surfaceSubtle,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      filled: true, fillColor: AppColors.surfaceSubtle,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ],
+
+                // ── Delivery ──
                 const SizedBox(height: 12),
-                const Text(
-                  'Delivery',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.hof,
-                  ),
-                ),
+                const Text('Delivery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 8, runSpacing: 8,
                   children: [
-                    for (final option in const [
+                    for (final o in const [
                       ('both', 'Push + In-app'),
                       ('push_only', 'Push only'),
                       ('in_app_only', 'In-app only'),
                     ])
                       ChoiceChip(
-                        label: Text(option.$2),
-                        selected: _delivery == option.$1,
-                        onSelected: (_) => setState(() => _delivery = option.$1),
-                        selectedColor: const Color(0xFF000000),
+                        label: Text(o.$2),
+                        selected: _delivery == o.$1,
+                        onSelected: (_) => setState(() => _delivery = o.$1),
+                        selectedColor: const Color(0xFF222222),
                         labelStyle: TextStyle(
-                          color: _delivery == option.$1 ? Colors.white : AppColors.hof,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: _delivery == o.$1 ? Colors.white : AppColors.hof,
+                          fontSize: 12, fontWeight: FontWeight.w600,
                         ),
                         backgroundColor: AppColors.surfaceSubtle,
                         side: const BorderSide(color: AppColors.border),
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _titleCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Title',
-                    hintText: 'Example: Weekend campaign is live',
-                    filled: true,
-                    fillColor: AppColors.surfaceSubtle,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _bodyCtrl,
-                  minLines: 3,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: 'Message',
-                    hintText: 'Write the notification body users should receive.',
-                    filled: true,
-                    fillColor: AppColors.surfaceSubtle,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
+
+                // ── Title ──
+                const SizedBox(height: 14),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _typeCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'Type',
-                          hintText: 'special',
-                          filled: true,
-                          fillColor: AppColors.surfaceSubtle,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _deepLinkCtrl,
-                        decoration: InputDecoration(
-                          labelText: 'Deep link (optional)',
-                          hintText: '/support',
-                          filled: true,
-                          fillColor: AppColors.surfaceSubtle,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
+                    const Text('Title', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
+                    _charCounter(_titleChars, _maxTitle),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _titleCtrl,
+                  maxLength: _maxTitle,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Weekend deals are live 🎉',
+                    counterText: '',
+                    filled: true, fillColor: AppColors.surfaceSubtle,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+
+                // ── Body ──
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Message', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
+                    _charCounter(_bodyChars, _maxBody),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _bodyCtrl,
+                  minLines: 3, maxLines: 5,
+                  maxLength: _maxBody,
+                  decoration: InputDecoration(
+                    hintText: 'Write the message users should receive…',
+                    counterText: '',
+                    filled: true, fillColor: AppColors.surfaceSubtle,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+
+                // ── Type + Deep link ──
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _typeCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Type',
+                        hintText: 'special',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        filled: true, fillColor: AppColors.surfaceSubtle,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _deepLinkCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Deep link (optional)',
+                        hintText: '/bookings',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        filled: true, fillColor: AppColors.surfaceSubtle,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ]),
+
+                // ── Preview ──
+                if (_showPreview) ...[
+                  const SizedBox(height: 14),
+                  const Text('Preview', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.hof)),
+                  const SizedBox(height: 8),
+                  _buildPreviewCard(),
+                ],
+
+                // ── Send button ──
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -3399,44 +3606,88 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.rausch,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     icon: _sending
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                           )
                         : const Icon(Icons.send_rounded, size: 16),
-                    label: Text(_sending ? 'Sending...' : 'Send notification'),
+                    label: Text(_sending ? 'Sending…' : 'Send notification', style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
+
+                // ── Result summary ──
                 if ((_lastSummary ?? '').isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF6F9F3),
+                      color: _lastWasError ? const Color(0xFFFFF0F0) : const Color(0xFFF3FBF0),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFCCE3C0)),
+                      border: Border.all(color: _lastWasError ? const Color(0xFFFFCDD2) : const Color(0xFFCCE3C0)),
                     ),
                     child: Text(
                       _lastSummary!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF2D5E1A),
                         fontWeight: FontWeight.w600,
+                        color: _lastWasError ? const Color(0xFFB71C1C) : const Color(0xFF2D5E1A),
                       ),
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+
+          // ── History card ─────────────────────────────────────────────────
+          const SizedBox(height: 14),
+          _SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.history_rounded, size: 18, color: AppColors.foggy),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Recent broadcasts',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _historyLoading ? null : _loadHistory,
+                    icon: _historyLoading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.refresh_rounded, size: 18),
+                    color: AppColors.foggy,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                if (_historyLoading && _history.isEmpty)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: CircularProgressIndicator(),
+                  ))
+                else if (_history.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'No broadcasts yet',
+                        style: TextStyle(fontSize: 13, color: AppColors.foggy),
+                      ),
+                    ),
+                  )
+                else
+                  for (final item in _history) _historyCard(item),
               ],
             ),
           ),
@@ -3445,3 +3696,4 @@ class _AdminNotifyTabState extends State<_AdminNotifyTab> {
     );
   }
 }
+

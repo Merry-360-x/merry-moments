@@ -941,7 +941,55 @@ class AppDatabase {
     await _sb.from('notifications').update({'is_read': true}).eq('user_id', userId).eq('is_read', false);
   }
 
+  /// Returns deduplicated broadcast records sent by admin/staff.
+  /// Each entry represents one broadcast batch with recipient count.
+  Future<List<Map<String, dynamic>>> fetchAdminNotificationBroadcasts() async {
+    try {
+      final data = await _sb
+          .from('notifications')
+          .select('title, body, notification_type, data, created_at')
+          .filter('data->>source', 'eq', 'admin_notification_generator')
+          .order('created_at', ascending: false)
+          .limit(500);
+
+      final rows = (data as List).cast<Map<String, dynamic>>();
+
+      // Deduplicate: group entries that share the same title+body+type+audience.
+      final Map<String, Map<String, dynamic>> grouped = {};
+      for (final row in rows) {
+        final title = row['title']?.toString() ?? '';
+        final body = row['body']?.toString() ?? '';
+        final type = row['notification_type']?.toString() ?? '';
+        final dataMap = (row['data'] is Map)
+            ? Map<String, dynamic>.from(row['data'] as Map)
+            : <String, dynamic>{};
+        final audience = dataMap['audience']?.toString() ?? 'all';
+        final deepLink = dataMap['deep_link']?.toString() ?? '';
+        final key = '$title\x00$body\x00$type\x00$audience';
+
+        if (grouped.containsKey(key)) {
+          grouped[key]!['_count'] = (grouped[key]!['_count'] as int) + 1;
+        } else {
+          grouped[key] = {
+            'title': title,
+            'body': body,
+            'notification_type': type,
+            'audience': audience,
+            'deep_link': deepLink,
+            'sent_at': row['created_at'],
+            '_count': 1,
+          };
+        }
+      }
+
+      return grouped.values.toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ── Host dashboard ──
+
 
   Future<Map<String, dynamic>> fetchHostStats({required String userId}) async {
     try {
