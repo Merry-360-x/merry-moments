@@ -957,39 +957,83 @@ class _ExploreMomoBottomSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: isTablet ? 20 : 16),
-          // Payment providers as cards
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
-            child: Row(
+          // Payment providers — horizontally scrollable row
+          SizedBox(
+            height: isTablet ? 110 : 100,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
               children: [
-                Expanded(
-                  child: _MomoProviderCard(
-                    label: 'MTN MoMo',
-                    logoAssetPath: 'assets/payment/mtn-momo.png',
-                    bgColor: cardBg,
-                    borderColor: cardBorder,
-                    textColor: titleColor,
-                  ),
+                _MomoProviderCard(
+                  label: 'MTN MoMo',
+                  logoAssetPath: 'assets/payment/mtn-momo.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: _MomoProviderCard(
-                    label: 'Airtel Money',
-                    logoAssetPath: 'assets/payment/airtel-money.png',
-                    bgColor: cardBg,
-                    borderColor: cardBorder,
-                    textColor: titleColor,
-                  ),
+                _MomoProviderCard(
+                  label: 'Airtel Money',
+                  logoAssetPath: 'assets/payment/airtel-money.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: _MomoProviderCard(
-                    label: 'M-Pesa',
-                    logoAssetPath: 'assets/payment/mpesa.png',
-                    bgColor: cardBg,
-                    borderColor: cardBorder,
-                    textColor: titleColor,
-                  ),
+                _MomoProviderCard(
+                  label: 'M-Pesa',
+                  logoAssetPath: 'assets/payment/mpesa.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Orange Money',
+                  logoAssetPath: 'assets/payment/orange-money.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Vodacom',
+                  logoAssetPath: 'assets/payment/vodacom.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Moov Money',
+                  logoAssetPath: 'assets/payment/moov.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Halotel',
+                  logoAssetPath: 'assets/payment/halotel.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Zamtel',
+                  logoAssetPath: 'assets/payment/zamtel.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
+                ),
+                const SizedBox(width: 10),
+                _MomoProviderCard(
+                  label: 'Free Money',
+                  logoAssetPath: 'assets/payment/free-money.png',
+                  bgColor: cardBg,
+                  borderColor: cardBorder,
+                  textColor: titleColor,
                 ),
               ],
             ),
@@ -1043,11 +1087,13 @@ class _MomoProviderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return SizedBox(
+      width: 76,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
@@ -1077,6 +1123,7 @@ class _MomoProviderCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
