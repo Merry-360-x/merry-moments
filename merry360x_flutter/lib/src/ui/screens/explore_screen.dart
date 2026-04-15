@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -864,13 +865,63 @@ class _StoryFallback extends StatelessWidget {
   }
 }
 
-class _ExploreMomoBottomSheet extends StatelessWidget {
-  const _ExploreMomoBottomSheet({required this.isTablet});
+// ── Payment providers data ─────────────────────────────────────────────────
+const _kPayProviders = [
+  (label: 'MTN MoMo',     asset: 'assets/payment/mtn-momo.png',    brandColor: Color(0xFFFFCC00)),
+  (label: 'Airtel Money', asset: 'assets/payment/airtel-money.png', brandColor: Color(0xFFE40000)),
+  (label: 'M-Pesa',       asset: 'assets/payment/mpesa.png',        brandColor: Color(0xFF60BB46)),
+  (label: 'Orange Money', asset: '',                                 brandColor: Color(0xFFFF6900)),
+  (label: 'Vodacom',      asset: '',                                 brandColor: Color(0xFFE60000)),
+  (label: 'Moov Money',   asset: '',                                 brandColor: Color(0xFF0077C8)),
+  (label: 'Halotel',      asset: '',                                 brandColor: Color(0xFFE2001A)),
+  (label: 'Zamtel',       asset: '',                                 brandColor: Color(0xFF006B3C)),
+  (label: 'Free Money',   asset: '',                                 brandColor: Color(0xFFCD2027)),
+];
 
+class _ExploreMomoBottomSheet extends StatefulWidget {
+  const _ExploreMomoBottomSheet({required this.isTablet});
   final bool isTablet;
+  @override
+  State<_ExploreMomoBottomSheet> createState() => _ExploreMomoBottomSheetState();
+}
+
+class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
+  late final ScrollController _scrollCtrl;
+  Timer? _autoScrollTimer;
+  bool _userScrolling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl = ScrollController();
+    // Start auto-scroll after a short delay
+    Future.delayed(const Duration(milliseconds: 800), _startAutoScroll);
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 30), (_) {
+      if (!mounted || _userScrolling) return;
+      if (!_scrollCtrl.hasClients) return;
+      final max = _scrollCtrl.position.maxScrollExtent;
+      final cur = _scrollCtrl.offset;
+      if (cur >= max) {
+        _scrollCtrl.jumpTo(0);
+      } else {
+        _scrollCtrl.jumpTo(cur + 1.2);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = widget.isTablet;
     final l = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -957,85 +1008,39 @@ class _ExploreMomoBottomSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: isTablet ? 20 : 16),
-          // Payment providers — horizontally scrollable row
+          // Payment providers — auto-scrolling row
           SizedBox(
             height: isTablet ? 110 : 100,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
-              children: [
-                _MomoProviderCard(
-                  label: 'MTN MoMo',
-                  logoAssetPath: 'assets/payment/mtn-momo.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Airtel Money',
-                  logoAssetPath: 'assets/payment/airtel-money.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'M-Pesa',
-                  logoAssetPath: 'assets/payment/mpesa.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Orange Money',
-                  logoAssetPath: 'assets/payment/orange-money.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Vodacom',
-                  logoAssetPath: 'assets/payment/vodacom.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Moov Money',
-                  logoAssetPath: 'assets/payment/moov.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Halotel',
-                  logoAssetPath: 'assets/payment/halotel.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Zamtel',
-                  logoAssetPath: 'assets/payment/zamtel.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-                const SizedBox(width: 10),
-                _MomoProviderCard(
-                  label: 'Free Money',
-                  logoAssetPath: 'assets/payment/free-money.png',
-                  bgColor: cardBg,
-                  borderColor: cardBorder,
-                  textColor: titleColor,
-                ),
-              ],
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (n is ScrollStartNotification && n.dragDetails != null) {
+                  _userScrolling = true;
+                } else if (n is ScrollEndNotification) {
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted) _userScrolling = false;
+                  });
+                }
+                return false;
+              },
+              child: ListView(
+                controller: _scrollCtrl,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
+                children: [
+                  for (final p in _kPayProviders) ...
+                    [
+                      _MomoProviderCard(
+                        label: p.label,
+                        logoAssetPath: p.asset,
+                        brandColor: p.brandColor,
+                        bgColor: cardBg,
+                        borderColor: cardBorder,
+                        textColor: titleColor,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                ],
+              ),
             ),
           ),
           SizedBox(height: isTablet ? 20 : 16),
@@ -1074,6 +1079,7 @@ class _MomoProviderCard extends StatelessWidget {
   const _MomoProviderCard({
     required this.label,
     required this.logoAssetPath,
+    required this.brandColor,
     required this.bgColor,
     required this.borderColor,
     required this.textColor,
@@ -1081,48 +1087,70 @@ class _MomoProviderCard extends StatelessWidget {
 
   final String label;
   final String logoAssetPath;
+  final Color brandColor;
   final Color bgColor;
   final Color borderColor;
   final Color textColor;
 
   @override
   Widget build(BuildContext context) {
+    final initial = label.isNotEmpty ? label[0].toUpperCase() : '?';
+    Widget logoWidget;
+    if (logoAssetPath.isNotEmpty) {
+      logoWidget = Image.asset(
+        logoAssetPath,
+        width: 40,
+        height: 40,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => _brandIcon(initial),
+      );
+    } else {
+      logoWidget = _brandIcon(initial);
+    }
     return SizedBox(
       width: 76,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              logoAssetPath,
-              width: 32,
-              height: 32,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: borderColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.payment, size: 20, color: textColor.withValues(alpha: 0.5)),
-              ),
-            ),
+            borderRadius: BorderRadius.circular(12),
+            child: logoWidget,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
               color: textColor,
+              height: 1.2,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _brandIcon(String initial) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: brandColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
