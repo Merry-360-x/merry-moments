@@ -144,7 +144,7 @@ class _MainShellState extends State<MainShell> {
   void _openTab(int index) {
     // Profile tab (index 4) is accessible without auth — shows sign-in prompt inline.
     // Wishlists (1), Cart (2), Messages (3) require authentication.
-    final requiresAuth = index >= 1 && index <= 3;
+    final requiresAuth = index == 3; // Only Messages requires auth
     if (requiresAuth && !widget.session.isAuthenticated) {
       _showAuthSheet(requestedTab: index);
       return;

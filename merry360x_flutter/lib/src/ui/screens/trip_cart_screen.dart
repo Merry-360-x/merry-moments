@@ -56,7 +56,9 @@ class _TripCartScreenState extends State<TripCartScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final session = widget.session;
-    final items = session.payload?.tripCart ?? const <Map<String, dynamic>>[];
+    final items = session.isAuthenticated
+        ? (session.payload?.tripCart ?? const <Map<String, dynamic>>[])
+        : session.guestTripCart;
     final listings = session.payload?.homeListings ?? const <Map<String, dynamic>>[];
 
     // IMPORTANT: spread matched first, then ci, so cart-specific fields (id,
@@ -71,7 +73,7 @@ class _TripCartScreenState extends State<TripCartScreen> {
       return <String, dynamic>{...matched, ...ci}; // ci wins — preserves cart id
     }).toList();
 
-    final bool hasItems = session.isAuthenticated && items.isNotEmpty;
+    final bool hasItems = items.isNotEmpty;
 
     return Column(
       children: [
@@ -117,18 +119,12 @@ class _TripCartScreenState extends State<TripCartScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              if (session.isAuthenticated)
+              if (items.isNotEmpty)
                 Text('${items.length} item${items.length != 1 ? 's' : ''}',
                     style: const TextStyle(color: AppColors.foggy)),
               const SizedBox(height: 16),
 
-              if (!session.isAuthenticated)
-                _InfoCard(
-                  icon: Icons.person_outline,
-                  title: l.signInToViewCart,
-                  subtitle: l.cartSyncDesc,
-                )
-              else if (items.isEmpty)
+              if (items.isEmpty)
                 _InfoCard(
                   icon: Icons.luggage_outlined,
                   title: l.cartEmpty,

@@ -158,8 +158,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     // Pre-fill with user data
     final profile = widget.session.payload?.profile;
-    _nameCtrl.text = (profile?['full_name'] ?? '').toString();
-    _emailCtrl.text = widget.session.userEmail ?? '';
+    final guestInfo = widget.session.guestInfo;
+    _nameCtrl.text = (profile?['full_name'] ?? guestInfo?['name'] ?? '').toString();
+    _emailCtrl.text = widget.session.userEmail ?? guestInfo?['email'] ?? '';
+    if (guestInfo?['phone'] != null && guestInfo!['phone']!.isNotEmpty) {
+      _phoneCtrl.text = guestInfo['phone']!;
+    }
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
     _phoneCtrl.clear();

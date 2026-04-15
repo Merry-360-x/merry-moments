@@ -81,6 +81,12 @@ class SessionController extends ChangeNotifier {
   Map<String, String>? get guestInfo => _guestInfo;
   bool get hasGuestInfo => _guestInfo != null && (_guestInfo!['name']?.isNotEmpty ?? false);
 
+  // In-memory guest wishlist and cart (not persisted to DB).
+  final List<Map<String, dynamic>> _guestWishlists = [];
+  final List<Map<String, dynamic>> _guestTripCart = [];
+  List<Map<String, dynamic>> get guestWishlists => _guestWishlists;
+  List<Map<String, dynamic>> get guestTripCart => _guestTripCart;
+
   void setGuestInfo({required String name, required String email, required String phone}) {
     _guestInfo = {'name': name, 'email': email, 'phone': phone};
     notifyListeners();
@@ -779,7 +785,19 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> addListingToWishlist(Map<String, dynamic> listing) async {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      // Guest mode: store in local list only (no DB write).
+      final placeholder = <String, dynamic>{
+        'id': 'guest_${DateTime.now().millisecondsSinceEpoch}',
+        'title': (listing['title'] ?? listing['name'] ?? 'Saved Item').toString(),
+        'item_type': 'property',
+        'property_id': (listing['id'] ?? '').toString(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      _guestWishlists.insert(0, placeholder);
+      notifyListeners();
+      return;
+    }
     // Optimistic: add a placeholder to local wishlists
     final placeholder = <String, dynamic>{
       'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
@@ -801,7 +819,12 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> removeWishlistItem(String id) async {
-    if (!isAuthenticated || id.isEmpty) return;
+    if (id.isEmpty) return;
+    if (!isAuthenticated) {
+      _guestWishlists.removeWhere((w) => w['id'].toString() == id || w['property_id'].toString() == id);
+      notifyListeners();
+      return;
+    }
     // Optimistic: remove locally
     _payload?.wishlists.removeWhere((w) => w['id'].toString() == id || w['property_id'].toString() == id);
     notifyListeners();
@@ -810,7 +833,23 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> addListingToTripCart(Map<String, dynamic> listing, {Map<String, dynamic>? metadata}) async {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      // Guest mode: store locally — spread listing so enrichment works later.
+      final type = (listing['item_type'] ?? 'property').toString();
+      final refId = (listing['id'] ?? '').toString();
+      final placeholder = <String, dynamic>{
+        ...listing,
+        'id': 'guest_${DateTime.now().millisecondsSinceEpoch}',
+        'item_type': type,
+        'reference_id': refId,
+        'quantity': 1,
+        'metadata': metadata,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      _guestTripCart.insert(0, placeholder);
+      notifyListeners();
+      return;
+    }
     final type = (listing['item_type'] ?? 'property').toString();
     final refId = (listing['id'] ?? '').toString();
     // Optimistic: add placeholder
@@ -848,10 +887,12 @@ class SessionController extends ChangeNotifier {
     String? discountCode,
     double? discountAmount,
   }) async {
-    if (!isAuthenticated) throw Exception('Sign in to book');
+    if (!isAuthenticated && !hasGuestInfo) {
+      throw Exception('Please enter your name and contact details to book as a guest');
+    }
     final type = (item['item_type'] ?? 'property').toString();
     final result = await _api.createBooking(
-      userId: _userId,
+      userId: isAuthenticated ? _userId : '',
       itemType: type,
       referenceId: (item['id'] ?? '').toString(),
       title: (item['title'] ?? item['name'] ?? 'Listing').toString(),
@@ -865,13 +906,21 @@ class SessionController extends ChangeNotifier {
       specialRequests: specialRequests,
       discountCode: discountCode,
       discountAmount: discountAmount,
+      guestName: isAuthenticated ? null : _guestInfo?['name'],
+      guestEmail: isAuthenticated ? null : _guestInfo?['email'],
+      guestPhone: isAuthenticated ? null : (_guestInfo?['phone'] ?? paymentPhone),
     );
     _backgroundRefresh();
     return result;
   }
 
   Future<void> removeTripCartItem(String id) async {
-    if (!isAuthenticated || id.isEmpty) return;
+    if (id.isEmpty) return;
+    if (!isAuthenticated) {
+      _guestTripCart.removeWhere((c) => c['id'].toString() == id);
+      notifyListeners();
+      return;
+    }
     // Optimistic: remove locally first — no re-fetch so the UI stays stable.
     _payload?.tripCart.removeWhere((c) => c['id'].toString() == id);
     notifyListeners();
@@ -879,7 +928,11 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> clearTripCart() async {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      _guestTripCart.clear();
+      notifyListeners();
+      return;
+    }
     // Optimistic: clear locally — no re-fetch so the UI stays stable.
     _payload?.tripCart.clear();
     notifyListeners();

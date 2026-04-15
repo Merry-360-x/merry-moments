@@ -14,19 +14,16 @@ class WishlistsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final items = session.payload?.wishlists ?? const <Map<String, dynamic>>[]; 
+    final items = session.isAuthenticated
+        ? (session.payload?.wishlists ?? const <Map<String, dynamic>>[])
+        : session.guestWishlists;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       children: [
         Text(l.wishlists, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.black)),
         const SizedBox(height: 8),
-        if (!session.isAuthenticated)
-          _InfoCard(
-            title: l.connectAccount,
-            subtitle: l.signInToSync,
-          )
-        else if (items.isEmpty)
+        if (items.isEmpty)
           _InfoCard(title: l.noWishlistItems, subtitle: l.savePlacesHint)
         else
           Padding(

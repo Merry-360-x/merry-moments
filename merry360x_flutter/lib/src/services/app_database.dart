@@ -457,11 +457,20 @@ class AppDatabase {
     String? specialRequests,
     String? discountCode,
     double? discountAmount,
+    // Guest-mode fields — populated when userId is empty.
+    String? guestName,
+    String? guestEmail,
+    String? guestPhone,
   }) async {
+    final isGuest = userId.trim().isEmpty;
     final row = <String, dynamic>{
-      'guest_id': userId,
+      if (!isGuest) 'guest_id': userId,
+      'is_guest_booking': isGuest,
       'booking_type': itemType,
-      'guest_name': title,
+      // guest_name = actual guest's name (for guests) or listing title (for members).
+      'guest_name': isGuest ? (guestName ?? title) : title,
+      if (isGuest && guestEmail != null && guestEmail.isNotEmpty) 'guest_email': guestEmail,
+      if (isGuest && guestPhone != null && guestPhone.isNotEmpty) 'guest_phone': guestPhone,
       if (itemType == 'property') 'property_id': referenceId,
       if (itemType == 'tour' || itemType == 'tour_package') 'tour_id': referenceId,
       if (itemType == 'transport') 'transport_id': referenceId,
@@ -472,7 +481,7 @@ class AppDatabase {
       'currency': currency,
       'status': 'pending',
       'payment_status': 'pending',
-      'guest_phone': ?paymentPhone,
+      if (!isGuest) 'guest_phone': ?paymentPhone,
       'payment_phone': ?paymentPhone,
       'payment_method': ?paymentProvider,
       if (specialRequests != null && specialRequests.isNotEmpty) 'special_requests': specialRequests,

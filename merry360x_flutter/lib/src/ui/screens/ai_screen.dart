@@ -327,13 +327,6 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<void> _addRecommendationToTripCart(_AiRecommendation recommendation, {bool goToCheckout = false}) async {
     if (_busy || recommendation.id.isEmpty) return;
-    if (!widget.session.isAuthenticated) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_l.signInToSaveCart)),
-      );
-      return;
-    }
 
     setState(() => _busy = true);
     try {
