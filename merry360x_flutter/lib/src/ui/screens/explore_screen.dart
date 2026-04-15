@@ -870,11 +870,11 @@ const _kPayProviders = [
   (label: 'MTN MoMo',     asset: 'assets/payment/mtn-momo.png',    brandColor: Color(0xFFFFCC00)),
   (label: 'Airtel Money', asset: 'assets/payment/airtel-money.png', brandColor: Color(0xFFE40000)),
   (label: 'M-Pesa',       asset: 'assets/payment/mpesa.png',        brandColor: Color(0xFF60BB46)),
-  (label: 'Orange Money', asset: '',                                 brandColor: Color(0xFFFF6900)),
+  (label: 'Orange Money', asset: 'assets/payment/orange-money.png', brandColor: Color(0xFFFF6900)),
   (label: 'Vodacom',      asset: '',                                 brandColor: Color(0xFFE60000)),
-  (label: 'Moov Money',   asset: '',                                 brandColor: Color(0xFF0077C8)),
+  (label: 'Moov Money',   asset: 'assets/payment/moov-money.png',   brandColor: Color(0xFF0077C8)),
   (label: 'Halotel',      asset: '',                                 brandColor: Color(0xFFE2001A)),
-  (label: 'Zamtel',       asset: '',                                 brandColor: Color(0xFF006B3C)),
+  (label: 'Zamtel',       asset: 'assets/payment/zamtel.png',       brandColor: Color(0xFF006B3C)),
   (label: 'Free Money',   asset: '',                                 brandColor: Color(0xFFCD2027)),
 ];
 
