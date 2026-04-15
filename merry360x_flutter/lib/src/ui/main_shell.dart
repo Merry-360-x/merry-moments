@@ -55,17 +55,23 @@ class _MainShellState extends State<MainShell> {
   void _onSessionChanged() {
     if (!mounted) return;
     final isAuth = widget.session.isAuthenticated;
-    if (!_wasAuthenticated && isAuth) {
-      // Signed in — show welcome toast
-      final profile = widget.session.payload?.profile;
-      final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
-      AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+    if (!_wasAuthenticated && isAuth && !_authSheetOpen) {
+      // Signed in from outside the auth sheet (e.g. Profile screen's own auth route).
+      // _showAuthSheet handles its own toast, so only toast here when sheet is closed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final profile = widget.session.payload?.profile;
+        final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
+        AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+      });
     } else if (_wasAuthenticated && !isAuth) {
-      // Signed out — go back to Explore and toast
-      if (mounted) {
+      // Signed out — navigate to Explore and show toast.
+      // Use addPostFrameCallback to avoid calling setState during a build/notify cycle.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         setState(() => _tab = 0);
-      }
-      AppSnackBar.info(context, 'Signed out successfully');
+        AppSnackBar.info(context, 'Signed out successfully');
+      });
     }
     _wasAuthenticated = isAuth;
   }
@@ -97,16 +103,29 @@ class _MainShellState extends State<MainShell> {
 
     if (!mounted) return;
 
+    if (didAuthenticate == true) {
+      // Trust onAuthenticated — auth state may still be propagating asyncly.
+      // Navigate to the requested tab (default to Explore) and show welcome toast.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (requestedTab != null) {
+          setState(() => _tab = requestedTab);
+        }
+        // Wait a tick for the session payload to arrive before reading the name.
+        Future.microtask(() {
+          if (!mounted) return;
+          final profile = widget.session.payload?.profile;
+          final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
+          AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+        });
+      });
+      return;
+    }
+
     if (didAuthenticate == false) {
       // User chose "Continue as guest" — collect their basic info.
       await _showGuestInfoSheet();
       return;
-    }
-
-    if (didAuthenticate == true && requestedTab != null && widget.session.isAuthenticated) {
-      setState(() {
-        _tab = requestedTab;
-      });
     }
   }
 

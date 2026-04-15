@@ -7,6 +7,7 @@ import '../utils/app_snackbar.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_post_booking_screen.dart';
 import 'affiliates_screen.dart';
+import 'auth_screen.dart';
 import 'become_host_screen.dart';
 import 'financial_dashboard_screen.dart';
 import 'host_dashboard_screen.dart';
@@ -298,12 +299,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: cardDecoration,
-                    child: Text(
-                      l.loginToPlan,
-                      style: const TextStyle(fontSize: 16),
+                  // Unauthenticated — show sign-in card
+                  GestureDetector(
+                    onTap: () async {
+                      final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+                      await showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        enableDrag: true,
+                        useSafeArea: true,
+                        backgroundColor: Colors.transparent,
+                        barrierColor: const Color(0x66000000),
+                        builder: (_) => FractionallySizedBox(
+                          heightFactor: isTablet ? 0.9 : 0.92,
+                          child: AuthScreen(
+                            session: session,
+                            asSheet: true,
+                            onAuthenticated: () => Navigator.of(context).maybePop(),
+                            onBrowseAsGuest: () => Navigator.of(context).maybePop(),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                      decoration: cardDecoration,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.rausch.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person_outline_rounded, color: AppColors.rausch, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.loginToPlan,
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  l.signInToPersonalize,
+                                  style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.foggy),
+                        ],
+                      ),
                     ),
                   ),
                 if (session.isAuthenticated) ...[
