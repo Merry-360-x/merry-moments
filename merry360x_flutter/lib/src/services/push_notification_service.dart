@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 @pragma('vm:entry-point')
@@ -14,6 +15,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Android notification channel used for all app push notifications.
+const _kAndroidChannelId = 'merry360x_default';
+const _kAndroidChannelName = 'Merry360x Notifications';
+const _kAndroidChannelDesc = 'Booking updates, messages, and special offers';
+
 class PushNotificationService {
   PushNotificationService._();
 
@@ -24,6 +30,16 @@ class PushNotificationService {
   bool _apnsPendingLogged = false;
   String? _cachedToken;
   StreamSubscription<String>? _tokenRefreshSub;
+  StreamSubscription<RemoteMessage>? _foregroundSub;
+
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  /// Emits the data payload whenever a notification is tapped
+  /// (background or cold-start). Consumers should listen in their
+  /// navigator context to perform routing.
+  final StreamController<Map<String, String>> onNotificationTap =
+      StreamController<Map<String, String>>.broadcast();
 
   bool get _isIos => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -44,7 +60,6 @@ class PushNotificationService {
     final messaging = FirebaseMessaging.instance;
 
     if (_isIos && waitForApns) {
-      // APNS token can arrive after permission prompt / app startup.
       String? apnsToken = await messaging.getAPNSToken();
       if (apnsToken == null || apnsToken.trim().isEmpty) {
         await Future<void>.delayed(const Duration(seconds: 2));
@@ -67,6 +82,79 @@ class PushNotificationService {
     return await messaging.getToken();
   }
 
+  Future<void> _initLocalNotifications() async {
+    const initSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettingsIOs = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: initSettingsAndroid,
+      iOS: initSettingsIOs,
+    );
+
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Foreground local notification tapped — emit data payload
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          onNotificationTap.add({'type': payload});
+        }
+      },
+    );
+
+    // Create Android notification channel
+    const channel = AndroidNotificationChannel(
+      _kAndroidChannelId,
+      _kAndroidChannelName,
+      description: _kAndroidChannelDesc,
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  void _showForegroundNotification(RemoteMessage message) {
+    final notification = message.notification;
+    if (notification == null) return;
+
+    final title = notification.title ?? '';
+    final body = notification.body ?? '';
+    final type = message.data['type'] ?? 'general';
+
+    if (title.isEmpty && body.isEmpty) return;
+
+    _localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _kAndroidChannelId,
+          _kAndroidChannelName,
+          channelDescription: _kAndroidChannelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: type,
+    );
+  }
+
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -80,6 +168,32 @@ class PushNotificationService {
         sound: true,
       );
 
+      await _initLocalNotifications();
+
+      // Foreground messages — show a local notification on Android
+      // (iOS is handled natively via setForegroundNotificationPresentationOptions)
+      _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
+        if (!_isIos) {
+          _showForegroundNotification(message);
+        }
+        // Emit tap event in case the app wants to react in-app too
+        // (not auto-navigating here — only on explicit tap)
+      });
+
+      // Background → foreground tap
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        onNotificationTap.add(Map<String, String>.from(message.data));
+      });
+
+      // Cold-start tap (app was terminated)
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        // Queue it so the navigator listener has time to attach
+        Future.delayed(const Duration(milliseconds: 500), () {
+          onNotificationTap.add(Map<String, String>.from(initialMessage.data));
+        });
+      }
+
       _tokenRefreshSub = messaging.onTokenRefresh.listen((token) {
         _cachedToken = token;
         final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -92,8 +206,6 @@ class PushNotificationService {
       _initialized = true;
       debugPrint('[PushNotificationService] Firebase messaging initialized');
     } catch (error) {
-      // Avoid retry loops in the same runtime when native Firebase plugin
-      // is unavailable (for example a stale iOS build/session).
       _firebaseReady = false;
       _initialized = true;
       debugPrint('[PushNotificationService] Firebase init skipped: $error');
@@ -189,6 +301,10 @@ class PushNotificationService {
 
   Future<void> dispose() async {
     await _tokenRefreshSub?.cancel();
+    await _foregroundSub?.cancel();
     _tokenRefreshSub = null;
+    _foregroundSub = null;
+    await onNotificationTap.close();
   }
 }
+

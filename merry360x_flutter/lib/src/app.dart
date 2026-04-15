@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async' show StreamSubscription, unawaited;
 import 'dart:io' show Platform;
 import 'dart:ui' show ColorSpace, PlatformDispatcher;
 
@@ -10,8 +10,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/push_notification_service.dart';
 import 'session_controller.dart';
 import 'ui/main_shell.dart';
+import 'ui/screens/my_bookings_screen.dart';
+import 'ui/screens/notifications_screen.dart';
+import 'ui/screens/support_screen.dart';
 
 /// Global route observer — used to hide floating UI (e.g. AI button tooltip)
 /// when a modal/sheet is pushed on top of the main shell.
@@ -210,6 +214,8 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
   late final SessionController _session;
   ThemeMode _themeMode = ThemeMode.system;
   Brightness? _lastSyncedNativeBrightness;
+  StreamSubscription<Map<String, String>>? _notifTapSub;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   ThemeMode _parseThemeModePreference(String? stored) {
     switch (stored) {
@@ -429,6 +435,34 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     WidgetsBinding.instance.addObserver(this);
     _session = SessionController();
     _bootstrap();
+    _listenToNotificationTaps();
+  }
+
+  void _listenToNotificationTaps() {
+    _notifTapSub = PushNotificationService.instance.onNotificationTap.stream
+        .listen(_handleNotificationTap);
+  }
+
+  void _handleNotificationTap(Map<String, String> data) {
+    final nav = _navigatorKey.currentState;
+    if (nav == null) return;
+    final type = data['type'] ?? '';
+    switch (type) {
+      case 'support':
+        nav.push(MaterialPageRoute(
+          builder: (_) => SupportScreen(session: _session),
+        ));
+      case 'booking':
+      case 'booking_confirmed':
+      case 'booking_cancelled':
+        nav.push(MaterialPageRoute(
+          builder: (_) => MyBookingsScreen(session: _session),
+        ));
+      default:
+        nav.push(MaterialPageRoute(
+          builder: (_) => NotificationsScreen(session: _session),
+        ));
+    }
   }
 
   @override
@@ -451,6 +485,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
 
   @override
   void dispose() {
+    _notifTapSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _session.dispose();
     super.dispose();
@@ -505,6 +540,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
 
         return MaterialApp(
           key: ValueKey<ThemeMode>(_themeMode),
+          navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'Merry360x',
           locale: _session.locale,
