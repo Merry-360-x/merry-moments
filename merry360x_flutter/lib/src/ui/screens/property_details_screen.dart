@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app.dart';
@@ -551,6 +552,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       _showSnack(_l.signInToBook);
       return;
     }
+    HapticFeedback.mediumImpact();
     Navigator.push(
       context,
       MaterialPageRoute(

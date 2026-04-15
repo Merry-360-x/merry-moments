@@ -491,6 +491,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmAndPay() async {
+    HapticFeedback.mediumImpact();
     setState(() => _submitting = true);
     try {
       if (_payTab == 0) {
@@ -733,6 +734,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _showSnack(_l.enterFullName);
       return;
     }
+    HapticFeedback.selectionClick();
     setState(() => _step = 1);
   }
 

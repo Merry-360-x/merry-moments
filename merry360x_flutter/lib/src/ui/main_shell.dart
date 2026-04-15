@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app.dart';
@@ -75,6 +76,7 @@ class _MainShellState extends State<MainShell> {
       _showAuthSheet(requestedTab: index);
       return;
     }
+    HapticFeedback.selectionClick();
     setState(() {
       _tab = index;
     });

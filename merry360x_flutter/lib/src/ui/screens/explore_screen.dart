@@ -1554,6 +1554,7 @@ class ListingCard extends StatelessWidget {
                   right: 10,
                   child: GestureDetector(
                     onTap: () async {
+                      HapticFeedback.lightImpact();
                       if (!session.isAuthenticated) {
                         AppSnackBar.info(context, l.signInToSaveToWishlist);
                         return;
