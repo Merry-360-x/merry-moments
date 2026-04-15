@@ -925,6 +925,8 @@ const Accommodations = () => {
                 </AccordionItem>
                 <AccordionItem value="rental-type">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
                         { value: "all", label: "All rentals" },
                         { value: "monthly_only", label: "Monthly only" },
@@ -1191,6 +1193,8 @@ const Accommodations = () => {
                 </AccordionItem>
                 <AccordionItem value="rental-type-mobile">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-2 gap-2">
                       {[
                         { value: "all", label: "All rentals" },
                         { value: "monthly_only", label: "Monthly only" },
