@@ -12,6 +12,7 @@ import 'screens/messages_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/trip_cart_screen.dart';
 import 'screens/wishlists_screen.dart';
+import 'utils/app_snackbar.dart';
 
 // ── Custom nav SVG icons ─────────────────────────────────────────────────────
 const _kSvgExplore = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -36,6 +37,38 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
   bool _authSheetOpen = false;
+  bool _wasAuthenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasAuthenticated = widget.session.isAuthenticated;
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    final isAuth = widget.session.isAuthenticated;
+    if (!_wasAuthenticated && isAuth) {
+      // Signed in — show welcome toast
+      final profile = widget.session.payload?.profile;
+      final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
+      AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+    } else if (_wasAuthenticated && !isAuth) {
+      // Signed out — go back to Explore and toast
+      if (mounted) {
+        setState(() => _tab = 0);
+      }
+      AppSnackBar.info(context, 'Signed out successfully');
+    }
+    _wasAuthenticated = isAuth;
+  }
 
   Future<void> _showAuthSheet({int? requestedTab}) async {
     if (_authSheetOpen) return;
@@ -63,6 +96,13 @@ class _MainShellState extends State<MainShell> {
     _authSheetOpen = false;
 
     if (!mounted) return;
+
+    if (didAuthenticate == false) {
+      // User chose "Continue as guest" — collect their basic info.
+      await _showGuestInfoSheet();
+      return;
+    }
+
     if (didAuthenticate == true && requestedTab != null && widget.session.isAuthenticated) {
       setState(() {
         _tab = requestedTab;
@@ -70,8 +110,22 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  Future<void> _showGuestInfoSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      enableDrag: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x66000000),
+      builder: (_) => _GuestInfoSheet(session: widget.session),
+    );
+  }
+
   void _openTab(int index) {
-    final requiresAuth = index >= 1;
+    // Profile tab (index 4) is accessible without auth — shows sign-in prompt inline.
+    // Wishlists (1), Cart (2), Messages (3) require authentication.
+    final requiresAuth = index >= 1 && index <= 3;
     if (requiresAuth && !widget.session.isAuthenticated) {
       _showAuthSheet(requestedTab: index);
       return;
@@ -447,6 +501,226 @@ class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Guest info collection sheet ───────────────────────────────────────────────
+
+class _GuestInfoSheet extends StatefulWidget {
+  const _GuestInfoSheet({required this.session});
+  final SessionController session;
+
+  @override
+  State<_GuestInfoSheet> createState() => _GuestInfoSheetState();
+}
+
+class _GuestInfoSheetState extends State<_GuestInfoSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _saving = true);
+    widget.session.setGuestInfo(
+      name: _nameCtrl.text.trim(),
+      email: _emailCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+      AppSnackBar.success(context, 'Welcome, ${_nameCtrl.text.trim()}! Browsing as guest 👋');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final label = isDark ? const Color(0xFFEFF3FA) : const Color(0xFF1A1A1A);
+    final hint = isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF);
+    final border = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Form(
+            key: _formKey,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: hint,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Continue as guest',
+                    style: TextStyle(
+                      color: label,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Share your contact details so hosts can reach you.',
+                    style: TextStyle(color: hint, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildField(
+                    controller: _nameCtrl,
+                    label: 'Full name',
+                    hint: 'e.g. Jane Doe',
+                    icon: Icons.person_outline,
+                    isDark: isDark,
+                    border: border,
+                    labelColor: label,
+                    hintColor: hint,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your name' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _emailCtrl,
+                    label: 'Email',
+                    hint: 'e.g. jane@example.com',
+                    icon: Icons.mail_outline,
+                    keyboardType: TextInputType.emailAddress,
+                    isDark: isDark,
+                    border: border,
+                    labelColor: label,
+                    hintColor: hint,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Please enter your email';
+                      if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    controller: _phoneCtrl,
+                    label: 'Phone number',
+                    hint: 'e.g. +250 788 000 000',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    isDark: isDark,
+                    border: border,
+                    labelColor: label,
+                    hintColor: hint,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your phone number' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.rausch,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      child: _saving
+                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Continue'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('Skip for now', style: TextStyle(color: hint, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required bool isDark,
+    required Color border,
+    required Color labelColor,
+    required Color hintColor,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: labelColor, fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          style: TextStyle(color: labelColor, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: hintColor, fontSize: 15),
+            prefixIcon: Icon(icon, color: hintColor, size: 20),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.rausch, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 1.5),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

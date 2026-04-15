@@ -76,6 +76,21 @@ class SessionController extends ChangeNotifier {
   String get language => _language;
   String get currency => _currency;
 
+  // Guest info collected when user browses without signing in.
+  Map<String, String>? _guestInfo;
+  Map<String, String>? get guestInfo => _guestInfo;
+  bool get hasGuestInfo => _guestInfo != null && (_guestInfo!['name']?.isNotEmpty ?? false);
+
+  void setGuestInfo({required String name, required String email, required String phone}) {
+    _guestInfo = {'name': name, 'email': email, 'phone': phone};
+    notifyListeners();
+  }
+
+  void clearGuestInfo() {
+    _guestInfo = null;
+    notifyListeners();
+  }
+
   /// Locale derived from the user's language preference.
   Locale get locale {
     switch (_language) {
