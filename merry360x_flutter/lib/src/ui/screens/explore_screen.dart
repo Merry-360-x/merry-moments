@@ -1105,6 +1105,7 @@ class _MomoProviderCard extends StatelessWidget {
           height: 40,
           fit: BoxFit.contain,
           placeholderBuilder: (_) => _brandIcon(initial),
+          errorBuilder: (_, __, ___) => _brandIcon(initial),
         );
       } else {
         logoWidget = Image.asset(
