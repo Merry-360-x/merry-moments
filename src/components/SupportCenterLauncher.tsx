@@ -1414,7 +1414,7 @@ export default function SupportCenterLauncher() {
   return (
     <>
       <div
-        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.85rem)] right-[5.5rem] z-[109] max-w-[220px] rounded-full border border-primary/20 bg-white/96 px-3 py-2 text-[11px] font-medium text-slate-700 shadow-[0_18px_38px_rgba(15,23,42,0.14)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-[4.8rem] sm:right-[5.75rem] ${
+        className={`pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] right-[5.5rem] z-[109] max-w-[220px] rounded-full border border-primary/20 bg-white/96 px-3 py-2 text-[11px] font-medium text-slate-700 shadow-[0_18px_38px_rgba(15,23,42,0.14)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-[4.8rem] sm:right-[5.75rem] ${`
           homePromptVisible ? "translate-x-0 scale-100 opacity-100" : "translate-x-5 scale-95 opacity-0"
         }`}
       >
@@ -1424,7 +1424,7 @@ export default function SupportCenterLauncher() {
       {/* Floating button */}
       <button
         type="button"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+6.25rem)] right-4 z-[110] h-[72px] w-[72px] bg-transparent text-slate-900 flex items-center justify-center transition-transform hover:scale-[1.03] sm:bottom-5 sm:right-5"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)] right-4 z-[110] h-[72px] w-[72px] bg-transparent text-slate-900 flex items-center justify-center transition-transform hover:scale-[1.03] sm:bottom-5 sm:right-5"
         aria-label="Open Merry AI and support"
         onClick={() => {
           setOpen(!open);

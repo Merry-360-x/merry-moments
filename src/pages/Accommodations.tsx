@@ -63,6 +63,7 @@ const fetchProperties = async (args: {
   startDate?: string; // Add start date filter
   endDate?: string; // Add end date filter
   monthlyFilterMode?: MonthlyFilterMode; // Add monthly rental filter mode
+  bedrooms?: number | null; // null = any, 0 = studio, 1-5 = exact, 6 = 6+
 }) => {
   try {
     let query = supabase
@@ -109,6 +110,17 @@ const fetchProperties = async (args: {
     // Guest count filtering
     if (args.guests && args.guests > 0) {
       query = query.gte("max_guests", args.guests);
+    }
+
+    // Bedroom filtering
+    if (args.bedrooms !== null && args.bedrooms !== undefined) {
+      if (args.bedrooms === 0) {
+        query = query.or("bedrooms.is.null,bedrooms.eq.0");
+      } else if (args.bedrooms >= 6) {
+        query = query.gte("bedrooms", 6);
+      } else {
+        query = query.eq("bedrooms", args.bedrooms);
+      }
     }
 
     // Monthly rental filtering
@@ -222,6 +234,7 @@ const Accommodations = () => {
   const [maxPriceUsd, setMaxPriceUsd] = useState(PRICE_SLIDER_MAX_USD);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [bedroomFilter, setBedroomFilter] = useState<number | null>(null);
   const [minRating, setMinRating] = useState(0);
   const [locationFilter, setLocationFilter] = useState("");
   const [guestCount, setGuestCount] = useState(() => {
@@ -258,7 +271,7 @@ const Accommodations = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, minRating, locationFilter, guestCount, monthlyFilterMode, hostId]);
+  }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, bedroomFilter, minRating, locationFilter, guestCount, monthlyFilterMode, hostId]);
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -438,6 +451,7 @@ const Accommodations = () => {
       searchParams.get("q") ?? "",
       selectedTypes.join("|"),
       selectedAmenities.join("|"),
+      bedroomFilter ?? "",
       minRating,
       hostId ?? "",
       nearby ? `${nearby.lat},${nearby.lng}` : "",
@@ -455,6 +469,7 @@ const Accommodations = () => {
         search: searchParams.get("q") ?? "",
         propertyTypes: selectedTypes,
         amenities: selectedAmenities,
+        bedrooms: bedroomFilter,
         minRating,
         hostId,
         nearby,
@@ -610,6 +625,7 @@ const Accommodations = () => {
     (maxPriceUsd < PRICE_SLIDER_MAX_USD ? 1 : 0) +
     (selectedTypes.length > 0 ? 1 : 0) +
     (selectedAmenities.length > 0 ? 1 : 0) +
+    (bedroomFilter !== null ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (locationFilter.trim() ? 1 : 0) +
     (guestCount > 0 ? 1 : 0) +
@@ -877,10 +893,38 @@ const Accommodations = () => {
                     />
                   </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="bedrooms">
+                  <AccordionTrigger>Bedrooms</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: "Any", value: null },
+                        { label: "Studio", value: 0 },
+                        { label: "1", value: 1 },
+                        { label: "2", value: 2 },
+                        { label: "3", value: 3 },
+                        { label: "4", value: 4 },
+                        { label: "5", value: 5 },
+                        { label: "6+", value: 6 },
+                      ].map((opt) => (
+                        <button
+                          key={String(opt.value)}
+                          type="button"
+                          onClick={() => setBedroomFilter(opt.value === bedroomFilter ? null : opt.value)}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            bedroomFilter === opt.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="rental-type">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[
                         { value: "all", label: "All rentals" },
                         { value: "monthly_only", label: "Monthly only" },
@@ -946,6 +990,7 @@ const Accommodations = () => {
                   setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
                   setSelectedTypes([]);
                   setSelectedAmenities([]);
+                  setBedroomFilter(null);
                   setMinRating(0);
                   setLocationFilter("");
                   setGuestCount(0);
@@ -975,6 +1020,7 @@ const Accommodations = () => {
                     setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
                     setSelectedTypes([]);
                     setSelectedAmenities([]);
+                    setBedroomFilter(null);
                     setMinRating(0);
                     setLocationFilter("");
                     setGuestCount(0);
@@ -1113,10 +1159,38 @@ const Accommodations = () => {
                   </AccordionContent>
                 </AccordionItem>
 
+                <AccordionItem value="bedrooms">
+                  <AccordionTrigger>Bedrooms</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: "Any", value: null },
+                        { label: "Studio", value: 0 },
+                        { label: "1", value: 1 },
+                        { label: "2", value: 2 },
+                        { label: "3", value: 3 },
+                        { label: "4", value: 4 },
+                        { label: "5", value: 5 },
+                        { label: "6+", value: 6 },
+                      ].map((opt) => (
+                        <button
+                          key={String(opt.value)}
+                          type="button"
+                          onClick={() => setBedroomFilter(opt.value === bedroomFilter ? null : opt.value)}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                            bedroomFilter === opt.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:border-primary"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="rental-type-mobile">
                   <AccordionTrigger>Rental Duration</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid grid-cols-2 gap-2">
                       {[
                         { value: "all", label: "All rentals" },
                         { value: "monthly_only", label: "Monthly only" },
