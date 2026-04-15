@@ -10,20 +10,51 @@ extension _MapExt on Map {
   dynamic get(String key) => this[key];
 }
 
-Map<String, dynamic> _normalizeProperty(Map<String, dynamic> row) => {
-  ...row,
-  'item_type': 'property',
-  'images': row['images'] ?? [if (row['main_image'] != null) row['main_image']],
-  'main_image': row['main_image'] ?? ((row['images'] as List?)?.isNotEmpty == true ? (row['images'] as List).first : null),
-};
+/// Cloud names that are known-disabled and should never be used for display.
+const _disabledCloudNames = {'dxdblhmbm'};
 
-Map<String, dynamic> _normalizeTour(Map<String, dynamic> row) => {
-  ...row,
-  'item_type': 'tour',
-  'source': row['source'] ?? 'tours',
-  'images': row['images'] ?? [if (row['main_image'] != null) row['main_image']],
-  'main_image': row['main_image'] ?? ((row['images'] as List?)?.isNotEmpty == true ? (row['images'] as List).first : null),
-};
+bool _isWorkingImageUrl(String url) {
+  // Filter out Cloudinary URLs from disabled cloud accounts.
+  final uri = Uri.tryParse(url);
+  if (uri != null && uri.host == 'res.cloudinary.com') {
+    final segments = uri.pathSegments; // e.g. ['dxdblhmbm', 'image', 'upload', ...]
+    if (segments.isNotEmpty && _disabledCloudNames.contains(segments[0])) return false;
+  }
+  return true;
+}
+
+List<dynamic> _nonEmptyImages(dynamic imgs, dynamic mainImage) {
+  List<dynamic> filtered(List<dynamic> list) =>
+      list.where((v) => v != null && _isWorkingImageUrl(v.toString())).toList();
+
+  if (imgs is List && imgs.isNotEmpty) {
+    final f = filtered(imgs);
+    if (f.isNotEmpty) return f;
+  }
+  final mi = mainImage?.toString() ?? '';
+  if (mi.isNotEmpty && _isWorkingImageUrl(mi)) return [mi];
+  return [];
+}
+
+Map<String, dynamic> _normalizeProperty(Map<String, dynamic> row) {
+  final imgs = _nonEmptyImages(row['images'], row['main_image']);
+  final mainImage = () {
+    final mi = row['main_image']?.toString() ?? '';
+    if (mi.isNotEmpty && _isWorkingImageUrl(mi)) return mi;
+    return imgs.isNotEmpty ? imgs.first as String? : null;
+  }();
+  return {...row, 'item_type': 'property', 'images': imgs, 'main_image': mainImage};
+}
+
+Map<String, dynamic> _normalizeTour(Map<String, dynamic> row) {
+  final imgs = _nonEmptyImages(row['images'], row['main_image']);
+  final mainImage = () {
+    final mi = row['main_image']?.toString() ?? '';
+    if (mi.isNotEmpty && _isWorkingImageUrl(mi)) return mi;
+    return imgs.isNotEmpty ? imgs.first as String? : null;
+  }();
+  return {...row, 'item_type': 'tour', 'source': row['source'] ?? 'tours', 'images': imgs, 'main_image': mainImage};
+}
 
 Map<String, dynamic> _normalizeTourPackage(Map<String, dynamic> row) => {
   ...row,
@@ -110,32 +141,32 @@ class AppDatabase {
     const feedLimit = 80;
     final storiesCutoffIso = DateTime.now().toUtc().subtract(const Duration(hours: 24)).toIso8601String();
 
-    // Home listings — aligned with website table columns
+    // Home listings — aligned with website table columns (web uses RecommendationEngine scoring)
     final results = await Future.wait([
       safeQuery(
         _sb
             .from('properties')
-            .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image, created_at')
+            .select('id, title, location, price_per_night, price_per_month, monthly_only_listing, currency, property_type, rating, review_count, bedrooms, beds, bathrooms, max_guests, images, main_image, host_id, created_at')
             .eq('is_published', true)
-            .order('created_at', ascending: false)
             .order('rating', ascending: false)
             .order('review_count', ascending: false)
+            .order('created_at', ascending: false)
             .limit(propertyLimit),
       ),
       safeQuery(
         _sb
             .from('tours')
-            .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, created_at')
-            .or('is_published.eq.true,is_published.is.null')
-            .order('created_at', ascending: false)
+            .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days, created_by, created_at')
+            .eq('is_published', true)
             .order('rating', ascending: false)
             .order('review_count', ascending: false)
+            .order('created_at', ascending: false)
             .limit(feedLimit),
       ),
       safeQuery(
         _sb
             .from('tour_packages')
-            .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, created_at')
+            .select('id, title, city, country, price_per_adult, price_per_person, currency, status, cover_image, gallery_images, category, duration, host_id, created_at')
             .eq('status', 'approved')
             .order('created_at', ascending: false)
             .limit(feedLimit),
@@ -144,7 +175,7 @@ class AppDatabase {
         _sb
             .from('transport_vehicles')
             .select('id, title, provider_name, vehicle_type, seats, price_per_day, currency, driver_included, image_url, media, created_at')
-            .or('is_published.eq.true,is_published.is.null')
+            .eq('is_published', true)
             .order('created_at', ascending: false)
             .limit(feedLimit),
       ),
@@ -363,10 +394,10 @@ class AppDatabase {
       switch (type) {
         case 'property':
           final data = await _sb.from('properties').select('*').eq('id', id).maybeSingle();
-          if (data != null) return {...data, 'item_type': 'property'};
+          if (data != null) return _normalizeProperty({...data, 'item_type': 'property'});
         case 'tour':
           final data = await _sb.from('tours').select('*').eq('id', id).maybeSingle();
-          if (data != null) return {...data, 'item_type': 'tour'};
+          if (data != null) return _normalizeTour({...data, 'item_type': 'tour'});
         case 'tour_package':
           final data = await _sb.from('tour_packages').select('*').eq('id', id).maybeSingle();
           if (data != null) {
@@ -464,6 +495,25 @@ class AppDatabase {
     int guests = 1,
   }) async {
     final q = query.trim().toLowerCase();
+
+    // Build an OR filter string that also matches individual tokens so that
+    // formatted destinations like "Rubavu (Gisenyi)" match rows where the
+    // location column contains only "Rubavu" or only "Gisenyi".
+    String _buildLocationFilter(String raw) {
+      final tokens = raw
+          .split(RegExp(r'[()\[\],]+'))
+          .map((t) => t.trim())
+          .where((t) => t.length >= 2)
+          .toSet();
+      final conditions = <String>[];
+      for (final t in tokens) {
+        conditions
+          ..add('title.ilike.%$t%')
+          ..add('location.ilike.%$t%');
+      }
+      return conditions.join(',');
+    }
+
     final results = <Map<String, dynamic>>[];
 
     try {
@@ -472,7 +522,7 @@ class AppDatabase {
             .from('properties')
           .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image')
             .eq('is_published', true);
-        if (q.isNotEmpty) req = req.or('title.ilike.%$q%,location.ilike.%$q%');
+        if (q.isNotEmpty) req = req.or(_buildLocationFilter(q));
         if (minPrice != null) req = req.gte('price_per_night', minPrice);
         if (maxPrice != null) req = req.lte('price_per_night', maxPrice);
         final data = await req.limit(30);
@@ -485,7 +535,7 @@ class AppDatabase {
             .from('tours')
             .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days')
             .or('is_published.eq.true,is_published.is.null');
-        if (q.isNotEmpty) req2 = req2.or('title.ilike.%$q%,location.ilike.%$q%');
+        if (q.isNotEmpty) req2 = req2.or(_buildLocationFilter(q));
         final data = await req2.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add(_normalizeTour(r));
@@ -500,6 +550,24 @@ class AppDatabase {
         final data = await req3.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add(_normalizeTransport(r));
+        }
+      }
+      if (category == 'all' || category == 'packages') {
+        var req4 = _sb
+            .from('tour_packages')
+            .select('id, title, city, country, category, duration, max_guests, price_per_adult, price_per_person, currency, status, cover_image, gallery_images')
+            .eq('status', 'approved');
+        if (q.isNotEmpty) {
+          final tokens = q.split(RegExp(r'[()?\[\],]+')).map((t) => t.trim()).where((t) => t.length >= 2).toSet();
+          final pkgConds = <String>[];
+          for (final t in tokens) {
+            pkgConds..add('title.ilike.%$t%')..add('city.ilike.%$t%')..add('country.ilike.%$t%');
+          }
+          req4 = req4.or(pkgConds.join(','));
+        }
+        final data = await req4.limit(30);
+        for (final r in (data as List).cast<Map<String, dynamic>>()) {
+          results.add(_normalizeTourPackage(r));
         }
       }
     } catch (_) {}
@@ -2790,6 +2858,204 @@ class AppDatabase {
       'selfie_photo_url': selfiePhotoUrl,
       'status': 'pending',
     });
+  }
+
+  // ── User Preferences ──
+
+  Future<Map<String, dynamic>> fetchUserPreferences({required String userId}) async {
+    try {
+      final data = await _sb
+          .from('user_preferences')
+          .select('language, currency')
+          .eq('user_id', userId)
+          .maybeSingle();
+      return (data as Map?)?.cast<String, dynamic>() ?? const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<void> upsertUserPreference({
+    required String userId,
+    String? language,
+    String? currency,
+  }) async {
+    final updates = <String, dynamic>{'user_id': userId};
+    if (language != null) updates['language'] = language;
+    if (currency != null) updates['currency'] = currency;
+    await _sb.from('user_preferences').upsert(updates, onConflict: 'user_id');
+  }
+
+  // ── Loyalty Transactions ──
+
+  Future<List<Map<String, dynamic>>> fetchLoyaltyTransactions({
+    required String userId,
+    int limit = 50,
+  }) async {
+    try {
+      final data = await _sb
+          .from('loyalty_transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // ── Property Blocked Dates ──
+
+  Future<List<Map<String, dynamic>>> fetchPropertyBlockedDates({
+    required String propertyId,
+  }) async {
+    try {
+      final data = await _sb
+          .from('property_blocked_dates')
+          .select('*')
+          .eq('property_id', propertyId)
+          .order('start_date', ascending: true);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> addPropertyBlockedDates({
+    required String propertyId,
+    required String startDate,
+    required String endDate,
+    String reason = 'Blocked by host',
+    String? createdBy,
+  }) async {
+    await _sb.from('property_blocked_dates').insert({
+      'property_id': propertyId,
+      'start_date': startDate,
+      'end_date': endDate,
+      'reason': reason,
+      if (createdBy != null) 'created_by': createdBy,
+    });
+  }
+
+  Future<void> removePropertyBlockedDate({required String id}) async {
+    await _sb.from('property_blocked_dates').delete().eq('id', id);
+  }
+
+  // ── Property Custom Prices ──
+
+  Future<List<Map<String, dynamic>>> fetchPropertyCustomPrices({
+    required String propertyId,
+  }) async {
+    try {
+      final data = await _sb
+          .from('property_custom_prices')
+          .select('*')
+          .eq('property_id', propertyId)
+          .order('start_date', ascending: true);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> addPropertyCustomPrice({
+    required String propertyId,
+    required String startDate,
+    required String endDate,
+    required double customPricePerNight,
+    String? reason,
+  }) async {
+    await _sb.from('property_custom_prices').insert({
+      'property_id': propertyId,
+      'start_date': startDate,
+      'end_date': endDate,
+      'custom_price_per_night': customPricePerNight,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
+  }
+
+  Future<void> removePropertyCustomPrice({required String id}) async {
+    await _sb.from('property_custom_prices').delete().eq('id', id);
+  }
+
+  // ── Booking Change Requests ──
+
+  Future<List<Map<String, dynamic>>> fetchBookingChangeRequests({
+    required String userId,
+    bool asHost = false,
+  }) async {
+    try {
+      var req = _sb.from('booking_change_requests').select('*');
+      req = asHost ? req.eq('host_id', userId) : req.eq('user_id', userId);
+      final data = await req.order('created_at', ascending: false).limit(50);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> createBookingChangeRequest({
+    required String bookingId,
+    required String userId,
+    required String hostId,
+    required String originalStartDate,
+    required String originalEndDate,
+    String? requestedStartDate,
+    String? requestedEndDate,
+    String? reason,
+  }) async {
+    await _sb.from('booking_change_requests').insert({
+      'booking_id': bookingId,
+      'user_id': userId,
+      'host_id': hostId,
+      'original_start_date': originalStartDate,
+      'original_end_date': originalEndDate,
+      if (requestedStartDate != null) 'requested_start_date': requestedStartDate,
+      if (requestedEndDate != null) 'requested_end_date': requestedEndDate,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
+  }
+
+  Future<void> updateBookingChangeRequestStatus({
+    required String id,
+    required String status,
+  }) async {
+    await _sb.from('booking_change_requests').update({'status': status}).eq('id', id);
+  }
+
+  // ── Transport Services ──
+
+  Future<List<Map<String, dynamic>>> fetchTransportServices({int limit = 50}) async {
+    try {
+      final data = await _sb
+          .from('transport_services')
+          .select('id, title, description, slug')
+          .or('is_published.eq.true,is_published.is.null')
+          .order('created_at', ascending: true)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // ── Support Ticket Logs ──
+
+  Future<List<Map<String, dynamic>>> fetchSupportTicketLogs({
+    required String ticketId,
+  }) async {
+    try {
+      final data = await _sb
+          .from('support_ticket_logs')
+          .select('id, ticket_id, user_id, action_type, created_at')
+          .eq('ticket_id', ticketId)
+          .order('created_at', ascending: false)
+          .limit(50);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const [];
+    }
   }
 }
 

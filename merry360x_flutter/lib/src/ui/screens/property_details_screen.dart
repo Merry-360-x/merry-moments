@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -11,6 +12,7 @@ import '../../session_controller.dart';
 import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'messages_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PropertyDetailsScreen
@@ -40,6 +42,7 @@ class PropertyDetailsScreen extends StatefulWidget {
 
 class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   final AppDatabase _api = AppDatabase();
+  late AppLocalizations _l;
 
   Map<String, dynamic>? _full;
   List<Map<String, dynamic>> _recommendedProperties = [];
@@ -55,6 +58,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   DateTime? _checkOut;
   int _guests = 1;
   int _currentImage = 0;
+  int _validImageCount = 0;
   bool _liked = false;
 
   String? _hostId;
@@ -71,6 +75,32 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     _checkOut = widget.initialCheckOut;
     _guests   = widget.initialGuests;
     _loadFull();
+    // Precache images already available on the card item so gallery opens instantly.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _precacheImages(widget.item));
+  }
+
+  void _precacheImages(Map<String, dynamic> source) {
+    if (!mounted) return;
+    final raw = source['images'];
+    final urls = <String>[];
+    if (raw is List) {
+      for (final v in raw) {
+        final s = v?.toString().trim() ?? '';
+        if (s.isNotEmpty) urls.add(s);
+      }
+    }
+    final main = resolveListingImageUrl(source);
+    if (urls.isEmpty && main != null) urls.add(main);
+    if (urls.isEmpty && main != null) urls.add(main);
+    for (final s in urls) {
+      String url = s;
+      if (url.startsWith('//')) url = 'https:$url';
+      if (url.startsWith('res.cloudinary.com/')) url = 'https://$url';
+      if (!url.startsWith('http')) {
+        url = 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto,c_fill,w_900,h_600/$url';
+      }
+      precacheImage(CachedNetworkImageProvider(url), context);
+    }
   }
 
   Future<void> _loadFull() async {
@@ -92,6 +122,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         _full = resolved;
         _loading = false;
       });
+      _precacheImages(resolved);
       unawaited(_loadHostActions(resolved));
       unawaited(_loadRecommendations(resolved));
     } catch (e) {
@@ -172,21 +203,21 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     if (nickname.isNotEmpty) return nickname;
     final fullName = (_hostProfile?['full_name'] ?? '').toString().trim();
     if (fullName.isNotEmpty) return fullName;
-    return 'Host';
+    return _l.hostLabel;
   }
 
   Future<void> _contactHost() async {
     final hostId = (_hostId ?? '').trim();
     if (hostId.isEmpty) {
-      _showSnack('Host profile is not available right now.', isError: true);
+      _showSnack(_l.hostProfileUnavailable, isError: true);
       return;
     }
     if (!widget.session.isAuthenticated) {
-      _showSnack('Sign in to message hosts');
+      _showSnack(_l.signInToMessageHosts);
       return;
     }
     if (hostId == widget.session.userId) {
-      _showSnack('This listing belongs to you.');
+      _showSnack(_l.listingBelongsToYou);
       return;
     }
 
@@ -206,15 +237,15 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
     final hostId = (_hostId ?? '').trim();
     if (hostId.isEmpty) {
-      _showSnack('Host profile is not available right now.', isError: true);
+      _showSnack(_l.hostProfileUnavailable, isError: true);
       return;
     }
     if (!widget.session.isAuthenticated) {
-      _showSnack('Sign in to follow hosts');
+      _showSnack(_l.signInToFollowHosts);
       return;
     }
     if (hostId == widget.session.userId) {
-      _showSnack('You cannot follow your own profile.');
+      _showSnack(_l.cannotFollowOwnProfile);
       return;
     }
 
@@ -238,8 +269,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       if (!mounted) return;
       _showSnack(
         wasFollowing
-            ? 'Removed from followed hosts.'
-            : 'You are now following this host.',
+            ? _l.removedFromFollowedHosts
+            : _l.nowFollowingHost,
         isSuccess: true,
       );
     } catch (e) {
@@ -252,7 +283,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           _hostFollowersCount = _hostFollowersCount > 0 ? _hostFollowersCount - 1 : 0;
         }
       });
-      _showSnack('Could not update follow status', isError: true);
+      _showSnack(_l.couldNotUpdateFollowStatus, isError: true);
     } finally {
       if (mounted) {
         setState(() => _togglingFollow = false);
@@ -364,21 +395,21 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       case 'tour':
       case 'tour_package':
         return [
-          if (_recommendedProperties.isNotEmpty) (title: 'Properties', items: _recommendedProperties),
-          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
-          if (_recommendedTransport.isNotEmpty) (title: 'Transport', items: _recommendedTransport),
+          if (_recommendedProperties.isNotEmpty) (title: _l.propertiesSection, items: _recommendedProperties),
+          if (_recommendedTours.isNotEmpty) (title: _l.toursSection, items: _recommendedTours),
+          if (_recommendedTransport.isNotEmpty) (title: _l.transportSection, items: _recommendedTransport),
         ];
       case 'transport':
         return [
-          if (_recommendedProperties.isNotEmpty) (title: 'Properties', items: _recommendedProperties),
-          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
-          if (_recommendedTourPackages.isNotEmpty) (title: 'Tour packages', items: _recommendedTourPackages),
+          if (_recommendedProperties.isNotEmpty) (title: _l.propertiesSection, items: _recommendedProperties),
+          if (_recommendedTours.isNotEmpty) (title: _l.toursSection, items: _recommendedTours),
+          if (_recommendedTourPackages.isNotEmpty) (title: _l.tourPackagesSection, items: _recommendedTourPackages),
         ];
       default:
         return [
-          if (_recommendedTours.isNotEmpty) (title: 'Tours', items: _recommendedTours),
-          if (_recommendedTourPackages.isNotEmpty) (title: 'Tour packages', items: _recommendedTourPackages),
-          if (_recommendedTransport.isNotEmpty) (title: 'Transport', items: _recommendedTransport),
+          if (_recommendedTours.isNotEmpty) (title: _l.toursSection, items: _recommendedTours),
+          if (_recommendedTourPackages.isNotEmpty) (title: _l.tourPackagesSection, items: _recommendedTourPackages),
+          if (_recommendedTransport.isNotEmpty) (title: _l.transportSection, items: _recommendedTransport),
         ];
     }
   }
@@ -498,7 +529,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
   void _addToCart() {
     if (!widget.session.isAuthenticated) {
-      _showSnack('Sign in to save to trip cart');
+      _showSnack(_l.signInToSaveToTripCart);
       return;
     }
     final metadata = <String, dynamic>{
@@ -507,17 +538,17 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       'guests': _guests,
       if (_nights > 0) 'nights': _nights,
     };
-    if (mounted) _showSnack('Added to trip cart ✓', isSuccess: true);
+    if (mounted) _showSnack(_l.addedToTripCart, isSuccess: true);
     unawaited(
       widget.session.addListingToTripCart(item, metadata: metadata).catchError((e) {
-        if (mounted) _showSnack('Could not add: $e', isError: true);
+        if (mounted) _showSnack(_l.couldNotAddToCart, isError: true);
       }),
     );
   }
 
   void _bookNow() {
     if (!widget.session.isAuthenticated) {
-      _showSnack('Sign in to book');
+      _showSnack(_l.signInToBook);
       return;
     }
     Navigator.push(
@@ -547,21 +578,21 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   void _toggleLike() async {
     final session = widget.session;
     if (!session.isAuthenticated) {
-      _showSnack('Sign in to save to wishlist');
+      _showSnack(_l.signInToSaveToWishlist);
       return;
     }
     setState(() => _liked = !_liked);
     try {
       if (_liked) {
         await session.addListingToWishlist(item);
-        if (mounted) _showSnack('Saved to wishlist', isSuccess: true);
+        if (mounted) _showSnack(_l.savedToWishlist, isSuccess: true);
       } else {
         await session.removeWishlistItem((item['id'] ?? '').toString());
-        if (mounted) _showSnack('Removed from wishlist', isSuccess: true);
+        if (mounted) _showSnack(_l.removedFromWishlistAction, isSuccess: true);
       }
     } catch (e) {
       setState(() => _liked = !_liked);
-      if (mounted) _showSnack('Could not update wishlist', isError: true);
+      if (mounted) _showSnack(_l.couldNotUpdateWishlist, isError: true);
     }
   }
 
@@ -586,8 +617,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _l = AppLocalizations.of(context)!;
     final images = _allImages;
-    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
+    final title = (item['title'] ?? item['name'] ?? _l.listingFallback).toString();
     final location = (item['location'] ?? item['city'] ?? '').toString();
     final rating = (item['rating'] ?? item['average_rating'])?.toString();
     final reviewCount = item['review_count']?.toString();
@@ -627,7 +659,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '$_currency ${_pricePerUnit.toStringAsFixed(0)}',
+                    widget.session.formatPrice(_pricePerUnit, itemCurrency: _currency),
                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black),
                   ),
                   Text(_unitLabel, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
@@ -643,7 +675,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('Reserve', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
+              child: Text(_l.reserve, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
             ),
           ],
         ),
@@ -666,6 +698,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     child: _GalleryView(
                       images: images,
                       onPageChanged: (i) => setState(() => _currentImage = i),
+                      onValidCountChanged: (n) {
+                        if (_validImageCount != n) setState(() => _validImageCount = n);
+                      },
                     ),
                   ),
                 // Top bar: back, like, share
@@ -709,12 +744,15 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     ),
                   ),
                 // Dot indicators
-                if (images.length > 1)
+                if ((_validImageCount > 0 ? _validImageCount : images.length) > 1)
                   Positioned(
                     bottom: 10,
                     left: 0,
                     right: 0,
-                    child: _DotIndicator(count: images.length, current: _currentImage),
+                    child: _DotIndicator(
+                      count: _validImageCount > 0 ? _validImageCount : images.length,
+                      current: _currentImage,
+                    ),
                   ),
               ],
             ),
@@ -734,7 +772,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       color: const Color(0xFFFFF3CD),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text('Some details may be unavailable.', style: TextStyle(fontSize: 13)),
+                    child: Text(_l.someDetailsUnavailable, style: const TextStyle(fontSize: 13)),
                   ),
 
                 // Type badge
@@ -762,7 +800,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     Text(rating, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     if (reviewCount != null && reviewCount != 'null') ...[
                       const SizedBox(width: 4),
-                      Text('($reviewCount reviews)', style: const TextStyle(color: AppColors.foggy, fontSize: 14)),
+                      Text(_l.nReviewsParenthetical(int.tryParse(reviewCount) ?? 0), style: const TextStyle(color: AppColors.foggy, fontSize: 14)),
                     ],
                   ]),
                 ],
@@ -774,10 +812,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 // Property specs
                 if (itemType == 'property') ...[
                   Wrap(spacing: 20, runSpacing: 6, children: [
-                    if (beds != null && beds != 'null') _SpecChip(icon: Icons.bed_outlined, label: '$beds beds'),
-                    if (bedrooms != null && bedrooms != 'null') _SpecChip(icon: Icons.door_front_door_outlined, label: '$bedrooms bedrooms'),
-                    if (bathrooms != null && bathrooms != 'null') _SpecChip(icon: Icons.bathtub_outlined, label: '$bathrooms bathrooms'),
-                    _SpecChip(icon: Icons.people_outline, label: 'Up to $maxGuests guests'),
+                    if (beds != null && beds != 'null') _SpecChip(icon: Icons.bed_outlined, label: _l.nBeds(int.tryParse(beds) ?? 0)),
+                    if (bedrooms != null && bedrooms != 'null') _SpecChip(icon: Icons.door_front_door_outlined, label: _l.nBedrooms(int.tryParse(bedrooms) ?? 0)),
+                    if (bathrooms != null && bathrooms != 'null') _SpecChip(icon: Icons.bathtub_outlined, label: _l.nBathrooms(int.tryParse(bathrooms) ?? 0)),
+                    _SpecChip(icon: Icons.people_outline, label: _l.upToGuests(maxGuests)),
                   ]),
                   const SizedBox(height: 16),
                   const Divider(height: 1),
@@ -786,7 +824,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
                 // Description
                 if (description.isNotEmpty) ...[
-                  const Text('About this place', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(_l.aboutThisPlace, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   _ExpandableText(text: description),
                   const SizedBox(height: 16),
@@ -796,7 +834,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
                 // Amenities
                 if (_amenities.isNotEmpty) ...[
-                  const Text('Amenities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(_l.amenities, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -809,7 +847,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 ],
 
                 if (hasHost) ...[
-                  const Text('Connect with host', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(_l.connectWithHost, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -866,8 +904,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _loadingHostActions
-                                        ? 'Loading host details...'
-                                        : '${hostTotalReviews ?? 0} reviews · $_hostFollowersCount follower${_hostFollowersCount == 1 ? '' : 's'}',
+                                        ? _l.loadingHostDetails
+                                        : _l.hostReviewsAndFollowers(hostTotalReviews ?? 0, _hostFollowersCount),
                                     style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                                   ),
                                 ],
@@ -895,7 +933,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                                         height: 16,
                                         child: CircularProgressIndicator(strokeWidth: 2),
                                       )
-                                    : Text(_isFollowingHost ? 'Following' : 'Follow'),
+                                    : Text(_isFollowingHost ? _l.followingButton : _l.followButton),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -903,7 +941,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                               child: FilledButton.icon(
                                 onPressed: _contactHost,
                                 icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                                label: const Text('Message'),
+                                label: Text(_l.messageButton),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppColors.rausch,
                                   foregroundColor: AppColors.white,
@@ -923,7 +961,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 ],
 
                 if (_loadingRecommendations || _hasRecommendations) ...[
-                  const Text('Recommended for your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(_l.recommendedForYourTrip, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   if (_loadingRecommendations)
                     const Padding(
@@ -947,7 +985,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 ],
 
                 // ── Your Trip ──
-                const Text('Your trip', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(_l.yourTrip, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
 
                 // Dates
@@ -964,12 +1002,12 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text('Dates', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                          Text(_l.datesLabel, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                           const SizedBox(height: 2),
                           Text(
                             (_checkIn != null && _checkOut != null)
                                 ? '${_fmtDate(_checkIn!)} → ${_fmtDate(_checkOut!)}'
-                                : 'Select dates',
+                                : _l.selectDates,
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                           ),
                         ]),
@@ -993,9 +1031,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Guests', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                        Text(_l.guestsLabel, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                         const SizedBox(height: 2),
-                        Text('$_guests guest${_guests > 1 ? 's' : ''}',
+                        Text(_l.nGuestsLabel(_guests),
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                       ]),
                     ),
@@ -1012,6 +1050,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     guests: _guests,
                     subtotal: _subtotal,
                     itemType: itemType,
+                    formatAmount: (a) => widget.session.formatPrice(a, itemCurrency: _currency),
                   ),
                 ],
 
@@ -1023,7 +1062,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _addToCart,
                     icon: const Icon(Icons.luggage_outlined, size: 18),
-                    label: const Text('Add to Trip Cart'),
+                    label: Text(_l.addToTripCart),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1045,11 +1084,11 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     switch (itemType) {
       case 'tour':
       case 'tour_package':
-        return '/ person';
+        return _l.personSuffix;
       case 'transport':
-        return '/ day';
+        return _l.daySuffix;
       default:
-        return '/ night';
+        return _l.nightSuffix;
     }
   }
 
@@ -1060,34 +1099,103 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 // Gallery
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _GalleryView extends StatelessWidget {
-  const _GalleryView({required this.images, required this.onPageChanged});
+class _GalleryView extends StatefulWidget {
+  const _GalleryView({
+    required this.images,
+    required this.onPageChanged,
+    this.onValidCountChanged,
+  });
 
   final List<String> images;
   final ValueChanged<int> onPageChanged;
+  final ValueChanged<int>? onValidCountChanged;
+
+  @override
+  State<_GalleryView> createState() => _GalleryViewState();
+}
+
+class _GalleryViewState extends State<_GalleryView> {
+  late final PageController _controller;
+  final Set<int> _failed = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onValidCountChanged?.call(widget.images.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onError(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _failed.add(index));
+      // Notify parent of new valid count
+      final newValid = widget.images.length - _failed.length;
+      widget.onValidCountChanged?.call(newValid > 0 ? newValid : 0);
+      // Auto-advance to next valid image
+      final next = _nextValid(index + 1);
+      if (next != null && _controller.hasClients) {
+        _controller.jumpToPage(next);
+      }
+    });
+  }
+
+  int? _nextValid(int from) {
+    for (var i = from; i < widget.images.length; i++) {
+      if (!_failed.contains(i)) return i;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final placeholderColor = AppColors.surfaceSubtle;
     final placeholderIconColor = AppColors.hackberry;
 
-    if (images.isEmpty) {
+    final valid = [
+      for (var i = 0; i < widget.images.length; i++)
+        if (!_failed.contains(i)) (index: i, url: widget.images[i]),
+    ];
+
+    if (valid.isEmpty) {
       return Container(
         color: placeholderColor,
         child: Center(child: Icon(Icons.image_outlined, size: 60, color: placeholderIconColor)),
       );
     }
+
     return PageView.builder(
-      itemCount: images.length,
-      onPageChanged: onPageChanged,
+      controller: _controller,
+      itemCount: widget.images.length,
+      onPageChanged: (rawIndex) {
+        // Map raw index to the valid-only position for the dot indicator
+        final validPos = valid.indexWhere((e) => e.index == rawIndex);
+        widget.onPageChanged(validPos >= 0 ? validPos : 0);
+      },
       itemBuilder: (context, index) {
-        return Image.network(
-          images[index],
+        if (_failed.contains(index)) return const SizedBox.shrink();
+        return CachedNetworkImage(
+          imageUrl: widget.images[index],
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => Container(
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          placeholderFadeInDuration: Duration.zero,
+          placeholder: (_, __) => Container(
             color: placeholderColor,
-            child: Icon(Icons.broken_image_outlined, size: 48, color: placeholderIconColor),
+            child: Center(child: Icon(Icons.image_outlined, size: 60, color: placeholderIconColor)),
           ),
+          errorWidget: (_, __, ___) {
+            _onError(index);
+            return const SizedBox.shrink();
+          },
         );
       },
     );
@@ -1190,10 +1298,13 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
                     minScale: 1,
                     maxScale: 4,
                     child: Center(
-                      child: Image.network(
-                        widget.images[index],
+                      child: CachedNetworkImage(
+                        imageUrl: widget.images[index],
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const Icon(
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                        placeholderFadeInDuration: Duration.zero,
+                        errorWidget: (_, __, ___) => const Icon(
                           Icons.broken_image_outlined,
                           color: Colors.white54,
                           size: 48,
@@ -1287,10 +1398,13 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.network(
-                              widget.images[index],
+                            CachedNetworkImage(
+                              imageUrl: widget.images[index],
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
+                              placeholderFadeInDuration: Duration.zero,
+                              errorWidget: (_, __, ___) => Container(
                                 color: const Color(0xFF1F1F1F),
                                 child: const Icon(Icons.image_outlined, color: Colors.white38),
                               ),
@@ -1375,9 +1489,10 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final imageFallbackColor = AppColors.surfaceSubtle;
     final imageFallbackIconColor = AppColors.hackberry;
-    final title = _cardTitle(item);
+    final title = _cardTitle(item, l);
     final imageUrl = resolveListingImageUrl(item) ?? '';
     final rating = (item['rating'] ?? item['average_rating'])?.toString();
 
@@ -1426,7 +1541,7 @@ class _RecommendationCard extends StatelessWidget {
                       child: GestureDetector(
                         onTap: () async {
                           if (!session.isAuthenticated) {
-                            AppSnackBar.info(context, 'Sign in to save to trip cart');
+                            AppSnackBar.info(context, l.signInToSaveToTripCart);
                             return;
                           }
                           final metadata = <String, dynamic>{
@@ -1437,10 +1552,10 @@ class _RecommendationCard extends StatelessWidget {
                           try {
                             await session.addListingToTripCart(item, metadata: metadata);
                             if (!context.mounted) return;
-                            AppSnackBar.success(context, 'Added to trip cart ✓');
+                            AppSnackBar.success(context, l.addedToTripCart);
                           } catch (e) {
                             if (!context.mounted) return;
-                            AppSnackBar.error(context, 'Could not add: $e');
+                            AppSnackBar.error(context, l.couldNotAddToCart);
                           }
                         },
                         child: Container(
@@ -1473,7 +1588,7 @@ class _RecommendationCard extends StatelessWidget {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: '${_priceMain(item)} ${_priceSuffix(item)}',
+                          text: '${_priceMain(item)} ${_priceSuffix(item, l)}',
                           style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                         ),
                       ],
@@ -1499,9 +1614,9 @@ class _RecommendationCard extends StatelessWidget {
     );
   }
 
-  static String _cardTitle(Map<String, dynamic> item) {
+  static String _cardTitle(Map<String, dynamic> item, AppLocalizations l) {
     final type = (item['item_type'] ?? 'property').toString();
-    final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
+    final title = (item['title'] ?? item['name'] ?? l.listingFallback).toString();
     switch (type) {
       case 'tour':
         final location = (item['location'] ?? item['category'] ?? '').toString().trim();
@@ -1518,8 +1633,8 @@ class _RecommendationCard extends StatelessWidget {
     }
   }
 
-  static String _priceMain(Map<String, dynamic> item) {
-    final currency = (item['currency'] ?? 'USD').toString();
+  String _priceMain(Map<String, dynamic> item) {
+    final itemCurrency = (item['currency'] ?? 'RWF').toString();
     final type = (item['item_type'] ?? 'property').toString();
     final amount = switch (type) {
       'tour' => item['price_per_person'] ?? 0,
@@ -1528,15 +1643,15 @@ class _RecommendationCard extends StatelessWidget {
       _ => item['price_per_night'] ?? 0,
     };
     final parsed = double.tryParse('$amount') ?? 0;
-    return '$currency ${parsed.toStringAsFixed(0)}';
+    return session.formatPrice(parsed, itemCurrency: itemCurrency);
   }
 
-  static String _priceSuffix(Map<String, dynamic> item) {
+  static String _priceSuffix(Map<String, dynamic> item, AppLocalizations l) {
     final type = (item['item_type'] ?? 'property').toString();
     return switch (type) {
-      'tour' || 'tour_package' => '/ person',
-      'transport' => '/ day',
-      _ => '/ night',
+      'tour' || 'tour_package' => l.personSuffix,
+      'transport' => l.daySuffix,
+      _ => l.nightSuffix,
     };
   }
 }
@@ -1575,28 +1690,22 @@ class _TypeBadge extends StatelessWidget {
 
   final String type;
 
-  String get _label {
-    switch (type) {
-      case 'tour':
-        return 'Tour';
-      case 'tour_package':
-        return 'Tour Package';
-      case 'transport':
-        return 'Transport';
-      default:
-        return 'Stay';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final label = switch (type) {
+      'tour' => l.tourLabel,
+      'tour_package' => l.tourPackageLabel,
+      'transport' => l.transport,
+      _ => l.stayLabel,
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFFFFE8E9),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(_label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
+      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
     );
   }
 }
@@ -1662,7 +1771,7 @@ class _AmenityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final chipColor = isDark ? const Color(0xFF000000) : const Color(0xFFF5F5F7);
+    final chipColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7);
     final chipBorderColor = isDark ? const Color(0xFF2A3342) : Colors.transparent;
     final maxChipWidth = MediaQuery.sizeOf(context).shortestSide >= 600 ? 280.0 : 210.0;
     final label = _label(amenity);
@@ -1708,6 +1817,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final shouldTruncate = widget.text.length > 300;
     final displayText = (!_expanded && shouldTruncate)
         ? '${widget.text.substring(0, 300)}...'
@@ -1723,7 +1833,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                _expanded ? 'Show less' : 'Show more',
+                _expanded ? l.showLess : l.showMore,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -1809,6 +1919,7 @@ class _PriceSummaryCard extends StatelessWidget {
     required this.guests,
     required this.subtotal,
     required this.itemType,
+    required this.formatAmount,
   });
 
   final double pricePerUnit;
@@ -1817,6 +1928,7 @@ class _PriceSummaryCard extends StatelessWidget {
   final int guests;
   final double subtotal;
   final String itemType;
+  final String Function(double) formatAmount;
 
   String get _serviceType {
     switch (itemType) {
@@ -1840,15 +1952,16 @@ class _PriceSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     String unitDesc;
     switch (itemType) {
       case 'tour':
       case 'tour_package':
-        unitDesc = '$currency ${pricePerUnit.toStringAsFixed(0)} × $guests guest${guests > 1 ? 's' : ''}';
+        unitDesc = '${formatAmount(pricePerUnit)} × ${l.nGuestsLabel(guests)}';
       case 'transport':
-        unitDesc = '$currency ${pricePerUnit.toStringAsFixed(0)} × $nights day${nights > 1 ? 's' : ''}';
+        unitDesc = '${formatAmount(pricePerUnit)} × $nights day${nights > 1 ? "s" : ""}';
       default:
-        unitDesc = '$currency ${pricePerUnit.toStringAsFixed(0)} × $nights night${nights > 1 ? 's' : ''}';
+        unitDesc = '${formatAmount(pricePerUnit)} × $nights night${nights > 1 ? "s" : ""}';
     }
 
     return Container(
@@ -1861,19 +1974,19 @@ class _PriceSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Price breakdown', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          Text(l.priceBreakdown, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 10),
-          _Row(label: unitDesc, value: '$currency ${subtotal.toStringAsFixed(0)}'),
+          _Row(label: unitDesc, value: formatAmount(subtotal)),
           const SizedBox(height: 8),
           _PriceDetailsToggle(
             percentLabel: _financials.guestFeePercent.toStringAsFixed(0),
-            currency: currency,
+            formatAmount: formatAmount,
             fee: _serviceFee,
           ),
           const Divider(height: 18),
           _Row(
-            label: 'Total',
-            value: '$currency ${_total.toStringAsFixed(0)}',
+            label: l.total,
+            value: formatAmount(_total),
             bold: true,
           ),
         ],
@@ -1885,12 +1998,12 @@ class _PriceSummaryCard extends StatelessWidget {
 class _PriceDetailsToggle extends StatefulWidget {
   const _PriceDetailsToggle({
     required this.percentLabel,
-    required this.currency,
+    required this.formatAmount,
     required this.fee,
   });
 
   final String percentLabel;
-  final String currency;
+  final String Function(double) formatAmount;
   final double fee;
 
   @override
@@ -1902,21 +2015,22 @@ class _PriceDetailsToggleState extends State<_PriceDetailsToggle> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onTap: () => setState(() => _open = !_open),
           child: Text(
-            _open ? 'Hide price details' : 'Show price details',
+            _open ? l.hidePriceDetails : l.showPriceDetails,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rausch),
           ),
         ),
         if (_open) ...[
           const SizedBox(height: 6),
           _Row(
-            label: 'Platform fee (${widget.percentLabel}%)',
-            value: '${widget.currency} ${widget.fee.toStringAsFixed(0)}',
+            label: l.platformFeePercent(widget.percentLabel),
+            value: widget.formatAmount(widget.fee),
           ),
         ],
       ],

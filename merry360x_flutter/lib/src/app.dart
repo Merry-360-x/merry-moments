@@ -2,8 +2,12 @@ import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:ui' show ColorSpace, PlatformDispatcher;
 
+import 'package:flutter/cupertino.dart' show DefaultCupertinoLocalizations, CupertinoLocalizations;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'session_controller.dart';
@@ -112,19 +116,23 @@ class AppColors {
   static const babu = Color(0xFF00A699);
   static const arches = Color(0xFFFC642D);
   static const _surfaceLight = Color(0xFFFFFFFF);
-  static const _surfaceDark = Color(0xFF000000);
+  // Deep near-black — feels premium, avoids the flat greenish cast
+  static const _surfaceDark = Color(0xFF1C1C1E);
   static const _surfaceSubtleLight = Color(0xFFF7F7F7);
-  static const _surfaceSubtleDark = Color(0xFF000000);
+  // Nav / bottom bars sit slightly darker than content
+  static const _surfaceSubtleDark = Color(0xFF111113);
+  // Elevated cards: clearly one step above background
+  static const _surfaceElevatedDark = Color(0xFF2C2C2E);
   static const _textLight = Color(0xFF222222);
-  static const _textDark = Color(0xFFF3F5F8);
+  static const _textDark = Color(0xFFFFFFFF);
   static const _bodyLight = Color(0xFF484848);
-  static const _bodyDark = Color(0xFFDADADA);
+  static const _bodyDark = Color(0xFFEBEBF5);
   static const _mutedLight = Color(0xFF767676);
-  static const _mutedDark = Color(0xFFA8A8A8);
+  static const _mutedDark = Color(0xFF8E8E93);
   static const _hintLight = Color(0xFFB0B0B0);
-  static const _hintDark = Color(0xFF7A7A7A);
+  static const _hintDark = Color(0xFF636366);
   static const _borderLight = Color(0xFFEBEBEB);
-  static const _borderDark = Color(0xFF2E2E2E);
+  static const _borderDark = Color(0xFF38383A);
 
   static const white = Color(0xFFFFFFFF);
   static const black = AdaptiveColor(light: _textLight, dark: _textDark);
@@ -136,13 +144,17 @@ class AppColors {
     light: _surfaceSubtleLight,
     dark: _surfaceSubtleDark,
   );
+  static const surfaceElevated = AdaptiveColor(
+    light: _surfaceLight,
+    dark: _surfaceElevatedDark,
+  );
   static const border = AdaptiveColor(light: _borderLight, dark: _borderDark);
   static const hof = AdaptiveColor(light: _bodyLight, dark: _bodyDark);
   static const foggy = AdaptiveColor(light: _mutedLight, dark: _mutedDark);
   static const hackberry = AdaptiveColor(light: _hintLight, dark: _hintDark);
   static const linnen = AdaptiveColor(
     light: _surfaceSubtleLight,
-    dark: _surfaceSubtleDark,
+    dark: _surfaceElevatedDark,
   );
 }
 
@@ -191,7 +203,6 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
   static const _nativeThemeChannel = MethodChannel('merry360x/system_theme');
 
   late final SessionController _session;
-  bool _showSplash = true;
   ThemeMode _themeMode = ThemeMode.system;
   Brightness? _lastSyncedNativeBrightness;
 
@@ -383,20 +394,20 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: scheme.surface,
+        color: scheme.surfaceContainerHighest,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.zero,
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: scheme.surface,
+        backgroundColor: scheme.surfaceContainerHighest,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
       ),
-      dialogTheme: DialogThemeData(backgroundColor: scheme.surface),
-      popupMenuTheme: PopupMenuThemeData(color: scheme.surface),
+      dialogTheme: DialogThemeData(backgroundColor: scheme.surfaceContainerHighest),
+      popupMenuTheme: PopupMenuThemeData(color: scheme.surfaceContainerHighest),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.surfaceSubtle,
+        backgroundColor: AppColors.surfaceElevated,
         behavior: SnackBarBehavior.floating,
         elevation: 4,
         actionTextColor: AppColors.rausch,
@@ -423,22 +434,13 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
   }
 
   Future<void> _bootstrap() async {
+    unawaited(_session.refresh());
+
     final savedThemeMode = await _readThemeModePreference();
     if (!mounted) return;
 
-    // Apply saved theme early so splash uses the user's selected mode.
     setState(() {
       _themeMode = savedThemeMode;
-    });
-
-    await Future.wait<dynamic>([
-      _session.refresh(),
-      Future<void>.delayed(const Duration(milliseconds: 1600)),
-    ]);
-
-    if (!mounted) return;
-    setState(() {
-      _showSplash = false;
     });
   }
 
@@ -459,7 +461,8 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
       ThemeMode.system => platformBrightness,
     };
     AppColors.setBrightnessOverride(effectiveBrightness);
-    _syncNativePlatformStyle(effectiveBrightness);
+    // Native iOS surfaces should follow the device appearance, not a saved in-app override.
+    _syncNativePlatformStyle(platformBrightness);
 
     return AnimatedBuilder(
       animation: _session,
@@ -487,64 +490,93 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
               surface: AppColors._surfaceDark,
               onSurface: AppColors._textDark,
               outline: AppColors._borderDark,
-              surfaceContainerHighest: AppColors._surfaceSubtleDark,
+              // Slightly elevated surface for cards/sheets (#3A3F3F)
+              surfaceContainerHighest: AppColors._surfaceElevatedDark,
+              // App bars, nav bar, bottom sheets use the subtle darker tone
+              surfaceContainerLow: AppColors._surfaceSubtleDark,
+              surfaceContainer: AppColors._surfaceElevatedDark,
+              onSurfaceVariant: AppColors._mutedDark,
             );
 
         return MaterialApp(
           key: ValueKey<ThemeMode>(_themeMode),
           debugShowCheckedModeBanner: false,
           title: 'Merry360x',
+          locale: _session.locale,
+          supportedLocales: const [
+            Locale('en'),
+            Locale('rw'),
+            Locale('fr'),
+            Locale('sw'),
+            Locale('zh'),
+          ],
+          localeListResolutionCallback: (locales, supportedLocales) {
+            // For locales not supported by Material (like rw), use English
+            // for Material widgets but keep our custom AppLocalizations
+            final locale = locales?.firstOrNull;
+            if (locale == null) return const Locale('en');
+            
+            // Check if Material supports this locale
+            final materialSupported = ['en', 'fr', 'zh', 'sw'].contains(locale.languageCode);
+            if (!materialSupported && locale.languageCode == 'rw') {
+              // Use English for Material, but the app's own l10n will use rw
+              return locale;
+            }
+            return supportedLocales.firstWhere(
+              (s) => s.languageCode == locale.languageCode,
+              orElse: () => const Locale('en'),
+            );
+          },
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            // Custom fallback for unsupported Material locales
+            _FallbackMaterialLocalizationsDelegate(),
+            _FallbackCupertinoLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           theme: _buildTheme(scheme: lightScheme, isTablet: isTablet),
           darkTheme: _buildTheme(scheme: darkScheme, isTablet: isTablet),
           themeMode: _themeMode,
-          home: _showSplash
-              ? const _SplashScreen()
-              : MainShell(
-                  session: _session,
-                  themeMode: _themeMode,
-                  onThemeModeChanged: (mode) {
-                    _setThemeMode(mode);
-                  },
-                ),
+          home: MainShell(
+            session: _session,
+            themeMode: _themeMode,
+            onThemeModeChanged: (mode) {
+              _setThemeMode(mode);
+            },
+          ),
         );
       },
     );
   }
 }
-
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+/// Fallback Material localizations for unsupported locales (e.g., rw)
+class _FallbackMaterialLocalizationsDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  @override
+  bool isSupported(Locale locale) => true;
 
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final isDark = brightness == Brightness.dark;
-    final backgroundColor = isDark ? Colors.black : Colors.white;
-
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-        systemNavigationBarColor: backgroundColor,
-        systemNavigationBarIconBrightness: isDark
-            ? Brightness.light
-            : Brightness.dark,
-      ),
-    );
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Center(
-          child: Image.asset(
-            'assets/brand/logo.png',
-            width: 132,
-            height: 132,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
-    );
+  Future<MaterialLocalizations> load(Locale locale) async {
+    return const DefaultMaterialLocalizations();
   }
+
+  @override
+  bool shouldReload(_FallbackMaterialLocalizationsDelegate old) => false;
+}
+
+/// Fallback Cupertino localizations for unsupported locales (e.g., rw)
+class _FallbackCupertinoLocalizationsDelegate
+    extends LocalizationsDelegate<CupertinoLocalizations> {
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<CupertinoLocalizations> load(Locale locale) async {
+    return const DefaultCupertinoLocalizations();
+  }
+
+  @override
+  bool shouldReload(_FallbackCupertinoLocalizationsDelegate old) => false;
 }

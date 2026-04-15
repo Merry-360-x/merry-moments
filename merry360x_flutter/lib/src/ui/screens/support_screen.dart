@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
+import '../../../l10n/app_localizations.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -72,14 +73,15 @@ class _SupportScreenState extends State<SupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text('Support',
-            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(l.support,
+            style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
           IconButton(icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy), onPressed: _load),
         ],
@@ -88,13 +90,14 @@ class _SupportScreenState extends State<SupportScreen> {
         onPressed: widget.session.isAuthenticated ? _showNewTicketSheet : null,
         backgroundColor: AppColors.rausch,
         icon: const Icon(Icons.add),
-        label: Text(widget.session.isAuthenticated ? 'New Ticket' : 'Sign in for tickets'),
+        label: Text(widget.session.isAuthenticated ? l.newTicket : l.signInForTickets),
       ),
       body: _body(),
     );
   }
 
   Widget _body() {
+    final l = AppLocalizations.of(context)!;
     if (!widget.session.isAuthenticated) {
       return ListView(
         padding: const EdgeInsets.all(16),
@@ -108,17 +111,17 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Support', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black)),
-                SizedBox(height: 8),
+              children: [
+                Text(l.support, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.black)),
+                const SizedBox(height: 8),
                 Text(
-                  'Sign in to track tickets and continue support conversations from the app.',
-                  style: TextStyle(fontSize: 14, color: AppColors.foggy, height: 1.5),
+                  l.signInForTicketsDesc,
+                  style: const TextStyle(fontSize: 14, color: AppColors.foggy, height: 1.5),
                 ),
-                SizedBox(height: 16),
-                _SupportContactRow(icon: Icons.email_outlined, title: 'Email', value: 'support@merry360x.com'),
-                SizedBox(height: 12),
-                _SupportContactRow(icon: Icons.call_outlined, title: 'Phone', value: '+250 796 214 719'),
+                const SizedBox(height: 16),
+                _SupportContactRow(icon: Icons.email_outlined, title: l.email, value: 'support@merry360x.com'),
+                const SizedBox(height: 12),
+                _SupportContactRow(icon: Icons.call_outlined, title: l.phone, value: '+250 796 214 719'),
               ],
             ),
           ),
@@ -142,9 +145,9 @@ class _SupportScreenState extends State<SupportScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Could not load support tickets',
-                  style: TextStyle(
+                Text(
+                  l.couldNotLoadTickets,
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.black,
@@ -161,7 +164,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   child: FilledButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Try again'),
+                    label: Text(l.tryAgain),
                   ),
                 ),
               ],
@@ -175,9 +178,9 @@ class _SupportScreenState extends State<SupportScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.support_agent_outlined, size: 52, color: Color(0xFFD0D0D8)),
         const SizedBox(height: 12),
-        const Text('No support tickets', style: TextStyle(color: AppColors.foggy, fontSize: 14)),
+        Text(l.noSupportTickets, style: const TextStyle(color: AppColors.foggy, fontSize: 14)),
         const SizedBox(height: 6),
-        const Text('Tap + New Ticket to contact us', style: TextStyle(color: AppColors.hackberry, fontSize: 12)),
+        Text(l.tapToCreateTicket, style: const TextStyle(color: AppColors.hackberry, fontSize: 12)),
       ]),
     );
     }
@@ -198,6 +201,7 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _showNewTicketSheet() async {
+    final l = AppLocalizations.of(context)!;
     FocusScope.of(context).unfocus();
     final created = await showModalBottomSheet<bool>(
       context: context,
@@ -210,7 +214,7 @@ class _SupportScreenState extends State<SupportScreen> {
     if (!mounted || created != true) return;
     await _load();
     if (!mounted) return;
-    AppSnackBar.success(context, 'Ticket submitted. Support will reply shortly.');
+    AppSnackBar.success(context, l.ticketSubmitted);
   }
 }
 
@@ -257,7 +261,8 @@ class _TicketTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subject = (ticket['subject'] ?? 'Support Ticket').toString();
+    final l = AppLocalizations.of(context)!;
+    final subject = (ticket['subject'] ?? l.supportTicketFallback).toString();
     final status = (ticket['status'] ?? 'open').toString();
     final msgs = (ticket['support_ticket_messages'] as List?) ??
         (ticket['support_messages'] as List?) ??
@@ -291,7 +296,7 @@ class _TicketTile extends StatelessWidget {
               Text(subject, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
               const SizedBox(height: 3),
-                Text('$messageCount message${messageCount == 1 ? '' : 's'}',
+                Text(l.nMessages(messageCount),
                   style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
             ])),
             const SizedBox(width: 8),
@@ -845,6 +850,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final subject = (widget.ticket['subject'] ?? '').toString().trim();
     final sorted = [..._messages]
       ..sort((a, b) => (a['created_at'] ?? '')
@@ -854,10 +860,10 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
       (_lastStaffSeenAt != null &&
         DateTime.now().difference(_lastStaffSeenAt!).inMinutes <= 5);
     final supportStatus = _supportTyping
-      ? 'typing...'
+      ? l.typingStatus
         : supportOnline
-            ? 'online'
-            : 'offline';
+            ? l.onlineStatus
+            : l.offlineStatus;
 
     final timeline = <Widget>[];
     DateTime? previousDay;
@@ -902,7 +908,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
-                  '${_messageSenderName(msg)} joined the conversation',
+                  l.joinedConversation(_messageSenderName(msg)),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1038,7 +1044,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$_activeSupportName is typing...',
+                      l.isTyping(_activeSupportName),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1073,9 +1079,9 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text(
-          'Support',
-          style: TextStyle(
+        title: Text(
+          l.support,
+          style: const TextStyle(
             color: AppColors.black,
             fontWeight: FontWeight.w800,
             fontSize: 17,
@@ -1111,9 +1117,9 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Support',
-                      style: TextStyle(
+                    Text(
+                      l.support,
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: AppColors.black,
@@ -1160,9 +1166,9 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                         color: const Color(0xFFE7E7EA),
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Text(
-                        'Support is ready. Send a message to start the conversation.',
-                        style: TextStyle(
+                      child: Text(
+                        l.supportReady,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.black,
@@ -1181,7 +1187,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
               child: TextField(
                 controller: _replyCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Type a message…',
+                  hintText: l.typeAMessage,
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -1313,10 +1319,11 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
   }
 
   Future<void> _submit() async {
+    final l = AppLocalizations.of(context)!;
     FocusScope.of(context).unfocus();
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
-      AppSnackBar.error(context, 'Please complete subject and message');
+      AppSnackBar.error(context, l.completeTicketForm);
       return;
     }
     setState(() => _saving = true);
@@ -1337,6 +1344,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final insetBottom = MediaQuery.of(context).viewInsets.bottom;
 
     return GestureDetector(
@@ -1366,10 +1374,10 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   ),
                 ),
                 Row(children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Contact Support',
-                      style: TextStyle(
+                      l.contactSupport,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.black,
@@ -1382,9 +1390,9 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   ),
                 ]),
                 const SizedBox(height: 8),
-                const Text(
-                  'Share a clear subject and details. We reply as quickly as possible.',
-                  style: TextStyle(fontSize: 13, color: AppColors.foggy, height: 1.4),
+                Text(
+                  l.contactSupportDesc,
+                  style: const TextStyle(fontSize: 13, color: AppColors.foggy, height: 1.4),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -1392,8 +1400,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   textInputAction: TextInputAction.next,
                   maxLength: 90,
                   decoration: InputDecoration(
-                    labelText: 'Subject',
-                    hintText: 'Example: Payment issue on booking',
+                    labelText: l.subject,
+                    hintText: l.subjectHint,
                     counterText: '',
                     filled: true,
                     fillColor: AppColors.surface,
@@ -1412,8 +1420,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   ),
                   validator: (value) {
                     final text = (value ?? '').trim();
-                    if (text.isEmpty) return 'Enter a subject';
-                    if (text.length < 3) return 'Use at least 3 characters';
+                    if (text.isEmpty) return l.enterSubject;
+                    if (text.length < 3) return l.subjectTooShort;
                     return null;
                   },
                 ),
@@ -1424,8 +1432,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   minLines: 5,
                   maxLength: 800,
                   decoration: InputDecoration(
-                    labelText: 'Describe your issue',
-                    hintText: 'What happened and what do you need help with?',
+                    labelText: l.describeIssue,
+                    hintText: l.issueDesc,
                     alignLabelWithHint: true,
                     filled: true,
                     fillColor: AppColors.surface,
@@ -1444,8 +1452,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   ),
                   validator: (value) {
                     final text = (value ?? '').trim();
-                    if (text.isEmpty) return 'Describe the issue';
-                    if (text.length < 8) return 'Use at least 8 characters';
+                    if (text.isEmpty) return l.describeTheIssue;
+                    if (text.length < 8) return l.messageTooShort;
                     return null;
                   },
                 ),
@@ -1466,7 +1474,7 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                             height: 20,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text('Submit Ticket', style: TextStyle(fontWeight: FontWeight.w600)),
+                        : Text(l.submitTicket, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],

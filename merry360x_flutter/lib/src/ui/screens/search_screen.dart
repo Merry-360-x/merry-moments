@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import '../../../l10n/app_localizations.dart';
 import 'search_results_screen.dart';
+import 'explore_screen.dart' show resolveListingImageUrl;
 
 // ── Static destination list (mirrors HeroSearch.tsx) ──
 const _kNearbyLabel = "Find what's nearby";
@@ -125,14 +130,6 @@ class _SearchScreenState extends State<SearchScreen> {
     return [...exact, ...starts, ...contains].take(20).toList();
   }
 
-  String get _dateLabel {
-    if (_dateRange == null) return 'Add dates';
-    final d = _dateRange!;
-    return '${d.start.day}/${d.start.month} – ${d.end.day}/${d.end.month}';
-  }
-
-  String get _guestLabel => _guests == 1 ? '1 guest' : '$_guests guests';
-
   void _doSearch() {
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -143,8 +140,7 @@ class _SearchScreenState extends State<SearchScreen> {
           guests: _guests,
           session: widget.session,
         ),
-        transitionDuration: const Duration(milliseconds: 260),
-        transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
+      transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
       ),
     );
   }
@@ -225,7 +221,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final suggestions = _suggestions;
+    final dateLabel = _dateRange == null
+        ? l.addDates
+        : '${_dateRange!.start.day}/${_dateRange!.start.month} \u2013 ${_dateRange!.end.day}/${_dateRange!.end.month}';
+    final guestLabel = _guests == 1 ? l.oneGuest : l.guestsCount(_guests);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -233,10 +234,10 @@ class _SearchScreenState extends State<SearchScreen> {
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.surface,
             border: Border(
-              top: BorderSide(color: Color(0xFFEBEBEB), width: 0.5),
+              top: BorderSide(color: AppColors.border, width: 0.5),
             ),
           ),
           child: Row(
@@ -244,22 +245,22 @@ class _SearchScreenState extends State<SearchScreen> {
             children: [
               GestureDetector(
                 onTap: _clearAll,
-                child: const Text(
-                  'Clear all',
+                child: Text(
+                  l.clearAll,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF555555),
+                    color: AppColors.foggy,
                     decoration: TextDecoration.underline,
-                    decorationColor: Color(0xFF555555),
+                    decorationColor: AppColors.foggy,
                   ),
                 ),
               ),
               FilledButton.icon(
                 onPressed: _doSearch,
                 icon: const Icon(Icons.search, size: 18),
-                label: const Text(
-                  'Search',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                label: Text(
+                  l.search,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.rausch,
@@ -287,21 +288,21 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Row(
                       children: [
                         _TabChip(
-                          label: 'Accommodations',
+                          label: l.accommodations,
                           icon: Icons.apartment_outlined,
                           active: _category == 'accommodations',
                           onTap: () => setState(() => _category = 'accommodations'),
                         ),
                         const SizedBox(width: 8),
                         _TabChip(
-                          label: 'Tours',
+                          label: l.tours,
                           icon: Icons.map_outlined,
                           active: _category == 'tours',
                           onTap: () => setState(() => _category = 'tours'),
                         ),
                         const SizedBox(width: 8),
                         _TabChip(
-                          label: 'Transport',
+                          label: l.transport,
                           icon: Icons.directions_car_outlined,
                           active: _category == 'transport',
                           onTap: () => setState(() => _category = 'transport'),
@@ -319,7 +320,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         height: 36,
                         decoration: BoxDecoration(
                           color: AppColors.surface,
-                          border: Border.all(color: const Color(0xFFDDDDDD)),
+                          border: Border.all(color: AppColors.border),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
@@ -328,14 +329,14 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.close, size: 18, color: Color(0xFF444444)),
+                        child: Icon(Icons.close, size: 18, color: AppColors.hof),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+            Divider(height: 1, color: AppColors.border),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
@@ -348,7 +349,14 @@ class _SearchScreenState extends State<SearchScreen> {
                       whereText: _where,
                       focusNode: _whereFocusNode,
                       suggestions: suggestions,
+                      isConfirmed: _step > 0,
                       onSubmitted: _handleWhereCompleted,
+                      onEdit: () {
+                        setState(() => _step = 0);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _whereFocusNode.requestFocus();
+                        });
+                      },
                       onSuggestionTap: (loc) {
                         if (loc == _kNearbyLabel) return;
                         _whereCtrl.text = loc;
@@ -367,8 +375,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               key: ValueKey('step$_step'),
                               children: [
                                 _StepRow(
-                                  label: 'When',
-                                  value: _dateLabel,
+                                  label: l.when,
+                                  value: dateLabel,
                                   onTap: () {
                                     _advanceStep(1);
                                     _pickDates();
@@ -379,8 +387,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                   duration: const Duration(milliseconds: 200),
                                   opacity: _step >= 2 ? 1 : 0.55,
                                   child: _StepRow(
-                                    label: 'Who',
-                                    value: _guestLabel,
+                                    label: l.who,
+                                    value: guestLabel,
                                     onTap: () {
                                       _advanceStep(2);
                                       _pickGuests();
@@ -390,6 +398,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               ],
                             ),
                     ),
+                    const SizedBox(height: 24),
+                    _NameSearchButton(session: widget.session),
                   ],
                 ),
               ),
@@ -407,7 +417,9 @@ class _WhereCard extends StatelessWidget {
     required this.whereText,
     required this.focusNode,
     required this.suggestions,
+    required this.isConfirmed,
     required this.onSubmitted,
+    required this.onEdit,
     required this.onSuggestionTap,
   });
 
@@ -415,16 +427,68 @@ class _WhereCard extends StatelessWidget {
   final String whereText;
   final FocusNode focusNode;
   final List<String> suggestions;
+  final bool isConfirmed;
   final VoidCallback onSubmitted;
+  final VoidCallback onEdit;
   final ValueChanged<String> onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    if (isConfirmed && whereText.trim().isNotEmpty) {
+      // ── Confirmed / selected state ────────────────────────────────
+      return GestureDetector(
+        onTap: onEdit,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.rausch.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.location_on, size: 18, color: AppColors.rausch),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.whereLabel,
+                      style: TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      whereText.trim(),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.edit_outlined, size: 17, color: AppColors.foggy),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ── Search / typing state ─────────────────────────────────────
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: AppColors.black.withValues(alpha: 0.06),
@@ -437,38 +501,37 @@ class _WhereCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Where?',
+          Text(
+            l.whereQuestion,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.black,
             ),
           ),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F7),
+              color: AppColors.linnen,
               borderRadius: BorderRadius.circular(50),
-              border: Border.all(color: const Color(0xFFE0E0E0)),
             ),
             child: Row(
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: 16),
-                  child: Icon(Icons.search, size: 20, color: Color(0xFF999999)),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Icon(Icons.search, size: 20, color: AppColors.foggy),
                 ),
                 Expanded(
                   child: TextField(
                     controller: whereCtrl,
                     focusNode: focusNode,
-                    decoration: const InputDecoration(
-                      hintText: 'Search destinations',
-                      hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: l.searchDestinations,
+                      hintStyle: TextStyle(color: AppColors.hackberry, fontSize: 15),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                     ),
-                    style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
+                    style: TextStyle(fontSize: 15, color: AppColors.black),
                     textInputAction: TextInputAction.next,
                     onSubmitted: (_) => onSubmitted(),
                   ),
@@ -476,28 +539,28 @@ class _WhereCard extends StatelessWidget {
                 if (whereText.trim().isNotEmpty)
                   GestureDetector(
                     onTap: () => whereCtrl.clear(),
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 12),
-                      child: Icon(Icons.cancel, size: 18, color: Color(0xFF999999)),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(Icons.cancel, size: 18, color: AppColors.foggy),
                     ),
                   ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Suggested destinations',
+          Text(
+            l.suggestedDestinations,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.black,
             ),
           ),
           const SizedBox(height: 6),
           ...suggestions.map(
             (loc) => _DestRow(
-              label: loc,
-              subtitle: loc == _kNearbyLabel ? 'Use your current location' : 'Suggested destination',
+              label: loc == _kNearbyLabel ? l.findNearby : loc,
+              subtitle: loc == _kNearbyLabel ? l.useCurrentLocation : l.suggestedDestination,
               onTap: () => onSuggestionTap(loc),
             ),
           ),
@@ -522,19 +585,19 @@ class _StepRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE0E0E0)),
+          border: Border.all(color: AppColors.border),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 15, color: Color(0xFF999999))),
+            Text(label, style: TextStyle(fontSize: 15, color: AppColors.hackberry)),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: AppColors.black,
               ),
             ),
           ],
@@ -562,19 +625,19 @@ class _TabChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? AppColors.rausch.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(50),
-          border: Border.all(color: active ? AppColors.rausch : const Color(0xFFDDDDDD)),
+          border: Border.all(color: active ? AppColors.rausch : AppColors.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: active ? AppColors.rausch : const Color(0xFF555555)),
+            Icon(icon, size: 16, color: active ? AppColors.rausch : AppColors.foggy),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                color: active ? AppColors.rausch : const Color(0xFF444444),
+                color: active ? AppColors.rausch : AppColors.hof,
               ),
             ),
           ],
@@ -603,10 +666,10 @@ class _DestRow extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
+                color: AppColors.linnen,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.location_on_outlined, size: 22, color: Color(0xFF666666)),
+              child: Icon(Icons.location_on_outlined, size: 22, color: AppColors.foggy),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -615,15 +678,332 @@ class _DestRow extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1A1A1A)),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.black),
                   ),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF999999))),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.foggy)),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Name search button ──
+class _NameSearchButton extends StatelessWidget {
+  const _NameSearchButton({required this.session});
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Divider(color: AppColors.border)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                l.orSearchByName,
+                style: TextStyle(fontSize: 12, color: AppColors.foggy),
+              ),
+            ),
+            Expanded(child: Divider(color: AppColors.border)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => _NameSearchSheet(session: session),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 20, color: AppColors.foggy),
+                const SizedBox(width: 10),
+                Text(
+                  l.searchByListingName,
+                  style: TextStyle(fontSize: 15, color: AppColors.hackberry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Name search sheet ──
+class _NameSearchSheet extends StatefulWidget {
+  const _NameSearchSheet({required this.session});
+  final SessionController session;
+
+  @override
+  State<_NameSearchSheet> createState() => _NameSearchSheetState();
+}
+
+class _NameSearchSheetState extends State<_NameSearchSheet> {
+  final _ctrl = TextEditingController();
+  final _focusNode = FocusNode();
+  final _db = AppDatabase();
+  Timer? _debounce;
+
+  List<Map<String, dynamic>> _results = [];
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(_onChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    _debounce?.cancel();
+    final q = _ctrl.text.trim();
+    if (q.length < 2) {
+      if (mounted) setState(() { _results = []; _loading = false; });
+      return;
+    }
+    if (mounted) setState(() => _loading = true);
+    _debounce = Timer(const Duration(milliseconds: 380), () => _search(q));
+  }
+
+  Future<void> _search(String q) async {
+    try {
+      final rows = await _db.searchListings(query: q, category: 'all');
+      if (mounted) setState(() { _results = rows; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _results = []; _loading = false; });
+    }
+  }
+
+  void _openResults() {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) return;
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchResultsScreen(
+          query: q,
+          initialCategory: 'all',
+          session: widget.session,
+        ),
+      ),
+    );
+  }
+
+  void _openListing(Map<String, dynamic> item) {
+    final id = (item['id'] ?? '').toString();
+    final type = (item['item_type'] ?? 'property').toString();
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchResultsScreen(
+          query: (item['title'] ?? '').toString(),
+          initialCategory: type == 'property' ? 'stays' : type == 'tour' || type == 'tour_package' ? 'tours' : 'transport',
+          session: widget.session,
+        ),
+      ),
+    );
+    // Suppress unused variable lint
+    assert(id.isNotEmpty || id.isEmpty);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final viewInset = MediaQuery.of(context).viewInsets.bottom;
+    final q = _ctrl.text.trim();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + viewInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            l.searchByName,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black),
+          ),
+          const SizedBox(height: 14),
+          // Search field
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.linnen,
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Icon(Icons.search, size: 20, color: AppColors.foggy),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    focusNode: _focusNode,
+                    decoration: InputDecoration(
+                      hintText: l.typePropertyOrTourName,
+                      hintStyle: TextStyle(color: AppColors.hackberry, fontSize: 15),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    ),
+                    style: TextStyle(fontSize: 15, color: AppColors.black),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _openResults(),
+                  ),
+                ),
+                if (q.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => _ctrl.clear(),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(Icons.cancel, size: 18, color: AppColors.foggy),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Status / results
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+            )
+          else if (q.length >= 2 && _results.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(l.noListingsFoundFor(q), style: TextStyle(color: AppColors.foggy, fontSize: 14)),
+              ),
+            )
+          else if (_results.isNotEmpty) ...[
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _results.length > 8 ? 8 : _results.length,
+                separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.border),
+                itemBuilder: (_, i) {
+                  final item = _results[i];
+                  final title = (item['title'] ?? 'Listing').toString();
+                  final imageUrl = (resolveListingImageUrl(item) ?? '').toString();
+                  final type = (item['item_type'] ?? '').toString();
+                  final typeLabel = type == 'property' ? l.stayLabel
+                      : type == 'tour' ? l.tourLabel
+                      : type == 'tour_package' ? l.packageLabel
+                      : type == 'transport' ? l.transport
+                      : '';
+                  final location = (item['location'] ?? item['city'] ?? '').toString();
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(imageUrl, width: 52, height: 52, fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => _PlaceholderIcon(type: type))
+                          : _PlaceholderIcon(type: type),
+                    ),
+                    title: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.black), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                      [if (typeLabel.isNotEmpty) typeLabel, if (location.isNotEmpty) location].join(' · '),
+                      style: TextStyle(fontSize: 12, color: AppColors.foggy),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Icon(Icons.chevron_right, size: 20, color: AppColors.foggy),
+                    onTap: () => _openListing(item),
+                  );
+                },
+              ),
+            ),
+            if (_results.length > 8) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: _openResults,
+                child: Center(
+                  child: Text(
+                    l.showAllCountResults(_results.length),
+                    style: TextStyle(fontSize: 14, color: AppColors.rausch, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: q.isEmpty ? null : _openResults,
+            icon: const Icon(Icons.search, size: 18),
+            label: Text(l.showAllResults, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.rausch,
+              disabledBackgroundColor: AppColors.border,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceholderIcon extends StatelessWidget {
+  const _PlaceholderIcon({required this.type});
+  final String type;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = type == 'property' ? Icons.apartment_outlined
+        : type == 'tour' || type == 'tour_package' ? Icons.map_outlined
+        : Icons.directions_car_outlined;
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(color: AppColors.linnen, borderRadius: BorderRadius.circular(10)),
+      child: Icon(icon, size: 24, color: AppColors.foggy),
     );
   }
 }
@@ -649,6 +1029,7 @@ class _GuestSheetState extends State<_GuestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
@@ -659,16 +1040,16 @@ class _GuestSheetState extends State<_GuestSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Who', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          Text(l.who, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Adults', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                  Text('Ages 13 or above', style: TextStyle(fontSize: 12, color: Color(0xFF999999))),
+                  Text(l.adults, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  Text(l.agesAbove13, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                 ],
               ),
               Row(
@@ -707,7 +1088,7 @@ class _GuestSheetState extends State<_GuestSheet> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(l.done, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -724,7 +1105,7 @@ class _CounterBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? const Color(0xFF444444) : const Color(0xFFCCCCCC);
+    final Color color = enabled ? AppColors.hof : AppColors.hackberry;
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(

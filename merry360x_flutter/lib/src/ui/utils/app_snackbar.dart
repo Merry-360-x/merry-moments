@@ -1,53 +1,173 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-/// Centralized snackbar helper.
-/// Theme-aware background; text is red for errors, teal/green for success, dark for info.
+/// Centralized toast helper — compact pill at the top of the screen,
+/// independent of scaffold/bottom-sheet position.
 abstract class AppSnackBar {
-  static const _bgLight = Color(0xFFFFFFFF);
-  static const _bgDark = Color(0xFF000000);
-  static const _errorColor = Color(0xFFFF385C);   // rausch — errors / deductions
-  static const _successColor = Color(0xFF00A699); // babu  — confirmations / notes
-  static const _infoColor = Color(0xFF222222);    // black — neutral info
+  static const _errorColor   = Color(0xFFFF385C);
+  static const _successColor = Color(0xFF00A699);
+  static const _infoColor    = Color(0xFF484848);
+
+  static OverlayEntry? _current;
 
   static void _show(
     BuildContext context,
     String message,
-    Color textColor, {
-    SnackBarAction? action,
+    Color accentColor, {
+    IconData icon = Icons.info_outline_rounded,
   }) {
     if (!context.mounted) return;
+
+    // Dismiss any existing toast immediately
+    _current?.remove();
+    _current = null;
+
+    final overlay = Overlay.of(context, rootOverlay: true);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-          ),
-        ),
-        backgroundColor: isDark ? _bgDark : _bgLight,
-        behavior: SnackBarBehavior.floating,
-        elevation: 4,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-        ),
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        action: action,
-      ));
+    final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1C1C1E);
+    final top = MediaQuery.paddingOf(context).top + 12;
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _ToastWidget(
+        message: message,
+        icon: icon,
+        accentColor: accentColor,
+        bg: bg,
+        textColor: textColor,
+        top: top,
+        onDone: () {
+          entry.remove();
+          if (_current == entry) _current = null;
+        },
+      ),
+    );
+
+    _current = entry;
+    overlay.insert(entry);
   }
 
-  /// Red text — use for errors, failures, validation messages, deductions.
   static void error(BuildContext context, String message, {SnackBarAction? action}) =>
-      _show(context, message, _errorColor, action: action);
+      _show(context, message, _errorColor, icon: Icons.error_outline_rounded);
 
-  /// Green text — use for confirmations, saves, additions, successes.
   static void success(BuildContext context, String message) =>
-      _show(context, message, _successColor);
+      _show(context, message, _successColor, icon: Icons.check_circle_outline_rounded);
 
-  /// Dark text — use for neutral info like "coming soon", "sign in to…".
   static void info(BuildContext context, String message) =>
-      _show(context, message, _infoColor);
+      _show(context, message, _infoColor, icon: Icons.info_outline_rounded);
+}
+
+class _ToastWidget extends StatefulWidget {
+  const _ToastWidget({
+    required this.message,
+    required this.icon,
+    required this.accentColor,
+    required this.bg,
+    required this.textColor,
+    required this.top,
+    required this.onDone,
+  });
+
+  final String message;
+  final IconData icon;
+  final Color accentColor;
+  final Color bg;
+  final Color textColor;
+  final double top;
+  final VoidCallback onDone;
+
+  @override
+  State<_ToastWidget> createState() => _ToastWidgetState();
+}
+
+class _ToastWidgetState extends State<_ToastWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.6),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
+    _ctrl.forward();
+    _timer = Timer(const Duration(milliseconds: 2800), _dismiss);
+  }
+
+  void _dismiss() {
+    if (!mounted) return;
+    _ctrl.reverse().then((_) => widget.onDone());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: widget.top,
+      left: 16,
+      right: 16,
+      child: SlideTransition(
+        position: _slide,
+        child: FadeTransition(
+          opacity: _opacity,
+          child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              onTap: _dismiss,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: widget.bg,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.14),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(widget.icon, color: widget.accentColor, size: 20),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        widget.message,
+                        style: TextStyle(
+                          color: widget.textColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

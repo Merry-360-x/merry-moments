@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 // Support both env variable names
-const PAWAPAY_API_URL = process.env.PAWAPAY_BASE_URL || process.env.PAWAPAY_API_URL || "https://api.pawapay.cloud";
+const PAWAPAY_API_URL = process.env.PAWAPAY_BASE_URL || process.env.PAWAPAY_API_URL || "https://api.pawapay.io";
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
 
 // PawaPay correspondents by provider and country code.
@@ -97,6 +97,25 @@ const PAYOUT_CORRESPONDENTS = {
   mtn_momo_242: "MTN_MOMO_COG",
   AIRTEL_242: "AIRTEL_COG",
   airtel_money_242: "AIRTEL_COG",
+  // Benin (+229) — XOF
+  MTN_MOMO_BEN: "MTN_MOMO_BEN",
+  MOOV_BEN: "MOOV_BEN",
+  MTN_229: "MTN_MOMO_BEN",
+  mtn_momo_229: "MTN_MOMO_BEN",
+  MOOV_229: "MOOV_BEN",
+  moov_229: "MOOV_BEN",
+  // Gabon (+241) — XAF
+  AIRTEL_GAB: "AIRTEL_GAB",
+  AIRTEL_241: "AIRTEL_GAB",
+  airtel_money_241: "AIRTEL_GAB",
+  // Sierra Leone (+232) — SLE
+  ORANGE_SLE: "ORANGE_SLE",
+  ORANGE_232: "ORANGE_SLE",
+  orange_232: "ORANGE_SLE",
+  // Tanzania Halotel (+255) — TZS
+  HALOTEL_TZN: "HALOTEL_TZN",
+  HALOTEL_255: "HALOTEL_TZN",
+  halotel_255: "HALOTEL_TZN",
   // Legacy fallback (Rwanda)
   MTN: "MTN_MOMO_RWA",
   AIRTEL: "AIRTEL_RWA",
@@ -111,8 +130,8 @@ function normalizePhone(phoneNumber) {
     normalized = `250${normalized.substring(1)}`;
   }
   if (![
-    "221", "225", "233", "237", "242", "243", "250", "254",
-    "255", "256", "257", "258", "260", "265",
+    "221", "225", "229", "232", "233", "237", "241", "242",
+    "243", "250", "254", "255", "256", "257", "258", "260", "265",
   ].some((prefix) => normalized.startsWith(prefix))) {
     normalized = `250${normalized}`;
   }
@@ -121,8 +140,8 @@ function normalizePhone(phoneNumber) {
 
 function detectCountryCode(phoneNumber) {
   const prefixes = [
-    "221", "225", "233", "237", "242", "243",
-    "254", "255", "256", "257", "258", "260", "265",
+    "221", "225", "229", "232", "233", "237", "241", "242",
+    "243", "254", "255", "256", "257", "258", "260", "265",
   ];
   for (const p of prefixes) {
     if (phoneNumber.startsWith(p)) return p;
@@ -140,10 +159,26 @@ function resolveProvider(provider, payoutDetails) {
 }
 
 function extractCountryIso(countryCode) {
-  if (countryCode === "254") return "KEN";
-  if (countryCode === "256") return "UGA";
-  if (countryCode === "260") return "ZMB";
-  return "RWA";
+  const map = {
+    "221": "SEN", // Senegal
+    "225": "CIV", // Ivory Coast
+    "229": "BEN", // Benin
+    "232": "SLE", // Sierra Leone
+    "233": "GHA", // Ghana
+    "237": "CMR", // Cameroon
+    "241": "GAB", // Gabon
+    "242": "COG", // Congo-Brazzaville
+    "243": "COD", // DR Congo
+    "250": "RWA", // Rwanda
+    "254": "KEN", // Kenya
+    "255": "TZA", // Tanzania
+    "256": "UGA", // Uganda
+    "257": "BDI", // Burundi
+    "258": "MOZ", // Mozambique
+    "260": "ZMB", // Zambia
+    "265": "MWI", // Malawi
+  };
+  return map[countryCode] || "RWA";
 }
 
 async function predictProvider(phoneNumber) {
@@ -518,6 +553,7 @@ export default async function handler(req, res) {
       payoutId: pawapayPayoutId,
       amount: String(amount),
       currency: currency || "RWF",
+      country: countryIso,
       correspondent,
       recipient: {
         type: "MSISDN",

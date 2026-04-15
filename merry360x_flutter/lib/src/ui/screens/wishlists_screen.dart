@@ -4,6 +4,7 @@ import '../../app.dart';
 import '../utils/app_snackbar.dart';
 
 import '../../session_controller.dart';
+import '../../../l10n/app_localizations.dart';
 
 class WishlistsScreen extends StatelessWidget {
   const WishlistsScreen({super.key, required this.session});
@@ -12,20 +13,21 @@ class WishlistsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = session.payload?.wishlists ?? const <Map<String, dynamic>>[];
+    final l = AppLocalizations.of(context)!;
+    final items = session.payload?.wishlists ?? const <Map<String, dynamic>>[]; 
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       children: [
-        const Text('Wishlists', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.black)),
+        Text(l.wishlists, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.black)),
         const SizedBox(height: 8),
         if (!session.isAuthenticated)
           _InfoCard(
-            title: 'Connect your account',
-            subtitle: 'Sign in to sync your wishlists across devices.',
+            title: l.connectAccount,
+            subtitle: l.signInToSync,
           )
         else if (items.isEmpty)
-          const _InfoCard(title: 'No wishlist items yet.', subtitle: 'Save places from Explore and they will appear here.')
+          _InfoCard(title: l.noWishlistItems, subtitle: l.savePlacesHint)
         else
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -73,7 +75,7 @@ class WishlistsScreen extends StatelessWidget {
                     onPressed: () async {
                       await session.removeWishlistItem(id);
                       if (context.mounted) {
-                        AppSnackBar.success(context, 'Removed from wishlist.');
+                        AppSnackBar.success(context, l.removedFromWishlist);
                       }
                     },
                   ),

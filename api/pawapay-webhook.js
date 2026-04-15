@@ -813,6 +813,7 @@ function json(res, status, body) {
  * PawaPay will POST here when payment status changes:
  * - SUBMITTED: Payment initiated
  * - ACCEPTED: Payment processing
+ * - ENQUEUED: Payment queued (provider temporarily degraded)
  * - COMPLETED: Payment successful ✅
  * - FAILED: Payment failed (insufficient funds, etc) ❌
  * - REJECTED: Payment rejected
@@ -835,7 +836,7 @@ export default async function handler(req, res) {
 
     // Extract payment details from webhook
     const depositId = event.depositId;
-    const status = event.status; // COMPLETED, FAILED, SUBMITTED, ACCEPTED, REJECTED, CANCELLED
+    const status = event.status; // COMPLETED, FAILED, SUBMITTED, ACCEPTED, ENQUEUED, REJECTED, CANCELLED
     const failureReason = event.failureReason;
     const created = event.created;
     const lastUpdated = event.lastUpdatedAt;
@@ -895,6 +896,7 @@ export default async function handler(req, res) {
       
       case "SUBMITTED":
       case "ACCEPTED":
+      case "ENQUEUED":
         newPaymentStatus = "pending";
         console.log(`⏳ Payment ${status} for checkout ${checkout.id}`);
         break;

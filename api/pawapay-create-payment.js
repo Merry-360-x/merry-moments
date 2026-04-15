@@ -5,7 +5,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // PawaPay API settings
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
-const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.cloud";
+const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.io";
 const PAWAPAY_TEST_MODE = process.env.PAWAPAY_TEST_MODE === "true";
 
 function json(res, status, body) {
@@ -198,6 +198,20 @@ export default async function handler(req, res) {
       "mtn_momo_242": "MTN_MOMO_COG",
       "AIRTEL_242": "AIRTEL_COG",
       "airtel_money_242": "AIRTEL_COG",
+      // Benin (+229) — XOF
+      "MTN_229": "MTN_MOMO_BEN",
+      "mtn_momo_229": "MTN_MOMO_BEN",
+      "MOOV_229": "MOOV_BEN",
+      "moov_229": "MOOV_BEN",
+      // Gabon (+241) — XAF
+      "AIRTEL_241": "AIRTEL_GAB",
+      "airtel_money_241": "AIRTEL_GAB",
+      // Sierra Leone (+232) — SLE
+      "ORANGE_232": "ORANGE_SLE",
+      "orange_232": "ORANGE_SLE",
+      // Tanzania Halotel (+255) — TZS
+      "HALOTEL_255": "HALOTEL_TZN",
+      "halotel_255": "HALOTEL_TZN",
       // Direct correspondent identity mappings (Flutter sends these directly)
       "MTN_MOMO_RWA": "MTN_MOMO_RWA",
       "AIRTEL_RWA": "AIRTEL_RWA",
@@ -227,11 +241,24 @@ export default async function handler(req, res) {
       "ECONET_BDI": "ECONET_BDI",
       "MTN_MOMO_COG": "MTN_MOMO_COG",
       "AIRTEL_COG": "AIRTEL_COG",
+      "MTN_MOMO_BEN": "MTN_MOMO_BEN",
+      "MOOV_BEN": "MOOV_BEN",
+      "AIRTEL_GAB": "AIRTEL_GAB",
+      "ORANGE_SLE": "ORANGE_SLE",
+      "HALOTEL_TZN": "HALOTEL_TZN",
       // Legacy fallback (Rwanda)
       "MTN": "MTN_MOMO_RWA",
       "AIRTEL": "AIRTEL_RWA",
       "mtn_momo": "MTN_MOMO_RWA",
       "airtel_money": "AIRTEL_RWA",
+      // Legacy shorthand for non-Rwanda providers (phone prefix determines country)
+      "MPESA": "MPESA_KEN",
+      "VODACOM": "VODACOM_TZN",
+      "ORANGE": "ORANGE_SEN",
+      "FREE": "FREE_SEN",
+      "ZAMTEL": "ZAMTEL_ZMB",
+      "MOOV": "MOOV_BEN",
+      "HALOTEL": "HALOTEL_TZN",
     };
 
     // Extract country code from phone number
@@ -240,10 +267,11 @@ export default async function handler(req, res) {
     
     // Detect country from phone prefix
     const prefixMap = [
-      ["221", "221"], ["225", "225"], ["233", "233"], ["237", "237"],
-      ["242", "242"], ["243", "243"], ["250", "250"], ["254", "254"],
-      ["255", "255"], ["256", "256"], ["257", "257"], ["258", "258"],
-      ["260", "260"], ["265", "265"],
+      ["221", "221"], ["225", "225"], ["229", "229"], ["232", "232"],
+      ["233", "233"], ["237", "237"], ["241", "241"], ["242", "242"],
+      ["243", "243"], ["250", "250"], ["254", "254"], ["255", "255"],
+      ["256", "256"], ["257", "257"], ["258", "258"], ["260", "260"],
+      ["265", "265"],
     ];
     for (const [prefix, code] of prefixMap) {
       if (cleanPhone.startsWith(prefix)) { countryCode = code; break; }
@@ -278,8 +306,11 @@ export default async function handler(req, res) {
     const countryPhoneInfo = {
       "221": { name: "Senegal", length: 12, localLength: 9, example: "7XXXXXXXX", currency: "XOF" },
       "225": { name: "Ivory Coast", length: 13, localLength: 10, example: "0XXXXXXXXX", currency: "XOF" },
+      "229": { name: "Benin", length: 11, localLength: 8, example: "9XXXXXXX", currency: "XOF" },
+      "232": { name: "Sierra Leone", length: 11, localLength: 8, example: "7XXXXXXX", currency: "SLE" },
       "233": { name: "Ghana", length: 12, localLength: 9, example: "2XXXXXXXX", currency: "GHS" },
       "237": { name: "Cameroon", length: 12, localLength: 9, example: "6XXXXXXXX", currency: "XAF" },
+      "241": { name: "Gabon", length: 12, localLength: 9, example: "6XXXXXXXX", currency: "XAF" },
       "242": { name: "Congo", length: 12, localLength: 9, example: "0XXXXXXXX", currency: "XAF" },
       "243": { name: "DR Congo", length: 12, localLength: 9, example: "8XXXXXXXX", currency: "CDF" },
       "250": { name: "Rwanda", length: 12, localLength: 9, example: "78XXXXXXX", currency: "RWF" },

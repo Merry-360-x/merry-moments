@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../session_controller.dart';
+import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -124,25 +125,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final session = widget.session;
 
     if (!session.isAuthenticated) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        children: const [
+        children: [
           Text(
-            'Messages',
-            style: TextStyle(
+            l.messages,
+            style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
               color: AppColors.black,
             ),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           _InfoCard(
-            title: 'Connect your account',
-            subtitle:
-                'Sign in to message hosts and keep communication inside Merry360x for your safety.',
+            title: l.connectYourAccount,
+            subtitle: l.signInToMessage,
           ),
         ],
       );
@@ -162,10 +163,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Messages',
-                  style: TextStyle(
+                  l.messages,
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: AppColors.black,
@@ -173,28 +174,26 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Refresh messages',
+                tooltip: l.refreshMessages,
                 icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy),
                 onPressed: () => unawaited(_loadConversations(silent: true)),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const _InfoCard(
-            title: 'Safety first',
-            subtitle:
-                'To protect you from scams, sharing phone numbers, addresses, links, and off-platform contacts is blocked in chat.',
+          _InfoCard(
+            title: l.safetyFirst,
+            subtitle: l.safetyDesc,
           ),
           if (_error != null) ...[
             const SizedBox(height: 10),
-            _InfoCard(title: 'Could not load conversations', subtitle: _error!),
+            _InfoCard(title: l.couldNotLoadConversations, subtitle: _error!),
           ],
           const SizedBox(height: 12),
           if (_conversations.isEmpty)
-            const _InfoCard(
-              title: 'No conversations yet',
-              subtitle:
-                  'Open a property and tap Contact host to start messaging.',
+            _InfoCard(
+              title: l.noConversationsYet,
+              subtitle: l.openPropertyToMessage,
             )
           else
             ..._conversations.map((conversation) {
@@ -393,6 +392,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -432,7 +432,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
                       maxLines: 4,
                       textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
-                        hintText: 'Type your message',
+                        hintText: l.typeYourMessage,
                         hintStyle: const TextStyle(color: AppColors.hackberry),
                         filled: true,
                         fillColor: AppColors.surfaceSubtle,
@@ -478,6 +478,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
   }
 
   Widget _buildMessagesBody() {
+    final l = AppLocalizations.of(context)!;
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.rausch),
@@ -489,7 +490,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: _InfoCard(
-            title: 'Could not load chat',
+            title: l.couldNotLoadChat,
             subtitle: _error!,
           ),
         ),
@@ -501,7 +502,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: _InfoCard(
-            title: 'Start the conversation',
+            title: l.startTheConversation,
             subtitle:
                 'Send your first message to $_peerName. Keep messages on Merry360x for your safety.',
           ),
@@ -595,6 +596,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -625,7 +627,7 @@ class _ConversationTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    lastMessage.isEmpty ? 'No message yet' : lastMessage,
+                    lastMessage.isEmpty ? l.noMessageYet : lastMessage,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

@@ -273,7 +273,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'MTN, Airtel, M-Pesa',
+                                    'MTN, Airtel, M-Pesa, Orange & more',
                                     style: TextStyle(fontSize: 11, color: AppColors.foggy),
                                   ),
                                 ],
@@ -331,9 +331,13 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                         items: const [
                           DropdownMenuItem(value: 'MTN', child: Text('MTN Mobile Money')),
                           DropdownMenuItem(value: 'AIRTEL', child: Text('Airtel Money')),
-                          DropdownMenuItem(value: 'MPESA', child: Text('M-Pesa')),
+                          DropdownMenuItem(value: 'MPESA', child: Text('M-Pesa / Safaricom')),
                           DropdownMenuItem(value: 'VODACOM', child: Text('Vodacom M-Pesa')),
                           DropdownMenuItem(value: 'ORANGE', child: Text('Orange Money')),
+                          DropdownMenuItem(value: 'MOOV', child: Text('Moov Money')),
+                          DropdownMenuItem(value: 'HALOTEL', child: Text('Halotel')),
+                          DropdownMenuItem(value: 'FREE', child: Text('Free Money')),
+                          DropdownMenuItem(value: 'ZAMTEL', child: Text('Zamtel')),
                         ],
                         onChanged: processing
                             ? null
@@ -573,36 +577,36 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _StatTile(
-                    label: 'Pending',
-                    value: pendingSummary.isEmpty ? 'None' : pendingSummary,
-                    color: const Color(0xFFE11D48),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatTile(
-                    label: 'Disputes',
-                    value: '$openDisputes',
-                    color: const Color(0xFFD97706),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatTile(
-                    label: 'Charges',
-                    value: '$pendingCount pending',
-                    color: const Color(0xFF0284C7),
-                  ),
-                ),
-              ],
+          if (pendingCount > 0 || openDisputes > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  if (pendingCount > 0) ...[
+                    Expanded(
+                      child: _StatTile(
+                        icon: Icons.receipt_long_outlined,
+                        label: pendingCount == 1 ? '1 charge due' : '$pendingCount charges due',
+                        value: pendingSummary,
+                        color: const Color(0xFFE11D48),
+                        accent: const Color(0xFFFFF1F2),
+                      ),
+                    ),
+                    if (openDisputes > 0) const SizedBox(width: 8),
+                  ],
+                  if (openDisputes > 0)
+                    Expanded(
+                      child: _StatTile(
+                        icon: Icons.balance_outlined,
+                        label: openDisputes == 1 ? '1 open dispute' : '$openDisputes open disputes',
+                        value: 'In review',
+                        color: const Color(0xFFD97706),
+                        accent: const Color(0xFFFFFBEB),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: TabBarView(
               controller: _tabs,
@@ -635,105 +639,14 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
         itemCount: _charges.length,
         itemBuilder: (_, index) {
           final charge = _charges[index];
-          final status = (charge['status'] ?? 'pending').toString();
-          final currency = (charge['currency'] ?? 'USD').toString();
-          final amount = _num(charge['amount']);
           final linkedDispute = _disputes.where((d) => d['charge_id'] == charge['id']).toList();
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                _statusChip(status),
-                                const SizedBox(width: 6),
-                                _outlineChip(_label(charge['charge_type']?.toString() ?? 'charge')),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              (charge['description'] ?? 'Additional charge').toString(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _money(amount, currency),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.rausch,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Created ${_fmtDate(charge['created_at']?.toString() ?? '')}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                  ),
-                  if (linkedDispute.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8E1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'Dispute status: ${(linkedDispute.first['status'] ?? '').toString()}',
-                        style: const TextStyle(color: Color(0xFF8A5100), fontSize: 12),
-                      ),
-                    ),
-                  ],
-                  if (status == 'pending') ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _showPayChargeSheet(charge),
-                            icon: const Icon(Icons.credit_card),
-                            label: const Text('Pay'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _openDispute(chargeId: (charge['id'] ?? '').toString()),
-                            icon: const Icon(Icons.gavel_outlined),
-                            label: const Text('Dispute'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
+          return _ChargeCard(
+              charge: charge,
+              linkedDispute: linkedDispute.isNotEmpty ? linkedDispute.first : null,
+              onPay: () => _showPayChargeSheet(charge),
+              onDispute: () => _openDispute(chargeId: (charge['id'] ?? '').toString()),
+            );
         },
       ),
     );
@@ -982,46 +895,9 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
     );
   }
 
-  Widget _statusChip(String status) {
-    final (fg, bg) = _statusColors(status);
-    final label = status.isEmpty ? 'unknown' : status;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        _label(label),
-        style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
+  Widget _statusChip(String status) => _StatusChip(status);
 
-  Widget _outlineChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD9D9E3)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 11, color: AppColors.hof, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  (Color, Color) _statusColors(String raw) {
-    final value = raw.toLowerCase();
-    if (value == 'paid' || value == 'approved' || value == 'settled') {
-      return (const Color(0xFF166534), const Color(0xFFDCFCE7));
-    }
-    if (value == 'failed' || value == 'rejected' || value == 'cancelled' || value == 'closed') {
-      return (const Color(0xFFB42318), const Color(0xFFFEE4E2));
-    }
-    if (value == 'disputed' || value == 'in_review' || value == 'open') {
-      return (const Color(0xFF8A5100), const Color(0xFFFFF8E1));
-    }
-    return (const Color(0xFF475467), const Color(0xFFF2F4F7));
-  }
+  Widget _outlineChip(String label) => _OutlineChip(label);
 
   String? _extractRedirectUrl(Map<String, dynamic> result) {
     final flutterwave = _asMap(result['flutterwave']);
@@ -1043,14 +919,27 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
     if (iso.isEmpty) return '-';
     try {
       final d = DateTime.parse(iso).toLocal();
-      return '${d.day}/${d.month}/${d.year}';
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${months[d.month - 1]} ${d.day}, ${d.year}';
     } catch (_) {
       return iso;
     }
   }
 
   String _money(double value, String currency) {
-    return '$currency ${value.toStringAsFixed(2)}';
+    final String number;
+    if (value == value.truncateToDouble()) {
+      final s = value.toInt().toString();
+      final buf = StringBuffer();
+      for (var i = 0; i < s.length; i++) {
+        if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+        buf.write(s[i]);
+      }
+      number = buf.toString();
+    } else {
+      number = value.toStringAsFixed(2);
+    }
+    return '$currency $number';
   }
 
   double _num(dynamic value) {
@@ -1079,34 +968,57 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
 
 class _StatTile extends StatelessWidget {
   const _StatTile({
+    required this.icon,
     required this.label,
     required this.value,
     required this.color,
+    required this.accent,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
+        color: accent,
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: color.withOpacity(0.7)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1148,6 +1060,245 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Charge card ─────────────────────────────────────────────────────────────
+
+class _ChargeCard extends StatelessWidget {
+  const _ChargeCard({
+    required this.charge,
+    required this.linkedDispute,
+    required this.onPay,
+    required this.onDispute,
+  });
+
+  final Map<String, dynamic> charge;
+  final Map<String, dynamic>? linkedDispute;
+  final VoidCallback onPay;
+  final VoidCallback onDispute;
+
+  static double _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  static String _fmtDate(String iso) {
+    if (iso.isEmpty) return '-';
+    try {
+      final d = DateTime.parse(iso).toLocal();
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${months[d.month - 1]} ${d.day}, ${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  static String _chipLabel(String text) {
+    if (text.trim().isEmpty) return text;
+    return text.replaceAll('_', ' ').split(' ')
+        .where((p) => p.isNotEmpty)
+        .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
+        .join(' ');
+  }
+
+  String _formatAmount(double value) {
+    if (value == value.truncateToDouble()) {
+      final s = value.toInt().toString();
+      final buf = StringBuffer();
+      for (var i = 0; i < s.length; i++) {
+        if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+        buf.write(s[i]);
+      }
+      return buf.toString();
+    }
+    return value.toStringAsFixed(2);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = (charge['status'] ?? 'pending').toString();
+    final currency = (charge['currency'] ?? 'USD').toString();
+    final amount = _num(charge['amount']);
+    final isPaid = status == 'paid' || status == 'approved' || status == 'settled';
+    final isPending = status == 'pending';
+
+    final Color stripeColor;
+    if (isPaid) {
+      stripeColor = const Color(0xFF22C55E);
+    } else if (isPending) {
+      stripeColor = AppColors.rausch;
+    } else {
+      stripeColor = const Color(0xFFD97706);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7E7EC)),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: stripeColor),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              _StatusChip(status),
+                              _OutlineChip(_chipLabel(charge['charge_type']?.toString() ?? 'charge')),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$currency ${_formatAmount(amount)}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isPaid ? const Color(0xFF16A34A) : AppColors.rausch,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      (charge['description'] ?? 'Additional charge').toString(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isPaid ? AppColors.foggy : AppColors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Created ${_fmtDate(charge['created_at']?.toString() ?? '')}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                    ),
+                    if (linkedDispute != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.balance_outlined, size: 14, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Dispute ${_chipLabel((linkedDispute!['status'] ?? '').toString())}',
+                              style: const TextStyle(color: Color(0xFF92400E), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (isPending && linkedDispute == null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: FilledButton.icon(
+                              onPressed: onPay,
+                              icon: const Icon(Icons.credit_card, size: 16),
+                              label: const Text('Pay now'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.rausch,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: OutlinedButton.icon(
+                              onPressed: onDispute,
+                              icon: const Icon(Icons.gavel_outlined, size: 16),
+                              label: const Text('Dispute'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip(this.status);
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (fg, bg) = _colors(status.toLowerCase());
+    final label = status.isEmpty ? 'unknown' : status.replaceAll('_', ' ');
+    final capitalized = label.isNotEmpty ? '${label[0].toUpperCase()}${label.substring(1)}' : label;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(capitalized, style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  static (Color, Color) _colors(String v) {
+    if (v == 'paid' || v == 'approved' || v == 'settled') {
+      return (const Color(0xFF166534), const Color(0xFFDCFCE7));
+    }
+    if (v == 'failed' || v == 'rejected' || v == 'cancelled' || v == 'closed') {
+      return (const Color(0xFFB42318), const Color(0xFFFEE4E2));
+    }
+    if (v == 'disputed' || v == 'in_review' || v == 'open') {
+      return (const Color(0xFF92400E), const Color(0xFFFFFBEB));
+    }
+    if (v == 'pending') {
+      return (const Color(0xFF9A3412), const Color(0xFFFFF7ED));
+    }
+    return (const Color(0xFF475467), const Color(0xFFF2F4F7));
+  }
+}
+
+class _OutlineChip extends StatelessWidget {
+  const _OutlineChip(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD9D9E3)),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.hof, fontWeight: FontWeight.w600)),
     );
   }
 }

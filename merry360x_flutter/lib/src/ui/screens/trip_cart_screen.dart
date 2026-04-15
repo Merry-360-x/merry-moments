@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
 
 import '../../services/app_database.dart';
@@ -53,6 +54,7 @@ class _TripCartScreenState extends State<TripCartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final session = widget.session;
     final items = session.payload?.tripCart ?? const <Map<String, dynamic>>[];
     final listings = session.payload?.homeListings ?? const <Map<String, dynamic>>[];
@@ -80,10 +82,10 @@ class _TripCartScreenState extends State<TripCartScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Trip cart',
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.black),
+                      l.tripCart,
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.black),
                     ),
                   ),
                   if (items.isNotEmpty)
@@ -92,14 +94,14 @@ class _TripCartScreenState extends State<TripCartScreen> {
                         final confirmed = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('Clear cart?'),
-                            content: const Text('Remove all items from your trip cart?'),
+                            title: Text(l.clearCartTitle),
+                            content: Text(l.clearCartBody),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
                               FilledButton(
                                 style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Clear'),
+                                child: Text(l.clear),
                               ),
                             ],
                           ),
@@ -110,7 +112,7 @@ class _TripCartScreenState extends State<TripCartScreen> {
                           unawaited(session.clearTripCart());
                         }
                       },
-                      child: const Text('Clear', style: TextStyle(color: AppColors.rausch)),
+                      child: Text(l.clearCart, style: const TextStyle(color: AppColors.rausch)),
                     ),
                 ],
               ),
@@ -123,14 +125,14 @@ class _TripCartScreenState extends State<TripCartScreen> {
               if (!session.isAuthenticated)
                 _InfoCard(
                   icon: Icons.person_outline,
-                  title: 'Sign in to view your cart',
-                  subtitle: 'Your trip cart will sync with your account across all devices.',
+                  title: l.signInToViewCart,
+                  subtitle: l.cartSyncDesc,
                 )
               else if (items.isEmpty)
                 _InfoCard(
                   icon: Icons.luggage_outlined,
-                  title: 'Your trip cart is empty',
-                  subtitle: 'Explore stays, tours, or transport and add them to your trip.',
+                  title: l.cartEmpty,
+                  subtitle: l.exploreToAdd,
                 )
               else ...[
                 ...enriched.map((ci) => _CartItemTile(cartItem: ci, session: session)),
@@ -181,9 +183,9 @@ class _TripCartScreenState extends State<TripCartScreen> {
                     backgroundColor: AppColors.rausch,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text(
-                    'Proceed to checkout',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  child: Text(
+                    l.proceedToCheckout,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                 ),
               ),
@@ -235,12 +237,14 @@ class _CartItemTile extends StatelessWidget {
       ),
       onDismissed: (_) {
         if (context.mounted) {
-          AppSnackBar.success(context, 'Removed from cart');
+          final l = AppLocalizations.of(context)!;
+          AppSnackBar.success(context, l.removedFromCart);
         }
         unawaited(
           session.removeTripCartItem(id).catchError((_) {
             if (!context.mounted) return;
-            AppSnackBar.error(context, 'Could not remove item. Pull to refresh and retry.');
+            final l = AppLocalizations.of(context)!;
+            AppSnackBar.error(context, l.couldNotRemoveItem);
           }),
         );
       },
@@ -300,12 +304,14 @@ class _CartItemTile extends StatelessWidget {
               icon: const Icon(Icons.close, size: 18, color: AppColors.hackberry),
               onPressed: () {
                 if (context.mounted) {
-                  AppSnackBar.success(context, 'Removed');
+                  final l = AppLocalizations.of(context)!;
+                  AppSnackBar.success(context, l.removed);
                 }
                 unawaited(
                   session.removeTripCartItem(id).catchError((_) {
                     if (!context.mounted) return;
-                    AppSnackBar.error(context, 'Could not remove item. Pull to refresh and retry.');
+                    final l = AppLocalizations.of(context)!;
+                    AppSnackBar.error(context, l.couldNotRemoveItem);
                   }),
                 );
               },
@@ -524,6 +530,7 @@ class _TotalBarState extends State<_TotalBar> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final baseTotals = _computeBaseTotals();
     final serviceFees = _computeServiceFees(baseTotals: baseTotals);
     final totals = _computeTotals();
@@ -566,7 +573,7 @@ class _TotalBarState extends State<_TotalBar> {
                   controller: _promoCtrl,
                   textCapitalization: TextCapitalization.characters,
                   decoration: InputDecoration(
-                    hintText: 'Promo code',
+                    hintText: l.promoCode,
                     hintStyle: const TextStyle(fontSize: 13),
                     filled: true, fillColor: AppColors.surface,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -596,7 +603,7 @@ class _TotalBarState extends State<_TotalBar> {
                   ),
                   child: _applying
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      : Text(l.apply, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
               ),
             ]),
@@ -606,7 +613,7 @@ class _TotalBarState extends State<_TotalBar> {
             ],
           ],
           const SizedBox(height: 12),
-          const Text('Estimated total', style: TextStyle(fontSize: 13, color: AppColors.foggy)),
+          Text(l.estimatedTotal, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
           const SizedBox(height: 6),
           if (baseTotals.isNotEmpty) ...[
             ...baseTotals.entries.map((e) {
@@ -620,7 +627,7 @@ class _TotalBarState extends State<_TotalBar> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                        Text(l.total, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                         Text('${e.key} ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                       ],
                     ),
@@ -630,7 +637,7 @@ class _TotalBarState extends State<_TotalBar> {
                       child: GestureDetector(
                         onTap: () => setState(() => _showPriceDetails = !_showPriceDetails),
                         child: Text(
-                          _showPriceDetails ? 'Hide price details' : 'Show price details',
+                          _showPriceDetails ? l.hidePriceDetails : l.showPriceDetails,
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch),
                         ),
                       ),
@@ -640,7 +647,7 @@ class _TotalBarState extends State<_TotalBar> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Base', style: TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                          Text(l.base, style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
                           Text('${e.key} ${e.value.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
                         ],
                       ),
@@ -648,7 +655,7 @@ class _TotalBarState extends State<_TotalBar> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Platform fees', style: TextStyle(fontSize: 12, color: AppColors.hackberry)),
+                          Text(l.platformFees, style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
                           Text('${e.key} ${fee.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AppColors.hackberry)),
                         ],
                       ),
@@ -657,7 +664,7 @@ class _TotalBarState extends State<_TotalBar> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Promo discount', style: TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
+                            Text(l.promoDiscount, style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
                             Text('- ${e.key} ${_discount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
                           ],
                         ),
@@ -669,7 +676,7 @@ class _TotalBarState extends State<_TotalBar> {
             }),
             const SizedBox(height: 4),
           ],
-          const Text('Platform fees may apply', style: TextStyle(fontSize: 11, color: AppColors.hackberry)),
+          Text(l.platformFeesNote, style: const TextStyle(fontSize: 11, color: AppColors.hackberry)),
         ],
       ),
     );
@@ -681,28 +688,27 @@ class _TypePill extends StatelessWidget {
 
   final String type;
 
-  String get _label {
-    switch (type) {
-      case 'tour':
-        return 'Tour';
-      case 'tour_package':
-        return 'Package';
-      case 'transport':
-        return 'Transport';
-      default:
-        return 'Stay';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    String label;
+    switch (type) {
+      case 'tour':
+        label = l.tourLabel;
+      case 'tour_package':
+        label = l.packageLabel;
+      case 'transport':
+        label = l.transport;
+      default:
+        label = l.stayLabel;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFFFFE8E9),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(_label,
+      child: Text(label,
           style: const TextStyle(
               fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.rausch)),
     );

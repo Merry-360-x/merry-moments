@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
@@ -6,6 +7,7 @@ import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'property_details_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ToursScreen extends StatefulWidget {
   const ToursScreen({super.key, required this.session});
@@ -20,26 +22,64 @@ class _ToursScreenState extends State<ToursScreen> {
   String _category = 'all';
   List<Map<String, dynamic>> _tours = [];
   bool _loading = true;
+  final _precachedUrls = <String>{};
 
-  static const _cats = [
-    ('all', 'All'),
-    ('nature', 'Nature'),
-    ('adventure', 'Adventure'),
-    ('cultural', 'Cultural'),
-    ('wildlife', 'Wildlife'),
-    ('historical', 'Historical'),
+  void _precacheTourImages(List<Map<String, dynamic>> items) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final item in items) {
+        final url = resolveListingImageUrl(item);
+        if (url != null && _precachedUrls.add(url)) {
+          precacheImage(CachedNetworkImageProvider(url), context);
+        }
+      }
+    });
+  }
+
+  List<(String, String)> _buildCats(AppLocalizations l) => [
+    ('all', l.all),
+    ('nature', l.nature),
+    ('adventure', l.adventure),
+    ('cultural', l.cultural),
+    ('wildlife', l.wildlife),
+    ('historical', l.historical),
   ];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    widget.session.addListener(_onSessionChanged);
+    _syncFromSession();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (mounted) _syncFromSession();
+  }
+
+  void _syncFromSession() {
+    final listings = widget.session.payload?.homeListings;
+    if (listings != null) {
+      final tourItems = listings
+          .where((i) => i['item_type'] == 'tour' || i['item_type'] == 'tour_package')
+          .toList();
+      if (mounted) {
+        setState(() { _tours = tourItems; _loading = false; });
+        _precacheTourImages(tourItems);
+      }
+    } else if (_loading) {
+      _fetchFallback();
+    }
+  }
+
+  Future<void> _fetchFallback() async {
     final results = await Future.wait([
-      _api.fetchTours(category: _category == 'all' ? null : _category),
+      _api.fetchTours(),
       _api.fetchTourPackages(),
     ]);
     final merged = <Map<String, dynamic>>[...results[0], ...results[1]];
@@ -48,15 +88,21 @@ class _ToursScreenState extends State<ToursScreen> {
       final bd = b['created_at']?.toString() ?? '';
       return bd.compareTo(ad);
     });
+    if (mounted) {
+      setState(() {
+        _tours = merged;
+        _loading = false;
+      });
+      _precacheTourImages(merged);
+    }
+  }
 
+  List<Map<String, dynamic>> get _filtered {
     String norm(dynamic v) => (v ?? '').toString().trim().toLowerCase();
     final selected = norm(_category);
-
-    // Apply category filter across both sources. Some rows may use `categories`
-    // (array) while others use `category` (string).
-    final filtered = selected == 'all'
-        ? merged
-        : merged.where((i) {
+    final base = selected == 'all'
+        ? _tours
+        : _tours.where((i) {
             final cat = norm(i['category']);
             if (cat == selected) return true;
             final cats = i['categories'];
@@ -65,44 +111,45 @@ class _ToursScreenState extends State<ToursScreen> {
             }
             return false;
           }).toList();
-
-    if (mounted) {
-      setState(() {
-        _tours = filtered;
-        _loading = false;
-      });
-    }
+    base.sort((a, b) {
+      final ad = a['created_at']?.toString() ?? '';
+      final bd = b['created_at']?.toString() ?? '';
+      return bd.compareTo(ad);
+    });
+    return base;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cats = _buildCats(l);
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text('Tours & Experiences',
+        title: Text(l.toursAndExperiences,
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: false,
       ),
       body: Column(
         children: [
-          _CategoryChips(cats: _cats, selected: _category, onSelect: (c) {
+          _CategoryChips(cats: cats, selected: _category, onSelect: (c) {
             setState(() => _category = c);
-            _load();
           }),
-          Expanded(child: _body()),
+          Expanded(child: _body(l)),
         ],
       ),
     );
   }
 
-  Widget _body() {
+  Widget _body(AppLocalizations l) {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
-    if (_tours.isEmpty) {
-      return const Center(
-      child: Text('No tours available', style: TextStyle(color: AppColors.foggy)),
+    final tours = _filtered;
+    if (tours.isEmpty) {
+      return Center(
+      child: Text(l.noToursAvailable, style: const TextStyle(color: AppColors.foggy)),
     );
     }
     return GridView.builder(
@@ -110,8 +157,8 @@ class _ToursScreenState extends State<ToursScreen> {
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75,
       ),
-      itemCount: _tours.length,
-      itemBuilder: (_, i) => _TourCard(item: _tours[i], session: widget.session),
+      itemCount: tours.length,
+      itemBuilder: (_, i) => _TourCard(item: tours[i], session: widget.session),
     );
   }
 }
@@ -214,7 +261,7 @@ class _TourCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(price != null ? '$currency $price/pp' : '',
+                      Text(price != null ? '${session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/pp' : '',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
                       if (duration != null)
                         Text('${duration}d', style: const TextStyle(fontSize: 11, color: AppColors.foggy)),

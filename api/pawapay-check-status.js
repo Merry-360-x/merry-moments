@@ -11,7 +11,7 @@ import { upsertSavedMobileMoneyMethod } from "../lib/payment-method-storage.js";
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PAWAPAY_API_KEY = process.env.PAWAPAY_API_KEY;
-const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.cloud";
+const PAWAPAY_BASE_URL = process.env.PAWAPAY_BASE_URL || "https://api.pawapay.io";
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
 function json(res, status, body) {
@@ -44,6 +44,7 @@ function mapPawaPayPayoutStatus(status) {
   const normalized = String(status || "").toUpperCase();
   if (normalized === "COMPLETED") return "completed";
   if (normalized === "FAILED" || normalized === "REJECTED" || normalized === "CANCELLED") return "rejected";
+  if (normalized === "ENQUEUED" || normalized === "ACCEPTED" || normalized === "SUBMITTED") return "processing";
   return "processing";
 }
 

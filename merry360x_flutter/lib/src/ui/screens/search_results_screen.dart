@@ -41,6 +41,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
 
   List<Map<String, dynamic>> _stays = [];
   List<Map<String, dynamic>> _tours = [];
+  List<Map<String, dynamic>> _packages = [];
   List<Map<String, dynamic>> _transport = [];
 
   bool _loading = true;
@@ -50,11 +51,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
   void initState() {
     super.initState();
     final initialIndex = switch (widget.initialCategory) {
-      'tours' => 2,
-      'transport' => 3,
-      _ => 0, // 'all' or 'accommodations' → All tab
+      'tours'     => 2,
+      'packages'  => 3,
+      'transport' => 4,
+      _ => 0,
     };
-    _tabs = TabController(length: 4, vsync: this, initialIndex: initialIndex);
+    _tabs = TabController(length: 5, vsync: this, initialIndex: initialIndex);
     _fetchAll();
   }
 
@@ -70,13 +72,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
       final results = await Future.wait([
         _api.searchListings(query: widget.query, category: 'stays', guests: widget.guests),
         _api.searchListings(query: widget.query, category: 'tours',  guests: widget.guests),
+        _api.searchListings(query: widget.query, category: 'packages', guests: widget.guests),
         _api.searchListings(query: widget.query, category: 'transport', guests: widget.guests),
       ]);
       if (mounted) {
         setState(() {
           _stays     = results[0];
           _tours     = results[1];
-          _transport = results[2];
+          _packages  = results[2];
+          _transport = results[3];
           _loading   = false;
         });
       }
@@ -85,7 +89,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
     }
   }
 
-  List<Map<String, dynamic>> get _all => [..._stays, ..._tours, ..._transport];
+  List<Map<String, dynamic>> get _all => [..._stays, ..._tours, ..._packages, ..._transport];
 
   // Format the summary header line
   String get _summaryLine {
@@ -145,7 +149,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                 child: Row(
                   children: [
                     StageSafeLeadingButton(
-                      color: const Color(0xFF1A1A1A),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     Expanded(
@@ -154,19 +157,19 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                         children: [
                           Text(
                             widget.query.isEmpty ? 'Browse all' : widget.query,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
+                              color: AppColors.black,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             _summaryLine,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF888888),
+                              color: AppColors.foggy,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -185,7 +188,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                 indicatorColor: AppColors.rausch,
                 indicatorWeight: 2.5,
                 labelColor: AppColors.rausch,
-                unselectedLabelColor: const Color(0xFF888888),
+                unselectedLabelColor: AppColors.foggy,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 labelStyle: const TextStyle(
@@ -197,10 +200,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                   fontWeight: FontWeight.w400,
                 ),
                 tabs: [
-                  _CountTab(label: 'All',       count: all.length,        loading: _loading),
-                  _CountTab(label: 'Stays',     count: _stays.length,     loading: _loading),
-                  _CountTab(label: 'Tours',     count: _tours.length,     loading: _loading),
-                  _CountTab(label: 'Transport', count: _transport.length, loading: _loading),
+                  _CountTab(label: 'All',       count: all.length,          loading: _loading),
+                  _CountTab(label: 'Stays',     count: _stays.length,       loading: _loading),
+                  _CountTab(label: 'Tours',     count: _tours.length,       loading: _loading),
+                  _CountTab(label: 'Packages',  count: _packages.length,    loading: _loading),
+                  _CountTab(label: 'Transport', count: _transport.length,   loading: _loading),
                 ],
               ),
             ],
@@ -218,21 +222,31 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                       items: all,
                       onTap: _openDetails,
                       emptyLabel: 'No results found',
+                      session: widget.session,
                     ),
                     _ResultList(
                       items: _stays,
                       onTap: _openDetails,
                       emptyLabel: 'No stays found',
+                      session: widget.session,
                     ),
                     _ResultList(
                       items: _tours,
                       onTap: _openDetails,
                       emptyLabel: 'No tours found',
+                      session: widget.session,
+                    ),
+                    _ResultList(
+                      items: _packages,
+                      onTap: _openDetails,
+                      emptyLabel: 'No packages found',
+                      session: widget.session,
                     ),
                     _ResultList(
                       items: _transport,
                       onTap: _openDetails,
                       emptyLabel: 'No transport found',
+                      session: widget.session,
                     ),
                   ],
                 ),
@@ -286,10 +300,12 @@ class _ResultList extends StatelessWidget {
     required this.items,
     required this.onTap,
     required this.emptyLabel,
+    required this.session,
   });
   final List<Map<String, dynamic>> items;
   final void Function(Map<String, dynamic>) onTap;
   final String emptyLabel;
+  final SessionController session;
 
   @override
   Widget build(BuildContext context) {
@@ -302,7 +318,7 @@ class _ResultList extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               emptyLabel,
-              style: const TextStyle(fontSize: 15, color: Color(0xFF999999)),
+              style: TextStyle(fontSize: 15, color: AppColors.foggy),
             ),
           ],
         ),
@@ -319,7 +335,7 @@ class _ResultList extends StatelessWidget {
           final item = items[i];
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _ResultCard(item: item, onTap: () => onTap(item)),
+            child: _ResultCard(item: item, session: session, onTap: () => onTap(item)),
           );
         },
       ),
@@ -330,9 +346,10 @@ class _ResultList extends StatelessWidget {
 // ── Single result card ───────────────────────────────────────────────────────
 
 class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.item, required this.onTap});
+  const _ResultCard({required this.item, required this.onTap, required this.session});
   final Map<String, dynamic> item;
   final VoidCallback onTap;
+  final SessionController session;
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +357,7 @@ class _ResultCard extends StatelessWidget {
     final location = (item['location'] ?? item['city']    ?? '').toString();
     final type     = (item['item_type'] ?? 'property').toString();
     final imageUrl = resolveListingImageUrl(item) ?? '';
-    final price    = _priceLabel(item);
+    final price    = _priceLabel(item, session);
     final rating   = (item['rating'] ?? item['average_rating'])?.toString();
 
     return GestureDetector(
@@ -349,13 +366,14 @@ class _ResultCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEAEAEA)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: imageUrl.isNotEmpty
@@ -370,98 +388,96 @@ class _ResultCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: SizedBox(
-                  height: 104,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _typeColor(type).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _typeLabel(type),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: _typeColor(type),
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _typeColor(type).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _typeLabel(type),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _typeColor(type),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                        height: 1.15,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (location.isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1A1A),
-                          height: 1.15,
-                        ),
-                        maxLines: 2,
+                        location,
+                        style: TextStyle(fontSize: 12, color: AppColors.foggy),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (location.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          location,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    ],
+                    const Spacer(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            price,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.black,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ],
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              price,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        if (rating != null && rating != 'null' && rating.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.star, size: 13, color: Color(0xFFF5A623)),
+                          const SizedBox(width: 3),
+                          Text(
+                            double.tryParse(rating) != null
+                                ? double.parse(rating).toStringAsFixed(1)
+                                : rating,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.hof,
                             ),
                           ),
-                          if (rating != null && rating != 'null' && rating.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            const Icon(Icons.star, size: 13, color: Color(0xFFF5A623)),
-                            const SizedBox(width: 3),
-                            Text(
-                              double.tryParse(rating) != null
-                                  ? double.parse(rating).toStringAsFixed(1)
-                                  : rating,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF444444),
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-      ),
+            ),  // Row
+          ),    // IntrinsicHeight
+        ),      // Padding
+      ),        // Container
     );
   }
 
-  static String _priceLabel(Map<String, dynamic> item) {
-    final currency = (item['currency'] ?? 'RWF').toString();
+  String _priceLabel(Map<String, dynamic> item, SessionController session) {
+    final itemCurrency = (item['currency'] ?? 'RWF').toString();
     final n = item['price_per_night'] ?? item['price_per_person'] ??
               item['price_per_adult'] ?? item['price_per_day'] ?? 0;
-    final amount = (n is num ? n : num.tryParse(n.toString()) ?? 0).toInt();
+    final amount = (n is num ? n : num.tryParse(n.toString()) ?? 0).toDouble();
     final suffix = _priceSuffix(item);
-    return '$currency ${_formatNum(amount)}$suffix';
+    return '${session.formatPrice(amount, itemCurrency: itemCurrency)}$suffix';
   }
 
   static String _priceSuffix(Map<String, dynamic> item) {
@@ -469,16 +485,6 @@ class _ResultCard extends StatelessWidget {
     if (item['price_per_person'] != null || item['price_per_adult'] != null) return '/person';
     if (item['price_per_day'] != null) return '/day';
     return '';
-  }
-
-  static String _formatNum(int n) {
-    if (n >= 1000) {
-      return n.toString().replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]},',
-      );
-    }
-    return n.toString();
   }
 
   static String _typeLabel(String type) => switch (type) {

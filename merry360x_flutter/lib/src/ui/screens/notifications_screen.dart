@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import '../../../l10n/app_localizations.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key, required this.session});
@@ -44,6 +45,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -54,9 +56,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(
+            Text(
+              l.notifications,
+              style: const TextStyle(
                 color: AppColors.black,
                 fontWeight: FontWeight.w800,
                 fontSize: 22,
@@ -64,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             if (_unreadCount > 0)
               Text(
-                '$_unreadCount unread',
+                '$_unreadCount ${l.unread}',
                 style: const TextStyle(color: AppColors.rausch, fontSize: 12),
               ),
           ],
@@ -73,9 +75,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text(
-                'Mark all read',
-                style: TextStyle(
+              child: Text(
+                l.markAllRead,
+                style: const TextStyle(
                   color: AppColors.black,
                   fontSize: 13,
                   decoration: TextDecoration.underline,
@@ -88,11 +90,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: _body(),
+      body: _body(l),
     );
   }
 
-  Widget _body() {
+  Widget _body(AppLocalizations l) {
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.rausch),
@@ -109,18 +111,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               color: AppColors.hackberry,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'All caught up!',
-              style: TextStyle(
+            Text(
+              l.allCaughtUp,
+              style: const TextStyle(
                 color: AppColors.hof,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'No notifications yet',
-              style: TextStyle(color: AppColors.foggy, fontSize: 14),
+            Text(
+              l.noNotifications,
+              style: const TextStyle(color: AppColors.foggy, fontSize: 14),
             ),
           ],
         ),
@@ -190,7 +192,7 @@ class _NotifTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: isRead
               ? AppColors.surface
-              : (isDark ? const Color(0xFF000000) : const Color(0xFFFFF5F5)),
+              : (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFF5F5)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isRead

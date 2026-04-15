@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
 
 import '../../session_controller.dart';
@@ -43,6 +44,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   String? _error;
   bool _busy = false;
+  late AppLocalizations _l;
 
   late AnimationController _slideCtrl;
   late Animation<Offset> _slideIn;
@@ -106,7 +108,7 @@ class _AuthScreenState extends State<AuthScreen>
     } else if (_signupStep == 1) {
       final email = _emailController.text.trim();
       if (email.isEmpty || !email.contains('@')) {
-        setState(() => _error = 'Please enter a valid email address.');
+        setState(() => _error = _l.invalidEmail);
         return;
       }
       _animateStep();
@@ -131,10 +133,7 @@ class _AuthScreenState extends State<AuthScreen>
   Future<void> _submitSignup() async {
     final password = _passwordController.text;
     if (!_isStrongPassword(password)) {
-      setState(
-        () => _error =
-            'Use 8+ characters with uppercase, lowercase, a number, and a special character.',
-      );
+      setState(() => _error = _l.passwordRequirements);
       return;
     }
     setState(() {
@@ -157,7 +156,7 @@ class _AuthScreenState extends State<AuthScreen>
         // Email confirmation required — notify and dismiss
         AppSnackBar.success(
           context,
-          'Account created! Check your email to verify.',
+          _l.accountCreatedCheckEmail,
         );
         Navigator.of(context).maybePop();
       }
@@ -173,7 +172,7 @@ class _AuthScreenState extends State<AuthScreen>
     final email = _loginEmailController.text.trim();
     final password = _loginPasswordController.text;
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Please enter email and password.');
+      setState(() => _error = _l.enterEmailAndPassword);
       return;
     }
     setState(() {
@@ -241,54 +240,55 @@ class _AuthScreenState extends State<AuthScreen>
     }
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid login')) {
-      return 'Incorrect email or password.';
+      return _l.incorrectEmailOrPassword;
     }
     if (lower.contains('email not confirmed')) {
-      return 'Please verify your email first.';
+      return _l.pleaseVerifyEmail;
     }
     if (lower.contains('user already registered') ||
         lower.contains('already registered')) {
-      return 'An account with this email already exists.';
+      return _l.accountAlreadyExists;
     }
     if (lower.contains('canceled') || lower.contains('cancelled')) {
-      return 'Sign in was cancelled.';
+      return _l.signInCancelled;
     }
     if (lower.contains('email signups are disabled') ||
         lower.contains('signups not allowed')) {
-      return 'New sign-ups are temporarily disabled. Please try again later.';
+      return _l.signUpsDisabled;
     }
     if (lower.contains('database error') ||
         lower.contains('unexpected_failure')) {
-      return 'A server error occurred. Please try again.';
+      return _l.serverError;
     }
     if (lower.contains('invalid email') ||
         lower.contains('unable to validate email')) {
-      return 'Please enter a valid email address.';
+      return _l.invalidEmail;
     }
     if (lower.contains('weak_password') ||
         lower.contains('weak password') ||
         (lower.contains('password') && lower.contains('should contain'))) {
-      return 'Use 8+ characters with uppercase, lowercase, a number, and a special character.';
+      return _l.passwordRequirements;
     }
     if (lower.contains('password') &&
         (lower.contains('short') || lower.contains('characters'))) {
-      return 'Password must be at least 8 characters.';
+      return _l.passwordTooShort;
     }
     if (lower.contains('rate limit') ||
         lower.contains('too many') ||
         lower.contains('over_email_send_rate_limit')) {
-      return 'Too many attempts. Please wait a moment and try again.';
+      return _l.tooManyAttempts;
     }
     if (lower.contains('network') ||
         lower.contains('socket') ||
         lower.contains('connection')) {
-      return 'Network error. Please check your connection.';
+      return _l.networkError;
     }
     debugPrint('[AuthScreen] unhandled error: $raw');
-    return 'Something went wrong. Please try again.';
+    return _l.somethingWentWrong;
   }
 
   void _showForgotPassword() {
+    final l = AppLocalizations.of(context)!;
     final emailCtrl = TextEditingController(
       text: _loginEmailController.text.trim(),
     );
@@ -307,9 +307,9 @@ class _AuthScreenState extends State<AuthScreen>
                 color: AppColors.border.withValues(alpha: isDark ? 0.95 : 1.0),
               ),
             ),
-            title: const Text(
-              'Reset Password',
-              style: TextStyle(
+            title: Text(
+              l.resetPassword,
+              style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 17,
                 color: AppColors.black,
@@ -318,16 +318,16 @@ class _AuthScreenState extends State<AuthScreen>
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Enter your email and we\'ll send you a reset link.',
-                  style: TextStyle(color: AppColors.hof, fontSize: 13),
+                Text(
+                  l.resetPasswordDesc,
+                  style: const TextStyle(color: AppColors.hof, fontSize: 13),
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'Email address',
+                    hintText: l.emailAddress,
                     hintStyle: const TextStyle(color: AppColors.foggy),
                     filled: true,
                     fillColor: AppColors.surfaceSubtle,
@@ -353,9 +353,9 @@ class _AuthScreenState extends State<AuthScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.foggy),
+                child: Text(
+                  l.cancel,
+                  style: const TextStyle(color: AppColors.foggy),
                 ),
               ),
               FilledButton(
@@ -372,7 +372,7 @@ class _AuthScreenState extends State<AuthScreen>
                           if (!mounted) return;
                           AppSnackBar.success(
                             context,
-                            'Reset link sent! Check your email.',
+                            l.resetLinkSent,
                           );
                         } catch (e) {
                           if (!ctx.mounted) return;
@@ -393,7 +393,7 @@ class _AuthScreenState extends State<AuthScreen>
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Send Reset Link'),
+                    : Text(l.sendResetLink),
               ),
             ],
           );
@@ -404,6 +404,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   @override
   Widget build(BuildContext context) {
+    _l = AppLocalizations.of(context)!;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxWidth = isTablet ? 640.0 : 480.0;
@@ -429,7 +430,7 @@ class _AuthScreenState extends State<AuthScreen>
                   width: isTablet ? 88 : 72,
                   height: isTablet ? 88 : 72,
                   child: const Image(
-                    image: AssetImage('assets/brand/logo.png'),
+                    image: AssetImage('assets/brand/launcher-icon.png'),
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -437,7 +438,7 @@ class _AuthScreenState extends State<AuthScreen>
               SizedBox(height: isTablet ? 22 : 16),
 
               Text(
-                'Welcome to Merry360x',
+                _l.welcomeToMerry,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: isTablet ? 28 : 24,
@@ -448,8 +449,8 @@ class _AuthScreenState extends State<AuthScreen>
               const SizedBox(height: 6),
               Text(
                 _isLogin
-                    ? 'Continue to your account'
-                    : 'Create an account to get started',
+                    ? _l.continueToAccount
+                    : _l.createAccountToStart,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.hof,
@@ -475,7 +476,7 @@ class _AuthScreenState extends State<AuthScreen>
               if (_isLogin) ...[
                 TextField(
                   controller: _loginEmailController,
-                  decoration: _inputDecoration('Email address'),
+                  decoration: _inputDecoration(_l.emailAddress),
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   textInputAction: TextInputAction.next,
@@ -483,7 +484,7 @@ class _AuthScreenState extends State<AuthScreen>
                 const SizedBox(height: 10),
                 TextField(
                   controller: _loginPasswordController,
-                  decoration: _inputDecoration('Password').copyWith(
+                  decoration: _inputDecoration(_l.password).copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureLogin ? Icons.visibility_off : Icons.visibility,
@@ -530,9 +531,9 @@ class _AuthScreenState extends State<AuthScreen>
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Continue',
-                            style: TextStyle(
+                        : Text(
+                            _l.continueButton,
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),
@@ -543,9 +544,9 @@ class _AuthScreenState extends State<AuthScreen>
                 Center(
                   child: TextButton(
                     onPressed: _busy ? null : _showForgotPassword,
-                    child: const Text(
-                      'Forgot password?',
-                      style: TextStyle(color: AppColors.rausch, fontSize: 13),
+                    child: Text(
+                      _l.forgotPassword,
+                      style: const TextStyle(color: AppColors.rausch, fontSize: 13),
                     ),
                   ),
                 ),
@@ -561,8 +562,8 @@ class _AuthScreenState extends State<AuthScreen>
                   }),
                   child: Text(
                     _isLogin
-                        ? 'New here? Create account'
-                        : 'Already have an account? Log in',
+                        ? _l.newHereCreate
+                        : _l.alreadyHaveAccount,
                     style: const TextStyle(
                       color: AppColors.foggy,
                       fontSize: 13,
@@ -578,8 +579,8 @@ class _AuthScreenState extends State<AuthScreen>
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      'or',
-                      style: TextStyle(color: AppColors.foggy, fontSize: 14),
+                      _l.or,
+                      style: const TextStyle(color: AppColors.foggy, fontSize: 14),
                     ),
                   ),
                   Expanded(child: Divider(color: AppColors.border)),
@@ -621,8 +622,8 @@ class _AuthScreenState extends State<AuthScreen>
                     widget.onBrowseAsGuest?.call();
                   },
                   child: Text(
-                    'Continue as guest',
-                    style: TextStyle(color: AppColors.foggy, fontSize: 14),
+                    _l.continueAsGuest,
+                    style: const TextStyle(color: AppColors.foggy, fontSize: 14),
                   ),
                 ),
               ),
@@ -688,7 +689,7 @@ class _AuthScreenState extends State<AuthScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              "What's your name?",
+              _l.whatsYourName,
               style: TextStyle(
                 fontSize: isTablet ? 17 : 15,
                 fontWeight: FontWeight.w700,
@@ -697,14 +698,14 @@ class _AuthScreenState extends State<AuthScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              'You can always change this later.',
+              _l.youCanChangeLater,
               style: const TextStyle(fontSize: 13, color: AppColors.foggy),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
               focusNode: _nameFocus,
-              decoration: _inputDecoration('Full name'),
+              decoration: _inputDecoration(_l.fullName),
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
               autofocus: true,
@@ -712,7 +713,7 @@ class _AuthScreenState extends State<AuthScreen>
             ),
             if (_error != null) _errorText(),
             const SizedBox(height: 14),
-            _continueButton(label: 'Continue', onTap: _nextSignupStep),
+            _continueButton(label: _l.continueButton, onTap: _nextSignupStep),
           ],
         );
       case 1:
@@ -720,7 +721,7 @@ class _AuthScreenState extends State<AuthScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Your email address',
+              _l.yourEmailAddress,
               style: TextStyle(
                 fontSize: isTablet ? 17 : 15,
                 fontWeight: FontWeight.w700,
@@ -729,14 +730,14 @@ class _AuthScreenState extends State<AuthScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              "We'll send a verification link here.",
+              _l.verificationLinkHint,
               style: const TextStyle(fontSize: 13, color: AppColors.foggy),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _emailController,
               focusNode: _emailFocus,
-              decoration: _inputDecoration('Email address'),
+              decoration: _inputDecoration(_l.emailAddress),
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               textInputAction: TextInputAction.next,
@@ -745,7 +746,7 @@ class _AuthScreenState extends State<AuthScreen>
             ),
             if (_error != null) _errorText(),
             const SizedBox(height: 14),
-            _continueButton(label: 'Continue', onTap: _nextSignupStep),
+            _continueButton(label: _l.continueButton, onTap: _nextSignupStep),
             const SizedBox(height: 6),
             _backButton(),
           ],
@@ -756,7 +757,7 @@ class _AuthScreenState extends State<AuthScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Create a password',
+              _l.createPassword,
               style: TextStyle(
                 fontSize: isTablet ? 17 : 15,
                 fontWeight: FontWeight.w700,
@@ -764,15 +765,15 @@ class _AuthScreenState extends State<AuthScreen>
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              '8+ chars · uppercase · lowercase · number · symbol',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8A8A8F)),
+            Text(
+              _l.passwordHint,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A8F)),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
               focusNode: _passwordFocus,
-              decoration: _inputDecoration('Password').copyWith(
+              decoration: _inputDecoration(_l.password).copyWith(
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureSignup ? Icons.visibility_off : Icons.visibility,
@@ -790,7 +791,7 @@ class _AuthScreenState extends State<AuthScreen>
             if (_error != null) _errorText(),
             const SizedBox(height: 14),
             _continueButton(
-              label: 'Create account',
+              label: _l.createAccount,
               onTap: _busy ? null : _submitSignup,
               loading: _busy,
             ),
@@ -842,16 +843,16 @@ class _AuthScreenState extends State<AuthScreen>
   Widget _backButton() => Center(
     child: TextButton(
       onPressed: _prevSignupStep,
-      child: const Text(
-        '← Back',
-        style: TextStyle(color: AppColors.foggy, fontSize: 13),
+      child: Text(
+        _l.back,
+        style: const TextStyle(color: AppColors.foggy, fontSize: 13),
       ),
     ),
   );
 
   InputDecoration _inputDecoration(String label) {
     final isDark = AppColors.effectiveBrightness == Brightness.dark;
-    final fill = isDark ? const Color(0xFF000000) : AppColors.surfaceSubtle;
+    final fill = isDark ? const Color(0xFF1C1C1E) : AppColors.surfaceSubtle;
     final border = isDark ? const Color(0xFF2E2E2E) : const Color(0xFFD4D4D8);
 
     return InputDecoration(

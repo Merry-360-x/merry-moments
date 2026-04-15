@@ -8,6 +8,10 @@ import 'src/services/push_notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Increase in-memory image cache: 200 images / 150 MB
+  PaintingBinding.instance.imageCache.maximumSize = 200;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 150 << 20;
+
   final url = AppConfig.supabaseUrl;
   final key = AppConfig.supabaseAnonKey;
   debugPrint('[main] Supabase URL: $url');

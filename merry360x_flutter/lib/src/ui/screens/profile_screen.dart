@@ -19,6 +19,45 @@ import 'profile_details_screen.dart';
 import 'support_dashboard_screen.dart';
 import 'support_screen.dart';
 import 'stories_screen.dart';
+import '../../../l10n/app_localizations.dart';
+
+// ── Language & Currency data ──
+
+const _languages = [
+  ('en', 'English'),
+  ('rw', 'Kinyarwanda'),
+  ('fr', 'Français'),
+  ('sw', 'Kiswahili'),
+  ('zh', '中文'),
+];
+
+const _currencies = [
+  ('RWF', 'FRw', 'Rwandan Franc'),
+  ('USD', '\$', 'US Dollar'),
+  ('EUR', '€', 'Euro'),
+  ('GBP', '£', 'British Pound'),
+  ('TZS', 'TSh', 'Tanzanian Shilling'),
+  ('KES', 'KSh', 'Kenyan Shilling'),
+  ('UGX', 'USh', 'Ugandan Shilling'),
+  ('ZMW', 'ZK', 'Zambian Kwacha'),
+  ('BIF', 'FBu', 'Burundian Franc'),
+  ('ZAR', 'R', 'South African Rand'),
+  ('CNY', '¥', 'Chinese Yuan'),
+];
+
+String _currencySymbol(String code) {
+  for (final c in _currencies) {
+    if (c.$1 == code) return c.$2;
+  }
+  return code;
+}
+
+String _languageLabel(String code) {
+  for (final l in _languages) {
+    if (l.$1 == code) return l.$2;
+  }
+  return code.toUpperCase();
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -40,21 +79,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _api = AppDatabase();
   int? _loyaltyPoints;
 
-  String _themeModeDescription(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return 'Light mode always on.';
-      case ThemeMode.dark:
-        return 'Dark mode always on.';
-      case ThemeMode.system:
-        return 'Follows your device appearance.';
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _loadLoyalty();
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadLoyalty() async {
@@ -63,21 +102,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => _loyaltyPoints = points);
   }
 
+  void _pickLanguage() {
+    final l = AppLocalizations.of(context)!;
+    final sessionCtrl = widget.session;
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _PickerSheet(
+        title: l.language,
+        items: _languages.map((lang) => (lang.$1, lang.$2, lang.$1 == sessionCtrl.language)).toList(),
+        onSelect: (code) async {
+          await sessionCtrl.setLanguage(code);
+          if (mounted) AppSnackBar.success(context, l.languageUpdated);
+        },
+      ),
+    );
+  }
+
+  void _pickCurrency() {
+    final l = AppLocalizations.of(context)!;
+    final sessionCtrl = widget.session;
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _PickerSheet(
+        title: l.currency,
+        items: _currencies
+            .map((c) => (c.$1, '(${c.$2}) ${c.$1}  —  ${c.$3}', c.$1 == sessionCtrl.currency))
+            .toList(),
+        onSelect: (code) async {
+          await sessionCtrl.setCurrency(code);
+          if (mounted) AppSnackBar.success(context, l.currencyUpdated);
+        },
+      ),
+    );
+  }
+
   Future<void> _confirmDeleteAccount() async {
+    final l = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: const Text('This cannot be undone.'),
+        title: Text(l.deleteAccountTitle),
+        content: Text(l.deleteAccountBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -88,14 +168,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await widget.session.deleteAccount();
       if (mounted) {
-        AppSnackBar.success(context, 'Your account has been deleted.');
+        AppSnackBar.success(context, l.accountDeleted);
       }
     } catch (_) {
       if (mounted) {
         AppSnackBar.error(
           context,
-          'Could not complete account deletion in-app.',
-          action: SnackBarAction(label: 'Retry', onPressed: _confirmDeleteAccount),
+          l.accountDeleteFailed,
+          action: SnackBarAction(label: l.retry, onPressed: _confirmDeleteAccount),
         );
       }
     }
@@ -103,6 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final session = widget.session;
     final profile = session.payload?.profile;
     final fullName = (profile?['full_name'] ?? '').toString();
@@ -114,7 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final cardDecoration = BoxDecoration(
-      color: isDark ? const Color(0xFF000000) : AppColors.surface,
+      color: isDark ? const Color(0xFF1C1C1E) : AppColors.surface,
       borderRadius: BorderRadius.circular(22),
       border: Border.all(color: AppColors.border.withValues(alpha: isDark ? 0.86 : 1.0)),
       boxShadow: [
@@ -136,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Profile',
+                  l.profile,
                   style: TextStyle(
                     fontSize: isWide ? 36 : 32,
                     fontWeight: FontWeight.w800,
@@ -146,8 +227,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 2),
                 Text(
                   session.isAuthenticated
-                      ? 'Manage your account and preferences.'
-                      : 'Sign in to personalize your experience.',
+                      ? l.manageAccount
+                      : l.signInToPersonalize,
                   style: const TextStyle(fontSize: 13, color: AppColors.foggy),
                 ),
                 const SizedBox(height: 14),
@@ -191,12 +272,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  fullName.isEmpty ? 'Merry360x Member' : fullName,
+                                  fullName.isEmpty ? l.merry360xMember : fullName,
                                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  session.userEmail ?? 'Add your details',
+                                  session.userEmail ?? l.addYourDetails,
                                   style: const TextStyle(color: AppColors.foggy),
                                 ),
                                 if (phone.isNotEmpty || bio.isNotEmpty) ...[
@@ -220,9 +301,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: cardDecoration,
-                    child: const Text(
-                      'Log in to start planning your next trip.',
-                      style: TextStyle(fontSize: 16),
+                    child: Text(
+                      l.loginToPlan,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 if (session.isAuthenticated) ...[
@@ -261,7 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
-                        const Text('Earn more →', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(l.earnMore, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -277,21 +358,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Support & legal', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(l.supportAndLegal, style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 10),
                       _ProfileRow(
-                        title: 'Support inbox',
+                        title: l.supportInbox,
                         icon: Icons.headset_mic_outlined,
-                        subtitle: 'Tickets, replies, and direct help',
+                        subtitle: l.ticketsAndHelp,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => SupportScreen(session: session)),
                         ),
                       ),
                       _ProfileRow(
-                        title: 'Privacy Policy',
+                        title: l.privacyPolicy,
                         icon: Icons.privacy_tip_outlined,
-                        subtitle: 'How your data is handled',
+                        subtitle: l.howDataHandled,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -305,9 +386,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       _ProfileRow(
-                        title: 'Terms & Conditions',
+                        title: l.termsAndConditions,
                         icon: Icons.gavel_rounded,
-                        subtitle: 'Rules, bookings, and platform terms',
+                        subtitle: l.rulesAndTerms,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -325,63 +406,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 14),
                 Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: cardDecoration,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF0F0F5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.palette_outlined,
+                              size: 20,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            l.appearance,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _ThemeModeCard(
+                            icon: Icons.light_mode_rounded,
+                            label: l.lightMode,
+                            isSelected: widget.themeMode == ThemeMode.light,
+                            isDark: isDark,
+                            onTap: () => widget.onThemeModeChanged(ThemeMode.light),
+                          ),
+                          const SizedBox(width: 10),
+                          _ThemeModeCard(
+                            icon: Icons.dark_mode_rounded,
+                            label: l.darkMode,
+                            isSelected: widget.themeMode == ThemeMode.dark,
+                            isDark: isDark,
+                            onTap: () => widget.onThemeModeChanged(ThemeMode.dark),
+                          ),
+                          const SizedBox(width: 10),
+                          _ThemeModeCard(
+                            icon: Icons.brightness_auto_rounded,
+                            label: l.systemMode,
+                            isSelected: widget.themeMode == ThemeMode.system,
+                            isDark: isDark,
+                            onTap: () => widget.onThemeModeChanged(ThemeMode.system),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
                   padding: const EdgeInsets.all(14),
                   decoration: cardDecoration,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Appearance', style: TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 10),
-                      SegmentedButton<ThemeMode>(
-                        segments: const [
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.light,
-                            icon: Icon(Icons.light_mode_outlined),
-                            label: Text('Light'),
-                          ),
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.dark,
-                            icon: Icon(Icons.dark_mode_outlined),
-                            label: Text('Dark'),
-                          ),
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.system,
-                            icon: Icon(Icons.brightness_auto_outlined),
-                            label: Text('System'),
-                          ),
-                        ],
-                        selected: <ThemeMode>{widget.themeMode},
-                        showSelectedIcon: false,
-                        style: ButtonStyle(
-                          side: WidgetStateProperty.all(
-                            const BorderSide(color: AppColors.border),
-                          ),
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color>((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return AppColors.rausch.withValues(
-                                alpha: isDark ? 0.34 : 0.16,
-                              );
-                            }
-                            return AppColors.surfaceSubtle;
-                          }),
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith<Color>((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return AppColors.black;
-                            }
-                            return AppColors.foggy;
-                          }),
-                        ),
-                        onSelectionChanged: (selection) {
-                          if (selection.isEmpty) return;
-                          widget.onThemeModeChanged(selection.first);
-                        },
-                      ),
+                      Text(l.languageAndCurrency, style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 8),
-                      Text(
-                        _themeModeDescription(widget.themeMode),
-                        style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                      _PreferenceTile(
+                        icon: Icons.language_rounded,
+                        label: l.language,
+                        value: _languageLabel(session.language),
+                        tag: session.language.toUpperCase(),
+                        onTap: _pickLanguage,
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _PreferenceTile(
+                        icon: Icons.currency_exchange_rounded,
+                        label: l.currency,
+                        value: '${_currencySymbol(session.currency)}  ${session.currency}',
+                        tag: session.currency,
+                        onTap: _pickCurrency,
                       ),
                     ],
                   ),
@@ -398,7 +505,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 46,
                           child: OutlinedButton(
                             onPressed: () => session.signOut(),
-                            child: const Text('Sign Out'),
+                            child: Text(l.signOut),
                           ),
                         ),
                       ],
@@ -411,7 +518,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.red,
                       ),
-                      child: const Text('Delete Account'),
+                      child: Text(l.deleteAccount),
                     ),
                   ),
                 ],
@@ -424,6 +531,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ThemeModeCard extends StatelessWidget {
+  const _ThemeModeCard({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedBg = isDark ? AppColors.rausch.withValues(alpha: 0.25) : AppColors.rausch.withValues(alpha: 0.12);
+    final unselectedBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF5F5F7);
+    final selectedBorder = AppColors.rausch;
+    final unselectedBorder = isDark ? const Color(0xFF38383A) : const Color(0xFFE0E0E0);
+    final selectedIcon = AppColors.rausch;
+    final unselectedIcon = isDark ? Colors.white54 : Colors.black45;
+    final selectedText = isDark ? Colors.white : Colors.black87;
+    final unselectedText = isDark ? Colors.white60 : Colors.black54;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? selectedBg : unselectedBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? selectedBorder : unselectedBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: isSelected ? selectedIcon : unselectedIcon,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? selectedText : unselectedText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -441,6 +614,7 @@ class _ProfileStoriesEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -451,20 +625,20 @@ class _ProfileStoriesEntry extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Social Stories',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          Text(
+            l.socialStories,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Share your moments and see how other travelers are experiencing their trips.',
-            style: TextStyle(fontSize: 12, color: AppColors.foggy),
+          Text(
+            l.storiesDesc,
+            style: const TextStyle(fontSize: 12, color: AppColors.foggy),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               _StoryShortcutCircle(
-                label: 'Your story',
+                label: l.yourStoryLabel,
                 subtitle: displayName.trim().isEmpty ? 'You' : displayName.trim(),
                 avatarUrl: avatarUrl,
                 showAdd: true,
@@ -482,8 +656,8 @@ class _ProfileStoriesEntry extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               _StoryShortcutCircle(
-                label: 'Community',
-                subtitle: 'View all',
+                label: l.community,
+                subtitle: l.viewAll,
                 avatarUrl: '',
                 showAdd: false,
                 onTap: () {
@@ -662,13 +836,14 @@ class _QuickAccessSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     const gap = 10.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF000000) : AppColors.surface,
+        color: isDark ? const Color(0xFF1C1C1E) : AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border.withValues(alpha: isDark ? 0.86 : 1.0)),
         boxShadow: [
@@ -690,11 +865,11 @@ class _QuickAccessSection extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Quick Access', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(l.quickAccess, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 4),
-              const Text(
-                'Manage the parts of your account you use most.',
-                style: TextStyle(fontSize: 12, color: AppColors.foggy),
+              Text(
+                l.manageQuickAccess,
+                style: const TextStyle(fontSize: 12, color: AppColors.foggy),
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -703,32 +878,32 @@ class _QuickAccessSection extends StatelessWidget {
                 children: [
                   _QuickAccessTile(
                     width: tileWidth,
-                    title: 'My Bookings',
-                    subtitle: 'Manage reservations',
+                    title: l.myBookings,
+                    subtitle: l.manageReservations,
                     icon: Icons.luggage_rounded,
                     accentColor: const Color(0xFF2E7D32),
                     onTap: () => _go(context, MyBookingsScreen(session: session)),
                   ),
                   _QuickAccessTile(
                     width: tileWidth,
-                    title: 'Post-Booking',
-                    subtitle: 'Charges, changes, disputes',
+                    title: l.postBooking,
+                    subtitle: l.postBookingDesc,
                     icon: Icons.account_balance_wallet_outlined,
                     accentColor: const Color(0xFFD97706),
                     onTap: () => _go(context, PostBookingCenterScreen(session: session)),
                   ),
                   _QuickAccessTile(
                     width: tileWidth,
-                    title: 'Notifications',
-                    subtitle: 'Updates and alerts',
+                    title: l.notifications,
+                    subtitle: l.notificationsDesc,
                     icon: Icons.notifications_active_outlined,
                     accentColor: const Color(0xFF1565C0),
                     onTap: () => _go(context, NotificationsScreen(session: session)),
                   ),
                   _QuickAccessTile(
                     width: tileWidth,
-                    title: 'Affiliate Portal',
-                    subtitle: 'Partnership tools',
+                    title: l.affiliatePortal,
+                    subtitle: l.affiliateDesc,
                     icon: Icons.handshake_outlined,
                     accentColor: const Color(0xFF8E24AA),
                     onTap: () => _go(context, AffiliatesScreen(session: session)),
@@ -736,8 +911,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (!session.isHost)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Become a Host',
-                      subtitle: 'Start listing spaces',
+                      title: l.becomeHost,
+                      subtitle: l.becomeHostDesc,
                       icon: Icons.storefront_outlined,
                       accentColor: const Color(0xFFEF6C00),
                       onTap: () => _go(context, BecomeHostScreen(session: session)),
@@ -745,8 +920,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (session.isHost)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Host Dashboard',
-                      subtitle: 'Listings and income',
+                      title: l.hostDashboard,
+                      subtitle: l.hostDashboardDesc,
                       icon: Icons.grid_view_rounded,
                       accentColor: const Color(0xFF00897B),
                       onTap: () => _go(context, HostDashboardScreen(session: session)),
@@ -754,8 +929,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (session.canAccessAdminDashboard)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Admin Dashboard',
-                      subtitle: 'Platform controls',
+                      title: l.adminDashboard,
+                      subtitle: l.adminDashboardDesc,
                       icon: Icons.shield_outlined,
                       accentColor: const Color(0xFF6D4C41),
                       onTap: () => _go(context, AdminDashboardScreen(session: session)),
@@ -763,8 +938,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (session.canAccessOperationsDashboard)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Operations Dashboard',
-                      subtitle: 'Approvals and publishing',
+                      title: l.operationsDashboard,
+                      subtitle: l.operationsDashboardDesc,
                       icon: Icons.route_outlined,
                       accentColor: const Color(0xFF7C3AED),
                       onTap: () => _go(context, OperationsDashboardScreen(session: session)),
@@ -772,8 +947,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (session.canAccessFinancialDashboard)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Financial Dashboard',
-                      subtitle: 'Revenue and payouts',
+                      title: l.financialDashboard,
+                      subtitle: l.financialDashboardDesc,
                       icon: Icons.account_balance_wallet_outlined,
                       accentColor: const Color(0xFF155EEF),
                       onTap: () => _go(context, FinancialDashboardScreen(session: session)),
@@ -781,8 +956,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (session.canAccessSupportDashboard)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Support Dashboard',
-                      subtitle: 'Tickets and users',
+                      title: l.supportDashboard,
+                      subtitle: l.supportDashboardDesc,
                       icon: Icons.support_agent_outlined,
                       accentColor: const Color(0xFFB26A00),
                       onTap: () => _go(context, SupportDashboardScreen(session: session)),
@@ -790,8 +965,8 @@ class _QuickAccessSection extends StatelessWidget {
                   if (showPostBookingConsole)
                     _QuickAccessTile(
                       width: tileWidth,
-                      title: 'Post-Booking Console',
-                      subtitle: 'Admin charge and dispute queue',
+                      title: l.postBookingConsole,
+                      subtitle: l.postBookingConsoleDesc,
                       icon: Icons.gavel_outlined,
                       accentColor: const Color(0xFF92400E),
                       onTap: () => _go(context, AdminPostBookingScreen(session: session)),
@@ -826,7 +1001,7 @@ class _QuickAccessTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tileBackground = isDark ? const Color(0xFF000000) : const Color(0xFFF8F8FA);
+    final tileBackground = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8FA);
     final tileBorder = isDark ? const Color(0xFF2A3342) : const Color(0xFFECECF1);
     final iconBackground = accentColor.withValues(alpha: isDark ? 0.22 : 0.10);
     final iconBorder = accentColor.withValues(alpha: isDark ? 0.45 : 0.20);
@@ -884,6 +1059,127 @@ class _QuickAccessTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Shared preference tile ──
+
+class _PreferenceTile extends StatelessWidget {
+  const _PreferenceTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tag,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String tag;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.rausch),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.foggy, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.black)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.rausch.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(tag,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.rausch,
+                      letterSpacing: 0.4)),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18, color: AppColors.foggy),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bottom-sheet picker ──
+
+class _PickerSheet extends StatelessWidget {
+  const _PickerSheet({
+    required this.title,
+    required this.items,
+    required this.onSelect,
+  });
+
+  final String title;
+  final List<(String code, String label, bool selected)> items;
+  final Future<void> Function(String code) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Text(title,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.black)),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: items.length,
+              itemBuilder: (_, i) {
+                final (code, label, selected) = items[i];
+                return ListTile(
+                  title: Text(label,
+                      style: TextStyle(
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected ? AppColors.rausch : AppColors.black)),
+                  trailing: selected
+                      ? const Icon(Icons.check_circle_rounded, color: AppColors.rausch, size: 20)
+                      : null,
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await onSelect(code);
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app.dart';
+import '../../l10n/app_localizations.dart';
 import '../session_controller.dart';
 import 'screens/ai_screen.dart';
 import 'screens/auth_screen.dart';
@@ -12,7 +13,7 @@ import 'screens/trip_cart_screen.dart';
 import 'screens/wishlists_screen.dart';
 
 // ── Custom nav SVG icons ─────────────────────────────────────────────────────
-const _kSvgHome = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10.5651C3 9.9907 3 9.70352 3.07403 9.43905C3.1396 9.20478 3.24737 8.98444 3.39203 8.78886C3.55534 8.56806 3.78202 8.39175 4.23539 8.03912L11.0177 2.764C11.369 2.49075 11.5447 2.35412 11.7387 2.3016C11.9098 2.25526 12.0902 2.25526 12.2613 2.3016C12.4553 2.35412 12.631 2.49075 12.9823 2.764L19.7646 8.03913C20.218 8.39175 20.4447 8.56806 20.608 8.78886C20.7526 8.98444 20.8604 9.20478 20.926 9.43905C21 9.70352 21 9.9907 21 10.5651V17.8C21 18.9201 21 19.4801 20.782 19.908C20.5903 20.2843 20.2843 20.5903 19.908 20.782C19.4802 21 18.9201 21 17.8 21H6.2C5.07989 21 4.51984 21 4.09202 20.782C3.71569 20.5903 3.40973 20.2843 3.21799 19.908C3 19.4801 3 18.9201 3 17.8V10.5651Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const _kSvgExplore = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const _kSvgWishlists = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.1111 3C19.6333 3 22 6.3525 22 9.48C22 15.8138 12.1778 21 12 21C11.8222 21 2 15.8138 2 9.48C2 6.3525 4.36667 3 7.88889 3C9.91111 3 11.2333 4.02375 12 4.92375C12.7667 4.02375 14.0889 3 16.1111 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 class MainShell extends StatefulWidget {
@@ -108,6 +109,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
+    final l = AppLocalizations.of(context)!;
 
     final payload = session.payload;
     final cartCount = payload?.tripCart.length ?? 0;
@@ -137,33 +139,33 @@ class _MainShellState extends State<MainShell> {
             child: Row(
               children: [
                 _NavItem(
-                  svgData: _kSvgHome,
-                  label: 'Home',
+                  svgData: _kSvgExplore,
+                  label: l.navExplore,
                   selected: _tab == 0,
                   onTap: () => _openTab(0),
                 ),
                 _NavItem(
                   svgData: _kSvgWishlists,
-                  label: 'Wish list',
+                  label: l.navWishlist,
                   selected: _tab == 1,
                   onTap: () => _openTab(1),
                 ),
                 _NavItem(
-                  icon: Icons.shopping_bag_outlined,
-                  label: 'Trip cart',
+                  assetPath: 'assets/nav/tripcart.png',
+                  label: l.navTripCart,
                   selected: _tab == 2,
                   onTap: () => _openTab(2),
                   badge: cartCount > 0 ? cartCount : null,
                 ),
                 _NavItem(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Message',
+                  assetPath: 'assets/nav/messages.png',
+                  label: l.navMessages,
                   selected: _tab == 3,
                   onTap: () => _openTab(3),
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
-                  label: 'Profile',
+                  label: l.navProfile,
                   selected: _tab == 4,
                   onTap: () => _openTab(4),
                   badge: unreadCount > 0 ? unreadCount : null,
@@ -184,6 +186,7 @@ class _NavItem extends StatelessWidget {
   const _NavItem({
     this.icon,
     this.svgData,
+    this.assetPath,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -192,6 +195,7 @@ class _NavItem extends StatelessWidget {
 
   final IconData? icon;
   final String? svgData;
+  final String? assetPath;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -210,6 +214,12 @@ class _NavItem extends StatelessWidget {
             width: 22,
             height: 22,
           )
+        : assetPath != null
+            ? ImageIcon(
+                AssetImage(assetPath!),
+                size: 24,
+                color: color,
+              )
         : Icon(icon!, size: 24, color: color);
 
     return Expanded(
@@ -258,44 +268,155 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _AiTripAdvisorButton extends StatelessWidget {
+class _AiTripAdvisorButton extends StatefulWidget {
   const _AiTripAdvisorButton({required this.onTap});
-
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDark
-        ? const Color(0xFF000000)
-        : const Color(0xFF1F262F);
-    final borderColor = isDark
-        ? const Color(0x59FFFFFF)
-        : const Color(0x66FFFFFF);
+  State<_AiTripAdvisorButton> createState() => _AiTripAdvisorButtonState();
+}
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          width: 46,
-          height: 46,
+class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
+    with TickerProviderStateMixin {
+  OverlayEntry? _tooltip;
+  late AnimationController _wave1;
+  late AnimationController _wave2;
+  late AnimationController _wave3;
+
+  @override
+  void initState() {
+    super.initState();
+    _wave1 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
+      ..repeat();
+    _wave2 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
+      ..repeat();
+    _wave3 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
+      ..repeat();
+
+    // Stagger the three rings
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _wave2.value = 0.3;
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _wave3.value = 0.6;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showTooltip());
+  }
+
+  void _showTooltip() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final pos = box.localToGlobal(Offset.zero);
+
+    _tooltip = OverlayEntry(
+      builder: (_) => Positioned(
+        right: 16,
+        top: pos.dy - 50,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.16),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Text(
+              'Ask our AI ✨',
+              style: TextStyle(color: AppColors.black, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_tooltip!);
+
+    Future.delayed(const Duration(seconds: 3), () {
+      _tooltip?.remove();
+      _tooltip = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _wave1.dispose();
+    _wave2.dispose();
+    _wave3.dispose();
+    _tooltip?.remove();
+    _tooltip = null;
+    super.dispose();
+  }
+
+  Widget _ring(AnimationController ctrl, double maxRadius) {
+    return AnimatedBuilder(
+      animation: ctrl,
+      builder: (_, __) {
+        final t = ctrl.value;
+        return Container(
+          width: maxRadius * 2 * t,
+          height: maxRadius * 2 * t,
           decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor, width: 1),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x3A000000),
-                blurRadius: 12,
-                offset: Offset(0, 6),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.rausch.withValues(alpha: (1 - t) * 0.45),
+              width: 1.5,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double btnSize = 52;
+    const double iconSize = 24;
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: SizedBox(
+        width: btnSize + 28,
+        height: btnSize + 28,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Wave rings
+            _ring(_wave1, btnSize * 0.88),
+            _ring(_wave2, btnSize * 0.88),
+            _ring(_wave3, btnSize * 0.88),
+            // Theme-aware pill button
+            Container(
+              width: btnSize,
+              height: btnSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.surface,
+                border: Border.all(
+                  color: AppColors.rausch.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.rausch.withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(Icons.auto_awesome_rounded, size: 20, color: AppColors.white),
-          ),
+              child: const Center(
+                child: Icon(Icons.auto_awesome, size: iconSize, color: AppColors.rausch),
+              ),
+            ),
+          ],
         ),
       ),
     );

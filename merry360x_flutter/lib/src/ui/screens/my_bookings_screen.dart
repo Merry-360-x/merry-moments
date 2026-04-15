@@ -4,6 +4,7 @@ import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../../session_controller.dart';
 import 'post_booking_center_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key, required this.session});
@@ -42,6 +43,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -49,11 +51,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text('My Bookings',
-            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
+        title: Text(l.myBookings,
+            style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
         actions: [
           IconButton(
-            tooltip: 'Post-booking center',
+            tooltip: l.postBookingCenter,
             icon: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.hof),
             onPressed: () => Navigator.push(
               context,
@@ -71,7 +73,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
           unselectedLabelColor: AppColors.foggy,
           dividerColor: const Color(0xFFEBEBEB),
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          tabs: const [Tab(text: 'Upcoming'), Tab(text: 'Past')],
+          tabs: [Tab(text: l.upcoming), Tab(text: l.past)],
         ),
       ),
       body: TabBarView(
@@ -94,12 +96,13 @@ class _BookingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     if (bookings.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(isPast ? Icons.history : Icons.luggage_outlined, size: 56, color: AppColors.hackberry),
           const SizedBox(height: 16),
-          Text(isPast ? 'No past bookings' : 'No upcoming bookings',
+          Text(isPast ? l.noPastBookings : l.noUpcomingBookings,
               style: const TextStyle(color: AppColors.foggy, fontSize: 15)),
         ]),
       );
@@ -125,6 +128,7 @@ class _BookingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final title = (booking['title'] ?? 'Booking').toString();
     final checkIn = booking['check_in']?.toString() ?? '';
     final checkOut = booking['check_out']?.toString() ?? '';
@@ -176,14 +180,14 @@ class _BookingTile extends StatelessWidget {
           Row(children: [
             const Icon(Icons.payment_outlined, size: 14, color: AppColors.foggy),
             const SizedBox(width: 6),
-            Text('$currency ${amount.toStringAsFixed(2)}',
+            Text(session.formatPrice(amount, itemCurrency: currency),
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black)),
           ]),
           const SizedBox(height: 12),
           Row(children: [
             if (!isPast && status == 'pending' || status == 'confirmed') ...[
               _ActionBtn(
-                label: 'Cancel',
+                label: l.cancel,
                 color: AppColors.rausch,
                 icon: Icons.cancel_outlined,
                 onTap: () => _confirmCancel(context, bookingId),
@@ -192,7 +196,7 @@ class _BookingTile extends StatelessWidget {
             ],
             if (isPast && status == 'completed' && !hasReview)
               _ActionBtn(
-                label: 'Write Review',
+                label: l.writeReview,
                 color: const Color(0xFF4CAF50),
                 icon: Icons.star_outline,
                 onTap: () => _openReview(context, bookingId, title),
@@ -213,20 +217,21 @@ class _BookingTile extends StatelessWidget {
   }
 
   void _confirmCancel(BuildContext context, String bookingId) {
+    final l = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cancel Booking'),
-        content: const Text('Are you sure you want to cancel this booking? This action cannot be undone.'),
+        title: Text(l.cancelBooking),
+        content: Text(l.cancelBookingConfirm),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep Booking')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l.keepBooking)),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await session.cancelBooking(bookingId);
               onRefresh();
             },
-            child: const Text('Cancel Booking', style: TextStyle(color: AppColors.rausch)),
+            child: Text(l.cancelBooking, style: const TextStyle(color: AppColors.rausch)),
           ),
         ],
       ),
@@ -295,8 +300,9 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
   }
 
   Future<void> _submit() async {
+    final l = AppLocalizations.of(context)!;
     if (_commentCtrl.text.trim().isEmpty) {
-      AppSnackBar.error(context, 'Please add a comment');
+      AppSnackBar.error(context, l.addComment);
       return;
     }
     setState(() => _saving = true);
@@ -309,7 +315,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         comment: _commentCtrl.text.trim(),
       );
       if (mounted) {
-        AppSnackBar.success(context, 'Review submitted. Thank you!');
+        AppSnackBar.success(context, l.reviewSubmitted);
         Navigator.pop(context);
       }
     } catch (e) {
@@ -321,6 +327,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -328,19 +335,19 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text('Write a Review',
-            style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
+        title: Text(l.writeAReview,
+            style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 22)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(widget.listingTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black)),
           const SizedBox(height: 24),
-          _ratingSection('Accommodation Rating', _accomRating, (v) => setState(() => _accomRating = v)),
+          _ratingSection(l.accommodationRating, _accomRating, (v) => setState(() => _accomRating = v)),
           const SizedBox(height: 20),
-          _ratingSection('Service Rating', _serviceRating, (v) => setState(() => _serviceRating = v)),
+          _ratingSection(l.serviceRating, _serviceRating, (v) => setState(() => _serviceRating = v)),
           const SizedBox(height: 20),
-          const Text('Your Review', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.black)),
+          Text(l.yourReview, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.black)),
           const SizedBox(height: 8),
           TextField(
             controller: _commentCtrl,
@@ -367,7 +374,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
               ),
               child: _saving
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Submit Review', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  : Text(l.submitReview, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ),
           ),
         ]),

@@ -682,6 +682,21 @@ export default function HostDashboard() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [showCameraDialog, setShowCameraDialog] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const showProfileDialogRef = useRef(false);
+  const showCameraDialogRef = useRef(false);
+  const savingProfileRef = useRef(false);
+
+  useEffect(() => {
+    showProfileDialogRef.current = showProfileDialog;
+  }, [showProfileDialog]);
+
+  useEffect(() => {
+    showCameraDialogRef.current = showCameraDialog;
+  }, [showCameraDialog]);
+
+  useEffect(() => {
+    savingProfileRef.current = savingProfile;
+  }, [savingProfile]);
 
   // Editing states
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
@@ -991,13 +1006,23 @@ export default function HostDashboard() {
           tour_license_url: appData.tour_license_url || null,
           rdb_certificate_url: appData.rdb_certificate_url || null,
         });
-        // Pre-fill profile form
-        setProfileForm({
-          service_types: appData.service_types || [],
-          national_id_photo_url: appData.national_id_photo_url || '',
-          selfie_photo_url: appData.selfie_photo_url || '',
-          tour_license_url: appData.tour_license_url || '',
-          rdb_certificate_url: appData.rdb_certificate_url || '',
+        // Keep in-progress verification inputs stable while user is actively editing.
+        setProfileForm((prev) => {
+          if (
+            showProfileDialogRef.current ||
+            showCameraDialogRef.current ||
+            savingProfileRef.current
+          ) {
+            return prev;
+          }
+
+          return {
+            service_types: appData.service_types || [],
+            national_id_photo_url: appData.national_id_photo_url || '',
+            selfie_photo_url: appData.selfie_photo_url || '',
+            tour_license_url: appData.tour_license_url || '',
+            rdb_certificate_url: appData.rdb_certificate_url || '',
+          };
         });
       } else {
         // No approved application found - set defaults with incomplete profile
@@ -1336,7 +1361,7 @@ export default function HostDashboard() {
     const bookingsChannel = supabase
       .channel('host-bookings-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-        fetchData();
+        queueRealtimeRefresh();
       })
       .subscribe();
     channels.push(bookingsChannel);
@@ -1345,7 +1370,7 @@ export default function HostDashboard() {
     const reviewsChannel = supabase
       .channel('host-reviews-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'property_reviews' }, () => {
-        fetchData();
+        queueRealtimeRefresh();
       })
       .subscribe();
     channels.push(reviewsChannel);
@@ -1354,7 +1379,7 @@ export default function HostDashboard() {
     const propertiesChannel = supabase
       .channel('host-properties-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
-        fetchData();
+        queueRealtimeRefresh();
       })
       .subscribe();
     channels.push(propertiesChannel);
@@ -1363,7 +1388,7 @@ export default function HostDashboard() {
     const toursChannel = supabase
       .channel('host-tours-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_packages' }, () => {
-        fetchData();
+        queueRealtimeRefresh();
       })
       .subscribe();
     channels.push(toursChannel);
@@ -1372,7 +1397,7 @@ export default function HostDashboard() {
     const vehiclesChannel = supabase
       .channel('host-vehicles-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_vehicles' }, () => {
-        fetchData();
+        queueRealtimeRefresh();
       })
       .subscribe();
     channels.push(vehiclesChannel);
@@ -1408,7 +1433,7 @@ export default function HostDashboard() {
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [user, fetchData, fetchHostPayoutSnapshot]);
+  }, [user, queueRealtimeRefresh, fetchHostPayoutSnapshot]);
 
   // Track if we've already checked the profile on this page load
   const [profileChecked, setProfileChecked] = useState(false);

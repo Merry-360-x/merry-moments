@@ -66,6 +66,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
+          // ── Personal details ──
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -121,6 +122,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
               ],
             ),
           ),
+
         ],
       ),
       bottomNavigationBar: SafeArea(

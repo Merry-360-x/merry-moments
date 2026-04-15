@@ -3,11 +3,14 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Locale;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
+import 'lib/fx.dart';
 import 'models/mobile_sync.dart';
 import 'services/app_database.dart';
 import 'services/push_notification_service.dart';
@@ -40,6 +43,14 @@ class SessionController extends ChangeNotifier {
   DateTime? _lastSuccessfulRefreshAt;
   int _userSyncGeneration = 0;
 
+  // User preferences — kept in sync with web via `user_preferences` table.
+  String _language = 'en';
+  String _currency = 'RWF';
+
+  // Live FX rates fetched from admin_fx_rates — overrides kFxRates defaults.
+  Map<String, double> _fxRates = kFxRates;
+  RealtimeChannel? _fxRatesChannel;
+
   static const Duration _periodicSyncInterval = Duration(seconds: 30);
   static const Duration _realtimeDebounce = Duration(milliseconds: 900);
 
@@ -62,6 +73,27 @@ class SessionController extends ChangeNotifier {
   String? get error => _error;
   MobileSyncPayload? get payload => _payload;
   bool get isAuthenticated => _userId.trim().isNotEmpty;
+  String get language => _language;
+  String get currency => _currency;
+
+  /// Locale derived from the user's language preference.
+  Locale get locale {
+    switch (_language) {
+      case 'rw': return const Locale('rw');
+      case 'fr': return const Locale('fr');
+      case 'sw': return const Locale('sw');
+      case 'zh': return const Locale('zh');
+      default:   return const Locale('en');
+    }
+  }
+
+  /// Format [amount] (stored in [itemCurrency]) converted to the user's
+  /// selected display currency using live admin FX rates.
+  /// Falls back to the item's own currency if the rate is unknown.
+  String formatPrice(num amount, {String? itemCurrency}) {
+    final from = (itemCurrency ?? _currency).toUpperCase();
+    return formatMoneyWithConversion(amount, from, _currency, _fxRates);
+  }
 
   SupabaseClient? get _supabase {
     try {
@@ -79,6 +111,8 @@ class SessionController extends ChangeNotifier {
 
     _startSyncSubscriptions();
     _startPeriodicSync();
+    unawaited(_loadFxRates());
+    _watchFxRates();
 
     // Check for existing session
     final session = client.auth.currentSession;
@@ -86,7 +120,10 @@ class SessionController extends ChangeNotifier {
       _userId = session.user.id;
       _rebindUserSyncSubscriptions();
       unawaited(_pushNotifications.syncForUser(_userId));
+      unawaited(loadPreferences());
       notifyListeners();
+    } else {
+      unawaited(loadPreferences());
     }
 
     // Listen for auth state changes
@@ -100,6 +137,7 @@ class SessionController extends ChangeNotifier {
         if (_userId.isNotEmpty) {
           unawaited(_pushNotifications.syncForUser(_userId));
         }
+        unawaited(loadPreferences());
         notifyListeners();
         // Refresh for both login (load user data) and logout (load public data)
         refresh();
@@ -630,6 +668,101 @@ class SessionController extends ChangeNotifier {
     _backgroundRefresh();
   }
 
+  // ── Preferences ──
+
+  /// Load language + currency from Supabase (if authed) or SharedPreferences (guest).
+  /// Fetch live FX rates from admin_fx_rates table and merge with BNR defaults.
+  Future<void> _loadFxRates() async {
+    final client = _supabase;
+    if (client == null) return;
+    try {
+      final data = await client
+          .from('admin_fx_rates')
+          .select('currency_code,rate_to_rwf')
+          .eq('is_active', true) as List;
+      if (data.isEmpty) return;
+      final loaded = <String, double>{};
+      for (final row in data) {
+        final code = (row['currency_code'] as String? ?? '').toUpperCase().trim();
+        final rate = double.tryParse('${row['rate_to_rwf'] ?? 0}') ?? 0;
+        if (code.isNotEmpty && rate > 0) loaded[code] = rate;
+      }
+      if (loaded.isNotEmpty) {
+        _fxRates = {...kFxRates, ...loaded, 'RWF': 1.0};
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// Subscribe to realtime changes on admin_fx_rates and reload on any change.
+  void _watchFxRates() {
+    _fxRatesChannel?.unsubscribe();
+    _fxRatesChannel = _supabase
+        ?.channel('fx-rates-flutter')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'admin_fx_rates',
+          callback: (_) => unawaited(_loadFxRates()),
+        )
+        .subscribe();
+  }
+
+  Future<void> loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Load local fallbacks first so UI is always populated synchronously.
+    final localLang = prefs.getString('merry360_language');
+    final localCurrency = prefs.getString('merry360_currency');
+    final userId = _userId.trim();
+
+    if (userId.isNotEmpty) {
+      try {
+        final data = await _api.fetchUserPreferences(userId: userId);
+        final lang = (data['language'] as String?)?.trim();
+        final cur = (data['currency'] as String?)?.trim();
+        if (lang != null && lang.isNotEmpty) {
+          _language = lang;
+          await prefs.setString('merry360_language', lang);
+        } else if (localLang != null && localLang.isNotEmpty) {
+          _language = localLang;
+        }
+        if (cur != null && cur.isNotEmpty) {
+          _currency = cur;
+          await prefs.setString('merry360_currency', cur);
+        } else if (localCurrency != null && localCurrency.isNotEmpty) {
+          _currency = localCurrency;
+        }
+      } catch (_) {
+        if (localLang != null && localLang.isNotEmpty) _language = localLang;
+        if (localCurrency != null && localCurrency.isNotEmpty) _currency = localCurrency;
+      }
+    } else {
+      if (localLang != null && localLang.isNotEmpty) _language = localLang;
+      if (localCurrency != null && localCurrency.isNotEmpty) _currency = localCurrency;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setLanguage(String lang) async {
+    _language = lang;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('merry360_language', lang);
+    if (_userId.trim().isNotEmpty) {
+      await _api.upsertUserPreference(userId: _userId, language: lang);
+    }
+  }
+
+  Future<void> setCurrency(String cur) async {
+    _currency = cur;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('merry360_currency', cur);
+    if (_userId.trim().isNotEmpty) {
+      await _api.upsertUserPreference(userId: _userId, currency: cur);
+    }
+  }
+
   Future<void> addListingToWishlist(Map<String, dynamic> listing) async {
     if (!isAuthenticated) return;
     // Optimistic: add a placeholder to local wishlists
@@ -914,6 +1047,7 @@ class SessionController extends ChangeNotifier {
     _supportMessageRebindTimer?.cancel();
     _clearUserSyncSubscriptions();
     _clearSyncSubscriptions();
+    _fxRatesChannel?.unsubscribe();
     unawaited(_pushNotifications.dispose());
     super.dispose();
   }

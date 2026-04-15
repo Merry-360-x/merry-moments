@@ -325,13 +325,13 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final neutralBg = isDark
-        ? const Color(0xFF000000)
+        ? const Color(0xFF3A3F3F)
         : const Color(0xFFEEEEEE);
     final neutralFg = isDark
         ? const Color(0xFFD5DAE3)
         : const Color(0xFF757575);
     final fallbackBg = isDark
-      ? const Color(0xFF000000)
+      ? const Color(0xFF3A3F3F)
         : const Color(0xFFF5F5F5);
     final fallbackFg = isDark
         ? const Color(0xFFC8D0DF)
@@ -896,7 +896,7 @@ class _AdminOverviewTab extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: isDark
-                    ? const [Color(0xFF000000), Color(0xFF000000)]
+                    ? const [Color(0xFF303535), Color(0xFF3A3F3F)]
                     : const [Color(0xFFF7F9FF), Color(0xFFEEF3FF)],
               ),
             ),

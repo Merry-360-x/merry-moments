@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../app.dart';
+import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -57,6 +58,7 @@ const _kPayMethods = <_PayMethod>[
   _PayMethod(id: 'VODACOM_TZN', name: 'Vodacom M-Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
   _PayMethod(id: 'TIGO_TZN', name: 'Tigo Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
   _PayMethod(id: 'AIRTEL_TZN', name: 'Airtel Money', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(id: 'HALOTEL_TZN', name: 'Halotel', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFF4CAF50), asset: 'assets/payment/mtn-momo.png'),
   // Ghana (+233) — GHS
   _PayMethod(id: 'MTN_MOMO_GHA', name: 'MTN MoMo', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
   _PayMethod(id: 'VODAFONE_GHA', name: 'Vodafone Cash', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
@@ -80,6 +82,13 @@ const _kPayMethods = <_PayMethod>[
   _PayMethod(id: 'TNM_MWI', name: 'TNM Mpamba', country: 'Malawi', countryCode: '+265', currency: 'MWK', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
   // Burundi (+257) — BIF
   _PayMethod(id: 'ECONET_BDI', name: 'Econet Leo', country: 'Burundi', countryCode: '+257', currency: 'BIF', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
+  // Benin (+229) — XOF
+  _PayMethod(id: 'MTN_MOMO_BEN', name: 'MTN MoMo', country: 'Benin', countryCode: '+229', currency: 'XOF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
+  _PayMethod(id: 'MOOV_BEN', name: 'Moov Money', country: 'Benin', countryCode: '+229', currency: 'XOF', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
+  // Gabon (+241) — XAF
+  _PayMethod(id: 'AIRTEL_GAB', name: 'Airtel Money', country: 'Gabon', countryCode: '+241', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  // Sierra Leone (+232) — SLE
+  _PayMethod(id: 'ORANGE_SLE', name: 'Orange Money', country: 'Sierra Leone', countryCode: '+232', currency: 'SLE', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
   // Congo-Brazzaville (+242) — XAF
   _PayMethod(id: 'MTN_MOMO_COG', name: 'MTN MoMo', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
   _PayMethod(id: 'AIRTEL_COG', name: 'Airtel Money', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
@@ -142,6 +151,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _promoSuccess = false;
 
   bool _showPriceDetails = false;
+  late AppLocalizations _l;
 
   @override
   void initState() {
@@ -189,6 +199,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     'CD': 'VODACOM_MPESA_COD', 'CM': 'MTN_MOMO_CMR', 'SN': 'ORANGE_SEN',
     'CI': 'MTN_MOMO_CIV', 'MZ': 'VODACOM_MOZ', 'MW': 'AIRTEL_MWI',
     'BI': 'ECONET_BDI', 'CG': 'MTN_MOMO_COG',
+    'BJ': 'MTN_MOMO_BEN', 'GA': 'AIRTEL_GAB', 'SL': 'ORANGE_SLE',
   };
 
   static const _geoCountryName = <String, String>{
@@ -206,6 +217,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     'MW': 'Malawi',
     'BI': 'Burundi',
     'CG': 'Congo',
+    'BJ': 'Benin',
+    'GA': 'Gabon',
+    'SL': 'Sierra Leone',
   };
 
   List<_PayMethod> get _regionPayMethods {
@@ -482,14 +496,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (_payTab == 0) {
         // ── Mobile Money (PawaPay) ──
         if (_selectedMethod == null) {
-          _showSnack('Select a mobile money provider');
+          _showSnack(_l.selectMomoProvider);
           setState(() => _submitting = false);
           return;
         }
         final localPhone = _phoneCtrl.text.trim();
         final phone = _normalizedMobileMoneyPhone(localPhone);
         if (localPhone.isEmpty || phone.isEmpty) {
-          _showSnack('Enter your mobile money number');
+          _showSnack(_l.enterMomoNumber);
           setState(() => _submitting = false);
           return;
         }
@@ -564,7 +578,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (payResult == 'success') {
           setState(() => _step = 2);
         } else if (payResult == 'failed') {
-          _showSnack('Payment failed or was declined. Please try again.');
+          _showSnack(_l.paymentFailed);
         }
         // 'cancelled' or null: user closed the sheet, stay on payment step
       } else {
@@ -613,6 +627,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _l = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -627,10 +642,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         title: Text(
           _step == 0
-              ? 'Review booking'
+              ? _l.reviewBooking
               : _step == 1
-                  ? 'Payment'
-                  : 'Booking confirmed',
+                  ? _l.payment
+                  : _l.bookingConfirmed,
           style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),
@@ -671,7 +686,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Total', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                      Text(_l.total, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
                       const SizedBox(height: 2),
                       Text('$_currency ${_total.toStringAsFixed(0)}',
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -694,12 +709,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : Text(
                             _step == 0
-                                ? 'Continue to payment'
+                                ? _l.continueToPay
                                 : _payTab == 1
-                                    ? 'Pay by card'
+                                    ? _l.payByCard
                                     : _payTab == 2
-                                        ? 'Confirm booking'
-                                        : 'Confirm & Pay',
+                                        ? _l.confirmBooking
+                                        : _l.confirmAndPay,
                             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                           ),
                   ),
@@ -715,7 +730,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _goToPayment() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      _showSnack('Enter your full name');
+      _showSnack(_l.enterFullName);
       return;
     }
     setState(() => _step = 1);
@@ -725,7 +740,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final placeholderColor = AppColors.surfaceSubtle;
     final placeholderIconColor = AppColors.hackberry;
-    final totalStripColor = isDark ? const Color(0xFF000000) : const Color(0xFFFFF0F2);
+    final totalStripColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFF0F2);
     final promoAppliedBg = isDark ? const Color(0x1A4CAF50) : const Color(0xFFE8F5E9);
     final promoAppliedBorder = isDark ? const Color(0x554CAF50) : const Color(0x4D4CAF50);
     final promoAppliedText = isDark ? const Color(0xFF93DFA6) : const Color(0xFF2E7D32);
@@ -809,7 +824,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('Instant confirm', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                        child: Text(_l.instantConfirm, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
                       ),
                     ],
                   ),
@@ -823,22 +838,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // ── Trip dates ──
         if (widget.checkIn != null && widget.checkOut != null) ...[
-          _SectionTitle(label: 'Your trip'),
+          _SectionTitle(label: _l.yourTrip),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: 'Check-in', value: _fmtDate(widget.checkIn!))),
+              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: _l.checkIn, value: _fmtDate(widget.checkIn!))),
               const SizedBox(width: 10),
-              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: 'Check-out', value: _fmtDate(widget.checkOut!))),
+              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: _l.checkOut, value: _fmtDate(widget.checkOut!))),
             ],
           ),
           const SizedBox(height: 10),
-          _InfoTile(icon: Icons.people_outline, label: 'Guests', value: '${widget.guests} guest${widget.guests > 1 ? 's' : ''}'),
+          _InfoTile(icon: Icons.people_outline, label: _l.guests, value: '${widget.guests} guest${widget.guests > 1 ? 's' : ''}'),
           const SizedBox(height: 18),
         ],
 
         // ── Price breakdown ──
-        _SectionTitle(label: 'Price breakdown'),
+        _SectionTitle(label: _l.priceBreakdown),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
@@ -861,7 +876,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: GestureDetector(
                         onTap: () => setState(() => _showPriceDetails = !_showPriceDetails),
                         child: Text(
-                          _showPriceDetails ? 'Hide price details' : 'Show price details',
+                          _showPriceDetails ? _l.hidePriceDetails : _l.showPriceDetails,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -908,7 +923,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.black)),
+                    Text(_l.total, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.black)),
                     Text('$_currency ${_total.toStringAsFixed(0)}',
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.rausch)),
                   ],
@@ -931,7 +946,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Promo code', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(_l.promoCode, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               if (_promoSuccess && _appliedDiscount != null) ...[
                 // Applied state — show chip with remove
@@ -967,7 +982,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       controller: _promoCtrl,
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
-                        hintText: 'Enter code',
+                        hintText: _l.enterCode,
                         hintStyle: const TextStyle(fontSize: 13),
                         filled: true, fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -991,7 +1006,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       child: _applyingPromo
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Apply', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          : Text(_l.apply, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ]),
@@ -1007,15 +1022,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 18),
 
         // ── Guest details form ──
-        _SectionTitle(label: 'Guest details'),
+        _SectionTitle(label: _l.guestDetails),
         const SizedBox(height: 10),
-        _InputField(label: 'Full name', controller: _nameCtrl, icon: Icons.person_outline),
+        _InputField(label: _l.fullName, controller: _nameCtrl, icon: Icons.person_outline),
         const SizedBox(height: 10),
-        _InputField(label: 'Email', controller: _emailCtrl, icon: Icons.email_outlined,
+        _InputField(label: _l.email, controller: _emailCtrl, icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress),
         const SizedBox(height: 10),
         _InputField(
-          label: 'Special requests (optional)',
+          label: _l.specialRequests,
           controller: _notesCtrl,
           icon: Icons.note_outlined,
           maxLines: 3,
@@ -1063,9 +1078,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Row(
             children: [
               if (_showMobileMoney)
-                _PayTabButton(label: 'Mobile Money', assetPath: 'assets/payment/mtn-momo.png', selected: _payTab == 0, onTap: () => setState(() => _payTab = 0)),
-              _PayTabButton(label: 'Card', assetPath: 'assets/payment/card.png', selected: _payTab == 1, onTap: () => setState(() => _payTab = 1)),
-              _PayTabButton(label: 'Bank Transfer', assetPath: 'assets/payment/bank-transfer.png', selected: _payTab == 2, onTap: () => setState(() => _payTab = 2)),
+                _PayTabButton(label: _l.mobileMoney, assetPath: 'assets/payment/mtn-momo.png', selected: _payTab == 0, onTap: () => setState(() => _payTab = 0)),
+              _PayTabButton(label: _l.card, assetPath: 'assets/payment/card.png', selected: _payTab == 1, onTap: () => setState(() => _payTab = 1)),
+              _PayTabButton(label: _l.bankTransfer, assetPath: 'assets/payment/bank-transfer.png', selected: _payTab == 2, onTap: () => setState(() => _payTab = 2)),
             ],
           ),
         ),
@@ -1083,9 +1098,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildMobileMoneySection() {
     final regionMethods = _regionPayMethods;
     if (regionMethods.isEmpty) {
-      return const Text(
-        'Mobile money providers are not available for your detected region.',
-        style: TextStyle(fontSize: 13, color: AppColors.foggy),
+      return Text(
+        _l.momoNotAvailable,
+        style: const TextStyle(fontSize: 13, color: AppColors.foggy),
       );
     }
 
@@ -1094,7 +1109,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(label: 'Select provider'),
+        _SectionTitle(label: _l.selectProvider),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -1120,7 +1135,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 16),
 
         // ── Phone number ──
-        _SectionTitle(label: 'Mobile money number'),
+        _SectionTitle(label: _l.momoNumber),
         const SizedBox(height: 10),
         TextFormField(
           controller: _phoneCtrl,
@@ -1130,7 +1145,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           decoration: InputDecoration(
             prefixText: _selectedMethod != null ? '${_selectedMethod!.countryCode} ' : '',
             prefixStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black),
-            hintText: '7XX XXX XXX',
+            hintText: _l.momoPlaceholder,
             filled: true,
             fillColor: AppColors.surface,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1141,7 +1156,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
 
         const SizedBox(height: 16),
-        _securityNote('You\'ll receive an SMS prompt to confirm payment on your mobile money account.'),
+        _securityNote(_l.momoPromptDesc),
       ],
     );
   }
@@ -1149,7 +1164,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // ── Card Tab ──
   Widget _buildCardSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardInfoBg = isDark ? const Color(0xFF000000) : const Color(0xFFF8F9FF);
+    final cardInfoBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F9FF);
     final cardInfoBorder = isDark ? const Color(0xFF2A3342) : const Color(0xFFDDE2F5);
     final cardInfoText = isDark ? const Color(0xFFD8E1F2) : const Color(0xFF3D3D3D);
     return Column(
@@ -1185,7 +1200,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'A secure Flutterwave payment sheet opens right here in the app. Enter your card details there — card only, no redirects.',
+                  _l.cardSecureDesc,
                   style: TextStyle(fontSize: 13, color: cardInfoText, height: 1.45),
                 ),
               ),
@@ -1194,7 +1209,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
 
         const SizedBox(height: 16),
-        _securityNote('Your card details are entered on Flutterwave\'s secure page. We never store or see your card number.'),
+        _securityNote(_l.cardSecureNote),
       ],
     );
   }
@@ -1211,15 +1226,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border),
           ),
-          child: const Row(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, size: 18, color: AppColors.foggy),
-              SizedBox(width: 10),
+              const Icon(Icons.info_outline, size: 18, color: AppColors.foggy),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Bank transfer: we\'ll send you the bank details after you place the booking. Processing time is typically 1–2 business days after payment is received.',
-                  style: TextStyle(fontSize: 13, color: AppColors.hof, height: 1.4),
+                  _l.bankTransferDesc,
+                  style: const TextStyle(fontSize: 13, color: AppColors.hof, height: 1.4),
                 ),
               ),
             ],
@@ -1227,7 +1242,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
 
         const SizedBox(height: 16),
-        _securityNote('Your booking will be held for 48 hours pending payment confirmation.'),
+        _securityNote(_l.bankHoldNote),
       ],
     );
   }
@@ -1414,10 +1429,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 28),
                     Text(
                       _paymentMethod == 'card'
-                          ? 'Payment initiated'
+                          ? _l.paymentInitiated
                           : _paymentMethod == 'bank_transfer'
-                              ? 'Booking pending'
-                              : 'Booking confirmed',
+                              ? _l.bookingPending
+                              : _l.bookingConfirmed,
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -1429,9 +1444,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _paymentMethod == 'card'
-                          ? 'Complete your card payment in the browser.\nYour booking will be confirmed automatically.'
+                          ? _l.completeCardPayment
                           : _paymentMethod == 'bank_transfer'
-                              ? 'Your booking is pending. Our team will\ncontact you to arrange bank transfer details.'
+                              ? _l.bankTransferPending
                               : 'You\'ll receive an SMS to confirm payment\nvia ${_selectedMethod?.name ?? 'mobile money'}.',
                       style: TextStyle(
                         fontSize: 15,
@@ -1480,7 +1495,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           backgroundColor: AppColors.rausch,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('Back to home', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                        child: Text(_l.backToHome, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1494,9 +1509,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           side: const BorderSide(color: AppColors.border),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text(
-                          'View my bookings',
-                          style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
+                        child: Text(
+                          _l.viewMyBookings,
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
                         ),
                       ),
                     ),
@@ -1522,7 +1537,8 @@ class _StepBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const steps = ['Details', 'Payment'];
+    final l = AppLocalizations.of(context)!;
+    final steps = [l.details, l.payment];
     return Row(
       children: List.generate(steps.length, (i) {
         final active = i <= current;
@@ -1752,7 +1768,7 @@ class _PayTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedBg = isDark ? const Color(0xFF000000) : const Color(0xFFF7F7F8);
+    final selectedBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF7F7F8);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,

@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 class TransportScreen extends StatefulWidget {
   const TransportScreen({super.key, required this.session});
@@ -21,36 +22,62 @@ class _TransportScreenState extends State<TransportScreen> {
   bool _loading = true;
   final _searchCtrl = TextEditingController();
 
-  static const _cats = [
-    ('all', 'All'),
-    ('car', 'Cars'),
-    ('van', 'Vans & Buses'),
-    ('motorcycle', 'Motorbikes'),
-    ('boat', 'Boats'),
+  List<(String, String)> _buildCats(AppLocalizations l) => [
+    ('all', l.all),
+    ('car', l.cars),
+    ('van', l.vansAndBuses),
+    ('motorcycle', l.motorbikes),
+    ('boat', l.boats),
   ];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    widget.session.addListener(_onSessionChanged);
+    _syncFromSession();
   }
 
   @override
   void dispose() {
+    widget.session.removeListener(_onSessionChanged);
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  void _onSessionChanged() {
+    if (mounted) _syncFromSession();
+  }
+
+  /// Pull transport listings out of the already-synced session payload.
+  /// Falls back to a direct network fetch when the payload isn't ready yet.
+  void _syncFromSession() {
+    final listings = widget.session.payload?.homeListings;
+    if (listings != null) {
+      final transport = listings
+          .where((i) => i['item_type'] == 'transport')
+          .toList();
+      if (mounted) setState(() { _items = transport; _loading = false; });
+    } else if (_loading) {
+      // Payload not yet available — do a one-time fetch to show content quickly.
+      _fetchFallback();
+    }
+  }
+
+  Future<void> _fetchFallback() async {
     final t = await _api.fetchTransportListings(category: _category == 'all' ? null : _category);
     if (mounted) setState(() { _items = t; _loading = false; });
   }
 
   List<Map<String, dynamic>> get _filtered {
+    var items = _items;
+    if (_category != 'all') {
+      items = items.where((i) =>
+        (i['vehicle_type'] ?? '').toString().toLowerCase() == _category
+      ).toList();
+    }
     final q = _searchCtrl.text.trim().toLowerCase();
-    if (q.isEmpty) return _items;
-    return _items.where((i) =>
+    if (q.isEmpty) return items;
+    return items.where((i) =>
       (i['title'] ?? '').toString().toLowerCase().contains(q) ||
       (i['vehicle_type'] ?? '').toString().toLowerCase().contains(q)
     ).toList();
@@ -58,13 +85,15 @@ class _TransportScreenState extends State<TransportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final cats = _buildCats(l);
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
-        title: const Text('Transport & Transfers',
+        title: Text(l.transportAndTransfers,
             style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: false,
       ),
@@ -77,7 +106,7 @@ class _TransportScreenState extends State<TransportScreen> {
               controller: _searchCtrl,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Search vehicles…',
+                hintText: l.searchVehicles,
                 prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.foggy),
                 filled: true,
                 fillColor: AppColors.linnen,
@@ -90,12 +119,12 @@ class _TransportScreenState extends State<TransportScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: Row(
-              children: _cats.map((c) {
+              children: cats.map((c) {
                 final active = c.$1 == _category;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
-                    onTap: () { setState(() => _category = c.$1); _load(); },
+                    onTap: () { setState(() => _category = c.$1); },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -114,18 +143,18 @@ class _TransportScreenState extends State<TransportScreen> {
               }).toList(),
             ),
           ),
-          Expanded(child: _body()),
+          Expanded(child: _body(l)),
         ],
       ),
     );
   }
 
-  Widget _body() {
+  Widget _body(AppLocalizations l) {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
     final items = _filtered;
     if (items.isEmpty) {
-      return const Center(
-      child: Text('No vehicles found', style: TextStyle(color: AppColors.foggy)),
+      return Center(
+      child: Text(l.noVehiclesFound, style: const TextStyle(color: AppColors.foggy)),
     );
     }
     return ListView.builder(
@@ -195,7 +224,7 @@ class _TransportTile extends StatelessWidget {
                     const SizedBox(width: 12),
                   ],
                   if (price != null)
-                    Text('$currency $price/day', style: const TextStyle(
+                    Text('${session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/day', style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rausch,
                     )),
                 ]),
