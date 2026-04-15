@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -211,19 +212,26 @@ class AppDatabase {
 
     if (userId != null && userId.trim().isNotEmpty) {
       final uid = userId.trim();
-      final userResults = await Future.wait([
-        _sb.from('profiles').select('*').eq('user_id', uid).maybeSingle(),
-        _sb.from('favorites').select('*').eq('user_id', uid).order('created_at', ascending: false),
-        _sb.from('trip_cart_items').select('*').eq('user_id', uid).order('created_at', ascending: false),
-        _sb.from('bookings').select('*').eq('guest_id', uid).order('created_at', ascending: false).limit(50),
-        _sb.from('user_roles').select('role').eq('user_id', uid),
-      ]);
+      try {
+        final userResults = await Future.wait([
+          _sb.from('profiles').select('*').eq('user_id', uid).maybeSingle(),
+          _sb.from('favorites').select('*').eq('user_id', uid).order('created_at', ascending: false),
+          _sb.from('trip_cart_items').select('*').eq('user_id', uid).order('created_at', ascending: false),
+          _sb.from('bookings').select('*').eq('guest_id', uid).order('created_at', ascending: false).limit(50),
+          _sb.from('user_roles').select('role').eq('user_id', uid),
+        ]);
 
-      profile = userResults[0] as Map<String, dynamic>?;
-      wishlists = (userResults[1] as List).cast<Map<String, dynamic>>();
-      tripCart = (userResults[2] as List).cast<Map<String, dynamic>>();
-      bookings = (userResults[3] as List).cast<Map<String, dynamic>>();
-      roles = (userResults[4] as List).map((r) => (r as Map)['role'].toString()).where((r) => r.isNotEmpty).toList();
+        profile = userResults[0] as Map<String, dynamic>?;
+        wishlists = (userResults[1] as List).cast<Map<String, dynamic>>();
+        tripCart = (userResults[2] as List).cast<Map<String, dynamic>>();
+        bookings = (userResults[3] as List).cast<Map<String, dynamic>>();
+        roles = (userResults[4] as List).map((r) => (r as Map)['role'].toString()).where((r) => r.isNotEmpty).toList();
+      } catch (e) {
+        // User-specific queries failed (JWT not yet propagated, RLS issue, or
+        // transient network error). Serve public data only — the periodic sync
+        // will retry and populate user data once the session is stable.
+        debugPrint('[fetchSync] user queries failed for $uid: $e');
+      }
     }
 
     return MobileSyncPayload(
@@ -1923,21 +1931,6 @@ class AppDatabase {
       }
     }
 
-    Future<void> clearLocalSessionSilently() async {
-      try {
-        await _sb.auth.signOut(scope: SignOutScope.local);
-        return;
-      } catch (_) {
-        // Fall through to default signOut.
-      }
-
-      try {
-        await _sb.auth.signOut();
-      } catch (_) {
-        // Nothing else to do.
-      }
-    }
-
     Future<String> resolveAccessToken({bool forceRefresh = false}) async {
       Session? session = _sb.auth.currentSession;
 
@@ -1985,11 +1978,9 @@ class AppDatabase {
         throw Exception('Session expired. Please sign out and sign in again.');
       }
 
-      final user = await _sb.auth.getUser(token);
-      if (user.user == null) {
-        throw Exception('Session expired. Please sign out and sign in again.');
-      }
-
+      // NOTE: We intentionally skip getUser() here — it adds a network round-trip
+      // that can return null for valid tokens when the project ref changes, causing
+      // a false "session expired" that signs the user out unnecessarily.
       return token;
     }
 
@@ -2084,16 +2075,18 @@ class AppDatabase {
           final retryErrorText = retryError.toString();
           final sdkErrorText = sdkError.toString();
 
-          await clearLocalSessionSilently();
-
+          // NOTE: We no longer call clearLocalSessionSilently() here. Signing the
+          // user out silently on a transient auth failure is too aggressive — it
+          // causes a "session expired" loop where the user signs in but the next
+          // notification attempt signs them out again.
           if (tokenRef.isNotEmpty && expectedRef.isNotEmpty && tokenRef != expectedRef) {
             throw Exception(
-              'Auth token project mismatch. token_ref=$tokenRef expected_ref=$expectedRef role=$tokenRole auth_user_status=$authStatus. Local session was reset. Please sign in again.',
+              'Auth token project mismatch. token_ref=$tokenRef expected_ref=$expectedRef role=$tokenRole auth_user_status=$authStatus. Please check SUPABASE_URL/ANON_KEY config.',
             );
           }
 
           throw Exception(
-            'Auth rejected after retries. token_ref=${tokenRef.isEmpty ? 'unknown' : tokenRef} expected_ref=${expectedRef.isEmpty ? 'unknown' : expectedRef} role=${tokenRole.isEmpty ? 'unknown' : tokenRole} auth_user_status=$authStatus direct_error=$directError retry_error=$retryErrorText sdk_error=$sdkErrorText. Local session was reset. Please sign in again, then retry.',
+            'Notification delivery failed after retries. token_ref=${tokenRef.isEmpty ? 'unknown' : tokenRef} role=${tokenRole.isEmpty ? 'unknown' : tokenRole} auth_user_status=$authStatus direct_error=$directError retry_error=$retryErrorText sdk_error=$sdkErrorText',
           );
         }
       }

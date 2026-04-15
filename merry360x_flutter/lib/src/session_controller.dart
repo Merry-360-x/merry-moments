@@ -1005,7 +1005,7 @@ class SessionController extends ChangeNotifier {
 
   Future<Map<String, dynamic>> fetchUserPostBookingOverview() async {
     if (!isAuthenticated) throw Exception('Sign in to continue');
-    final token = _requireAccessToken();
+    final token = await _resolveAccessToken();
     return _api.fetchPostBookingOverview(accessToken: token);
   }
 
@@ -1014,7 +1014,7 @@ class SessionController extends ChangeNotifier {
     if (!canManagePostBooking) {
       throw Exception('You do not have access to the post-booking console');
     }
-    final token = _requireAccessToken();
+    final token = await _resolveAccessToken();
     return _api.fetchPostBookingOverview(accessToken: token, admin: true);
   }
 
@@ -1023,7 +1023,7 @@ class SessionController extends ChangeNotifier {
     Map<String, dynamic> body = const <String, dynamic>{},
   }) async {
     if (!isAuthenticated) throw Exception('Sign in to continue');
-    final token = _requireAccessToken();
+    final token = await _resolveAccessToken();
     return _api.postBookingAction(
       accessToken: token,
       action: action,
@@ -1031,8 +1031,21 @@ class SessionController extends ChangeNotifier {
     );
   }
 
-  String _requireAccessToken() {
-    final token = accessToken;
+  /// Returns a valid access token, attempting a session refresh if the
+  /// in-memory token is missing or empty (e.g., after a background sign-out
+  /// or token rotation that hasn't propagated to the listener yet).
+  Future<String> _resolveAccessToken() async {
+    var token = accessToken;
+    if (token != null && token.isNotEmpty) return token;
+
+    // Token missing — try an explicit refresh before giving up.
+    if (_userId.isNotEmpty) {
+      try {
+        final refreshed = await _supabase?.auth.refreshSession();
+        token = (refreshed?.session?.accessToken ?? '').trim();
+      } catch (_) {}
+    }
+
     if (token == null || token.isEmpty) {
       throw Exception('Your session expired. Please sign in again.');
     }
