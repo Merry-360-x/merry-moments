@@ -5,7 +5,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
-import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -305,14 +304,6 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
         builder: (_) => _ExploreMomoBottomSheet(isTablet: isTablet),
       );
 
-      if (!mounted) return;
-
-      await showModalBottomSheet<void>(
-        context: context,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _ExplorePromoBottomSheet(isTablet: isTablet),
-      );
     } finally {
       _startupSheetsInProgress = false;
     }
@@ -1164,100 +1155,6 @@ class _MomoProviderCard extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ExplorePromoBottomSheet extends StatelessWidget {
-  const _ExplorePromoBottomSheet({
-    required this.isTablet,
-  });
-
-  final bool isTablet;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF6F8FB);
-    final titleColor = isDark ? const Color(0xFFF4F6FA) : const Color(0xFF1E2A49);
-    final subtitleColor = isDark ? const Color(0xFFBAC4DA) : const Color(0xFF3D4D70);
-    final closeColor = isDark ? const Color(0xFFE5E9F2) : const Color(0xFF2C354A);
-
-    return Container(
-      margin: EdgeInsets.fromLTRB(isTablet ? 24 : 12, 0, isTablet ? 24 : 12, isTablet ? 20 : 10),
-      padding: EdgeInsets.fromLTRB(isTablet ? 24 : 16, isTablet ? 14 : 10, isTablet ? 24 : 16, isTablet ? 18 : 14),
-      decoration: BoxDecoration(
-        color: sheetBg,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2C3550) : const Color(0xFFC6D4EB),
-          width: 1.2,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => Navigator.pop(context),
-              color: closeColor,
-              splashRadius: 20,
-            ),
-          ),
-          SizedBox(height: isTablet ? 6 : 4),
-          Text(
-            l.promoCodeBanner,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isTablet ? 28 : 21,
-              fontWeight: FontWeight.w800,
-              color: titleColor,
-              height: 1.15,
-            ),
-          ),
-          SizedBox(height: isTablet ? 8 : 6),
-          Text(
-            l.promoCodeBannerDesc,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isTablet ? 16 : 14,
-              fontWeight: FontWeight.w600,
-              color: subtitleColor,
-              height: 1.25,
-            ),
-          ),
-          SizedBox(height: isTablet ? 16 : 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () async {
-                await Clipboard.setData(const ClipboardData(text: kSaveTenPromoCode));
-                await setPendingPromoCode(kSaveTenPromoCode);
-                if (!context.mounted) return;
-                AppSnackBar.success(context, l.promoCodeCopied(kSaveTenPromoCode));
-                Navigator.pop(context);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.primary,
-                foregroundColor: scheme.onPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                padding: EdgeInsets.symmetric(vertical: isTablet ? 16 : 14),
-              ),
-              child: Text(
-                l.copyCode,
-                style: TextStyle(
-                  fontSize: isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
