@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'package:video_player/video_player.dart';
@@ -868,7 +869,7 @@ class _StoryFallback extends StatelessWidget {
 // ── Payment providers data ─────────────────────────────────────────────────
 const _kPayProviders = [
   (label: 'MTN MoMo',     asset: 'assets/payment/mtn-momo.png',    brandColor: Color(0xFFFFCC00)),
-  (label: 'Airtel Money', asset: 'assets/payment/airtel-money.png', brandColor: Color(0xFFE40000)),
+  (label: 'Airtel Money', asset: 'assets/payment/airtel-money.svg', brandColor: Color(0xFFE40000)),
   (label: 'M-Pesa',       asset: 'assets/payment/mpesa.png',        brandColor: Color(0xFF60BB46)),
   (label: 'Orange Money', asset: 'assets/payment/orange-money.png', brandColor: Color(0xFFFF6900)),
   (label: 'Vodacom',      asset: '',                                 brandColor: Color(0xFFE60000)),
@@ -1097,13 +1098,23 @@ class _MomoProviderCard extends StatelessWidget {
     final initial = label.isNotEmpty ? label[0].toUpperCase() : '?';
     Widget logoWidget;
     if (logoAssetPath.isNotEmpty) {
-      logoWidget = Image.asset(
-        logoAssetPath,
-        width: 40,
-        height: 40,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => _brandIcon(initial),
-      );
+      if (logoAssetPath.endsWith('.svg')) {
+        logoWidget = SvgPicture.asset(
+          logoAssetPath,
+          width: 40,
+          height: 40,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => _brandIcon(initial),
+        );
+      } else {
+        logoWidget = Image.asset(
+          logoAssetPath,
+          width: 40,
+          height: 40,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => _brandIcon(initial),
+        );
+      }
     } else {
       logoWidget = _brandIcon(initial);
     }
