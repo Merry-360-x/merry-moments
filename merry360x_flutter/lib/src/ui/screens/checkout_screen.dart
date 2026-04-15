@@ -1342,188 +1342,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildSuccess() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final topTone = isDark
-        ? (_paymentMethod == 'bank_transfer'
-            ? const Color(0xFF2A2412)
-            : _paymentMethod == 'card'
-                ? const Color(0xFF18223A)
-                : const Color(0xFF15261A))
-        : (_paymentMethod == 'bank_transfer'
-            ? const Color(0xFFFFF8E1)
-            : _paymentMethod == 'card'
-                ? const Color(0xFFF0F4FF)
-                : const Color(0xFFEDF7ED));
-    final bottomTone = isDark ? AppColors.surface : Colors.white;
-
-    final ringBg = isDark
-        ? (_paymentMethod == 'bank_transfer'
-            ? const Color(0xFF3A3116)
-            : _paymentMethod == 'card'
-                ? const Color(0xFF243359)
-                : const Color(0xFF1E3625))
-        : (_paymentMethod == 'bank_transfer'
-            ? const Color(0xFFFFF3C4)
-            : _paymentMethod == 'card'
-                ? const Color(0xFFDBE4FF)
-                : const Color(0xFFD4EDDA));
-
-    final ringGlow = (_paymentMethod == 'bank_transfer'
-            ? const Color(0xFFFFB300)
-            : _paymentMethod == 'card'
-                ? const Color(0xFF3B5BDB)
-                : const Color(0xFF4CAF50))
-        .withValues(alpha: isDark ? 0.28 : 0.18);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [topTone, bottomTone],
-          stops: const [0.0, 0.55],
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                0,
-                24,
-                24 + MediaQuery.of(context).padding.bottom,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 48),
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: ringBg,
-                        boxShadow: [
-                          BoxShadow(
-                            color: ringGlow,
-                            blurRadius: 28,
-                            spreadRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        _paymentMethod == 'bank_transfer'
-                            ? Icons.schedule_rounded
-                            : _paymentMethod == 'card'
-                                ? Icons.open_in_browser_rounded
-                                : Icons.check_rounded,
-                        size: 48,
-                        color: _paymentMethod == 'bank_transfer'
-                            ? const Color(0xFFE65100)
-                            : _paymentMethod == 'card'
-                                ? const Color(0xFF3B5BDB)
-                                : const Color(0xFF2E7D32),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      _paymentMethod == 'card'
-                          ? _l.paymentInitiated
-                          : _paymentMethod == 'bank_transfer'
-                              ? _l.bookingPending
-                              : _l.bookingConfirmed,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: AppColors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _paymentMethod == 'card'
-                          ? _l.completeCardPayment
-                          : _paymentMethod == 'bank_transfer'
-                              ? _l.bankTransferPending
-                              : 'You\'ll receive an SMS to confirm payment\nvia ${_selectedMethod?.name ?? 'mobile money'}.',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: isDark ? AppColors.hof : AppColors.foggy,
-                        height: 1.6,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (_bookingId != null) ...[
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.foggy),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                'Ref: $_bookingId',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.hof,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'monospace',
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.rausch,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(_l.backToHome, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: isDark ? AppColors.surfaceSubtle : AppColors.surface,
-                          side: const BorderSide(color: AppColors.border),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(
-                          _l.viewMyBookings,
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    return _SuccessPage(
+      paymentMethod: _paymentMethod,
+      bookingId: _bookingId,
+      selectedMethodName: _selectedMethod?.name,
+      onHome: () => Navigator.of(context).popUntil((route) => route.isFirst),
+      onViewBookings: () => Navigator.of(context).popUntil((route) => route.isFirst),
     );
   }
 }
@@ -1903,3 +1727,456 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SuccessPage — animated payment success screen
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SuccessPage extends StatefulWidget {
+  const _SuccessPage({
+    required this.paymentMethod,
+    required this.bookingId,
+    required this.selectedMethodName,
+    required this.onHome,
+    required this.onViewBookings,
+  });
+
+  final String? paymentMethod;
+  final String? bookingId;
+  final String? selectedMethodName;
+  final VoidCallback onHome;
+  final VoidCallback onViewBookings;
+
+  @override
+  State<_SuccessPage> createState() => _SuccessPageState();
+}
+
+class _SuccessPageState extends State<_SuccessPage>
+    with TickerProviderStateMixin {
+  // ── Check circle ──
+  late final AnimationController _circleCtrl;
+  late final Animation<double> _circleScale;
+  late final Animation<double> _checkOpacity;
+
+  // ── Content cards slide-up ──
+  late final AnimationController _contentCtrl;
+  late final Animation<Offset> _contentSlide;
+  late final Animation<double> _contentFade;
+
+  // ── Confetti particles ──
+  late final AnimationController _confettiCtrl;
+
+  static const _kCheckDuration = Duration(milliseconds: 550);
+  static const _kContentDelay = Duration(milliseconds: 340);
+  static const _kContentDuration = Duration(milliseconds: 500);
+  static const _kConfettiDuration = Duration(milliseconds: 2200);
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ── Circle spring ──
+    _circleCtrl = AnimationController(vsync: this, duration: _kCheckDuration);
+    _circleScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.22), weight: 55),
+      TweenSequenceItem(tween: Tween(begin: 1.22, end: 0.88), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.88, end: 1.06), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 1.06, end: 1.0), weight: 10),
+    ]).animate(CurvedAnimation(parent: _circleCtrl, curve: Curves.easeOut));
+    _checkOpacity = CurvedAnimation(
+      parent: _circleCtrl,
+      curve: const Interval(0.4, 0.8, curve: Curves.easeIn),
+    );
+
+    // ── Content ──
+    _contentCtrl = AnimationController(vsync: this, duration: _kContentDuration);
+    _contentSlide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _contentCtrl, curve: Curves.easeOutCubic));
+    _contentFade = CurvedAnimation(parent: _contentCtrl, curve: Curves.easeOut);
+
+    // ── Confetti ──
+    _confettiCtrl = AnimationController(vsync: this, duration: _kConfettiDuration);
+
+    _runSequence();
+  }
+
+  Future<void> _runSequence() async {
+    // Immediate success haptic
+    await Future.delayed(const Duration(milliseconds: 60));
+    if (!mounted) return;
+    await HapticFeedback.mediumImpact();
+
+    _circleCtrl.forward();
+    _confettiCtrl.forward();
+
+    // Checkmark pop haptic
+    await Future.delayed(const Duration(milliseconds: 240));
+    if (!mounted) return;
+    await HapticFeedback.lightImpact();
+
+    // Content slides in
+    await Future.delayed(_kContentDelay);
+    if (!mounted) return;
+    _contentCtrl.forward();
+
+    // Gentle notification tap
+    await Future.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    await HapticFeedback.selectionClick();
+  }
+
+  @override
+  void dispose() {
+    _circleCtrl.dispose();
+    _contentCtrl.dispose();
+    _confettiCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _isPending => widget.paymentMethod == 'bank_transfer';
+  bool get _isCard => widget.paymentMethod == 'card';
+
+  Color get _accentColor => _isPending
+      ? const Color(0xFFE65100)
+      : _isCard
+          ? const Color(0xFF3B5BDB)
+          : const Color(0xFF2E7D32);
+
+  Color get _ringBgLight => _isPending
+      ? const Color(0xFFFFF3C4)
+      : _isCard
+          ? const Color(0xFFDBE4FF)
+          : const Color(0xFFD4EDDA);
+
+  Color get _ringBgDark => _isPending
+      ? const Color(0xFF3A3116)
+      : _isCard
+          ? const Color(0xFF243359)
+          : const Color(0xFF1E3625);
+
+  IconData get _icon => _isPending
+      ? Icons.schedule_rounded
+      : _isCard
+          ? Icons.open_in_browser_rounded
+          : Icons.check_rounded;
+
+  String _title(AppLocalizations l) =>
+      _isCard ? l.paymentInitiated : _isPending ? l.bookingPending : l.bookingConfirmed;
+
+  String _subtitle(AppLocalizations l) => _isCard
+      ? l.completeCardPayment
+      : _isPending
+          ? l.bankTransferPending
+          : "You'll receive an SMS to confirm payment\nvia ${widget.selectedMethodName ?? 'mobile money'}.";
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final topTone = isDark
+        ? (_isPending ? const Color(0xFF2A2412) : _isCard ? const Color(0xFF18223A) : const Color(0xFF15261A))
+        : (_isPending ? const Color(0xFFFFF8E1) : _isCard ? const Color(0xFFF0F4FF) : const Color(0xFFEDF7ED));
+    final bottomTone = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final ringBg = isDark ? _ringBgDark : _ringBgLight;
+    final ringGlow = _accentColor.withValues(alpha: isDark ? 0.28 : 0.18);
+
+    return Stack(
+      children: [
+        // ── Gradient background ──
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [topTone, bottomTone],
+                stops: const [0.0, 0.55],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Confetti particles ──
+        if (!_isPending)
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _confettiCtrl,
+              builder: (context, _) => CustomPaint(
+                painter: _ConfettiPainter(progress: _confettiCtrl.value),
+              ),
+            ),
+          ),
+
+        // ── Body ──
+        SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (ctx, constraints) {
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  24, 0, 24, 24 + MediaQuery.of(context).padding.bottom,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 52),
+
+                      // ── Animated circle ──
+                      AnimatedBuilder(
+                        animation: _circleScale,
+                        builder: (context, _) => Transform.scale(
+                          scale: _circleScale.value,
+                          child: Container(
+                            width: 108,
+                            height: 108,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: ringBg,
+                              boxShadow: [
+                                BoxShadow(color: ringGlow, blurRadius: 36, spreadRadius: 8),
+                              ],
+                            ),
+                            child: FadeTransition(
+                              opacity: _checkOpacity,
+                              child: Icon(_icon, size: 52, color: _accentColor),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // ── Title + subtitle + ref (all slide in together) ──
+                      FadeTransition(
+                        opacity: _contentFade,
+                        child: SlideTransition(
+                          position: _contentSlide,
+                          child: Column(
+                            children: [
+                              Text(
+                                _title(l),
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                  color: AppColors.black,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _subtitle(l),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: isDark ? AppColors.hof : AppColors.foggy,
+                                  height: 1.6,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (widget.bookingId != null) ...[
+                                const SizedBox(height: 24),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surface,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.foggy),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Ref: ${widget.bookingId}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppColors.hof,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: 'monospace',
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 40),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: FilledButton(
+                                  onPressed: widget.onHome,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppColors.rausch,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: Text(
+                                    l.backToHome,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: OutlinedButton(
+                                  onPressed: widget.onViewBookings,
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: isDark ? AppColors.surfaceSubtle : AppColors.surface,
+                                    side: const BorderSide(color: AppColors.border),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: Text(
+                                    l.viewMyBookings,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _ConfettiPainter — lightweight canvas confetti without external packages
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter({required this.progress});
+
+  final double progress;
+
+  // Deterministic particles — generated once per unique seed
+  static final List<_Particle> _particles = _generateParticles(60);
+
+  static List<_Particle> _generateParticles(int count) {
+    final list = <_Particle>[];
+    // Pseudo-random positions using prime-based Halton sequence for good spread
+    for (var i = 0; i < count; i++) {
+      final t = i / count;
+      // halton base 2 and 3 for x/y spread
+      double h2 = 0, b2 = 0.5;
+      var n2 = i + 1;
+      while (n2 > 0) { h2 += (n2 % 2) * b2; n2 ~/= 2; b2 /= 2; }
+      double h3 = 0, b3 = 1 / 3;
+      var n3 = i + 1;
+      while (n3 > 0) { h3 += (n3 % 3) * b3; n3 ~/= 3; b3 /= 3; }
+
+      list.add(_Particle(
+        startX: h2,
+        startY: 0.05 + (t * 0.35),
+        velocityX: (h2 - 0.5) * 1.4,
+        velocityY: 0.5 + h3 * 1.8,
+        size: 4.0 + (h2 * 8),
+        color: _kConfettiColors[i % _kConfettiColors.length],
+        rotationSpeed: (h3 - 0.5) * 14,
+        shape: i % 3,           // 0=rect, 1=circle, 2=line
+        delay: t * 0.35,
+      ));
+    }
+    return list;
+  }
+
+  static const _kConfettiColors = [
+    Color(0xFFFF385C),  // rausch
+    Color(0xFF00A699),  // babu
+    Color(0xFFFC642D),  // arches
+    Color(0xFFFFD700),  // gold
+    Color(0xFF4CAF50),  // green
+    Color(0xFF3B5BDB),  // blue
+    Color(0xFFE040FB),  // purple
+    Color(0xFFFFFFFF),  // white
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0 || progress == 1) return;
+
+    final paint = Paint()..isAntiAlias = true;
+
+    for (final p in _particles) {
+      // Each particle has its own start delay
+      final t = ((progress - p.delay) / (1.0 - p.delay)).clamp(0.0, 1.0);
+      if (t <= 0) continue;
+
+      // Gravity: y accelerates, x drifts
+      final x = size.width * (p.startX + p.velocityX * t * 0.45);
+      final y = size.height * (p.startY + p.velocityY * t * t * 0.85);
+
+      // Fade out in the last 30%
+      final opacity = t < 0.7 ? 1.0 : (1.0 - t) / 0.3;
+      paint.color = p.color.withValues(alpha: opacity.clamp(0.0, 1.0));
+
+      final angle = p.rotationSpeed * t;
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(angle);
+
+      switch (p.shape) {
+        case 0:
+          canvas.drawRect(
+            Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+            paint,
+          );
+        case 1:
+          canvas.drawCircle(Offset.zero, p.size * 0.4, paint);
+        default:
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(center: Offset.zero, width: p.size * 0.25, height: p.size),
+              const Radius.circular(2),
+            ),
+            paint,
+          );
+      }
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
+}
+
+class _Particle {
+  const _Particle({
+    required this.startX,
+    required this.startY,
+    required this.velocityX,
+    required this.velocityY,
+    required this.size,
+    required this.color,
+    required this.rotationSpeed,
+    required this.shape,
+    required this.delay,
+  });
+
+  final double startX;
+  final double startY;
+  final double velocityX;
+  final double velocityY;
+  final double size;
+  final Color color;
+  final double rotationSpeed;
+  final int shape;
+  final double delay;
+}
+
