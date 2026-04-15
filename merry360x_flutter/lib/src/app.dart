@@ -13,6 +13,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'session_controller.dart';
 import 'ui/main_shell.dart';
 
+/// Global route observer — used to hide floating UI (e.g. AI button tooltip)
+/// when a modal/sheet is pushed on top of the main shell.
+final RouteObserver<ModalRoute<dynamic>> appRouteObserver =
+    RouteObserver<ModalRoute<dynamic>>();
+
 /// Airbnb-style design tokens
 class AdaptiveColor extends Color {
   const AdaptiveColor({required this.light, required this.dark})
@@ -546,6 +551,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
               _setThemeMode(mode);
             },
           ),
+          navigatorObservers: [appRouteObserver],
         );
       },
     );

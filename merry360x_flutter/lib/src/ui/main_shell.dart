@@ -277,8 +277,9 @@ class _AiTripAdvisorButton extends StatefulWidget {
 }
 
 class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   OverlayEntry? _tooltip;
+  bool _visible = true;
   late AnimationController _wave1;
   late AnimationController _wave2;
   late AnimationController _wave3;
@@ -304,8 +305,31 @@ class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
     WidgetsBinding.instance.addPostFrameCallback((_) => _showTooltip());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  /// A modal/sheet/route was pushed on top — hide the button and tooltip.
+  @override
+  void didPushNext() {
+    _tooltip?.remove();
+    _tooltip = null;
+    if (mounted) setState(() => _visible = false);
+  }
+
+  /// Returned to this route — show the button again.
+  @override
+  void didPopNext() {
+    if (mounted) setState(() => _visible = true);
+  }
+
   void _showTooltip() {
-    if (!mounted) return;
+    if (!mounted || !_visible) return;
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
     final pos = box.localToGlobal(Offset.zero);
@@ -349,6 +373,7 @@ class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _wave1.dispose();
     _wave2.dispose();
     _wave3.dispose();
@@ -379,6 +404,7 @@ class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
 
   @override
   Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
     const double btnSize = 52;
     const double iconSize = 24;
     return GestureDetector(
