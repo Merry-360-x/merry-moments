@@ -529,10 +529,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   }
 
   void _addToCart() {
-    if (!widget.session.isAuthenticated) {
-      _showSnack(_l.signInToSaveToTripCart);
-      return;
-    }
     final metadata = <String, dynamic>{
       if (_checkIn != null) 'check_in': _checkIn!.toIso8601String().split('T').first,
       if (_checkOut != null) 'check_out': _checkOut!.toIso8601String().split('T').first,
@@ -548,10 +544,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   }
 
   void _bookNow() {
-    if (!widget.session.isAuthenticated) {
-      _showSnack(_l.signInToBook);
-      return;
-    }
     HapticFeedback.mediumImpact();
     Navigator.push(
       context,
@@ -579,10 +571,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
   void _toggleLike() async {
     final session = widget.session;
-    if (!session.isAuthenticated) {
-      _showSnack(_l.signInToSaveToWishlist);
-      return;
-    }
     setState(() => _liked = !_liked);
     try {
       if (_liked) {
@@ -1542,10 +1530,6 @@ class _RecommendationCard extends StatelessWidget {
                       right: 10,
                       child: GestureDetector(
                         onTap: () async {
-                          if (!session.isAuthenticated) {
-                            AppSnackBar.info(context, l.signInToSaveToTripCart);
-                            return;
-                          }
                           final metadata = <String, dynamic>{
                             if (initialCheckIn != null) 'check_in': initialCheckIn!.toIso8601String().split('T').first,
                             if (initialCheckOut != null) 'check_out': initialCheckOut!.toIso8601String().split('T').first,
