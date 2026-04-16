@@ -446,113 +446,328 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   ]);
 
   // ── Step 3: Photos ──
-  Widget _buildStep3() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    const _StepHeader(icon: Icons.photo_library_outlined, title: 'Add photos of your property', subtitle: 'Great photos help guests choose your place'),
-    const SizedBox(height: 24),
-
-    // Add buttons
-    Row(children: [
-      Expanded(child: OutlinedButton.icon(
-        onPressed: () async {
-          final imgs = await _picker.pickMultiImage(imageQuality: 85);
-          if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-        },
-        icon: const Icon(Icons.photo_library_outlined),
-        label: const Text('Gallery (Multiple)'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      )),
-      const SizedBox(width: 10),
-      OutlinedButton(
-        onPressed: () async {
-          final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-          if (img != null) setState(() => _newFiles.add(img));
-        },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        ),
-        child: const Icon(Icons.camera_alt_outlined),
+  Widget _buildStep3() {
+    final totalCount = _existingUrls.length + _newFiles.length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const _StepHeader(
+        icon: Icons.photo_library_outlined,
+        title: 'Add photos of your property',
+        subtitle: 'Great photos help your listing stand out',
       ),
-    ]),
-    const SizedBox(height: 16),
+      const SizedBox(height: 20),
 
-    if (_existingUrls.isEmpty && _newFiles.isEmpty)
+      // ── Tips banner ──
       Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.solid),
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey.shade50,
+          color: _kRed.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(children: [
-          Icon(Icons.add_photo_alternate_outlined, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('No photos yet', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text('Add at least one photo to continue', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+        child: Row(children: [
+          Icon(Icons.tips_and_updates_outlined, size: 16, color: _kRed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Add at least 5 photos · Use daylight · Show every room',
+              style: TextStyle(fontSize: 12, color: _kRed.withValues(alpha: 0.85), height: 1.4),
+            ),
+          ),
         ]),
-      )
-    else
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-        ),
-        itemCount: _existingUrls.length + _newFiles.length,
-        itemBuilder: (ctx, i) {
-          final isExisting = i < _existingUrls.length;
-          return Stack(fit: StackFit.expand, children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: isExisting
-                  ? Image.network(_existingUrls[i], fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
-                  : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
-            ),
-            if (!isExisting)
-              Positioned(
-                bottom: 4, left: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.foggy, borderRadius: BorderRadius.circular(4)),
-                  child: const Text('New', style: TextStyle(color: AppColors.surface, fontSize: 9, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            Positioned(
-              top: 4, right: 4,
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  if (isExisting) {
-                    _existingUrls.removeAt(i);
-                  } else {
-                    _newFiles.removeAt(i - _existingUrls.length);
-                  }
-                }),
-                child: Container(
-                  width: 22, height: 22,
-                  decoration: const BoxDecoration(color: AppColors.foggy, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 14, color: AppColors.surface),
-                ),
-              ),
-            ),
-          ]);
-        },
       ),
+      const SizedBox(height: 20),
 
-    if (_existingUrls.isNotEmpty || _newFiles.isNotEmpty) ...[
-      const SizedBox(height: 12),
-      Text(
-        '${_existingUrls.length + _newFiles.length} photo${(_existingUrls.length + _newFiles.length) == 1 ? '' : 's'} selected',
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+      // ── Hero add zone (shown when no photos yet) ──
+      if (totalCount == 0)
+        GestureDetector(
+          onTap: () async {
+            final imgs = await _picker.pickMultiImage(imageQuality: 85);
+            if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
+          },
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_kRed.withValues(alpha: 0.07), _kRed.withValues(alpha: 0.02)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _kRed.withValues(alpha: 0.25), width: 1.5),
+            ),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: _kRed.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add_photo_alternate_outlined, size: 30, color: _kRed),
+              ),
+              const SizedBox(height: 14),
+              Text('Tap to add photos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black.withValues(alpha: 0.8))),
+              const SizedBox(height: 4),
+              Text('JPG, PNG, HEIC · Up to 20 photos', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+              const SizedBox(height: 16),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _PhotoSourcePill(icon: Icons.photo_library_outlined, label: 'Gallery', color: _kRed),
+                const SizedBox(width: 10),
+                _PhotoSourcePill(icon: Icons.camera_alt_outlined, label: 'Camera', color: AppColors.foggy),
+              ]),
+            ]),
+          ),
+        ),
+
+      // ── Cover hero (first photo large) + grid when photos exist ──
+      if (totalCount > 0) ...[
+        // Cover shot label
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('${totalCount} photo${totalCount == 1 ? '' : 's'} added',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.foggy)),
+          if (totalCount >= 5)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.check_circle, size: 12, color: Colors.green.shade600),
+                const SizedBox(width: 4),
+                Text('Looking great!', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+              ]),
+            ),
+        ]),
+        const SizedBox(height: 10),
+
+        // First photo as large cover card
+        _buildCoverPhoto(0),
+        const SizedBox(height: 8),
+
+        // Remaining photos in 3-col grid + add tile
+        if (totalCount > 1)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
+            ),
+            itemCount: totalCount - 1 + 1, // rest + add tile
+            itemBuilder: (ctx, i) {
+              final photoIndex = i + 1; // skip cover
+              if (photoIndex >= totalCount) {
+                // ── Add more tile ──
+                return GestureDetector(
+                  onTap: () async {
+                    final imgs = await _picker.pickMultiImage(imageQuality: 85);
+                    if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.add, size: 24, color: Colors.grey.shade400),
+                      const SizedBox(height: 4),
+                      Text('Add more', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                    ]),
+                  ),
+                );
+              }
+              return _buildGridTile(photoIndex);
+            },
+          )
+        else ...[
+          // Only 1 photo — show add-more row
+          Row(children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final imgs = await _picker.pickMultiImage(imageQuality: 85);
+                  if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
+                },
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 20, color: Colors.grey.shade400),
+                    const SizedBox(width: 8),
+                    Text('Add more photos', style: TextStyle(fontSize: 13, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () async {
+                final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                if (img != null) setState(() => _newFiles.add(img));
+              },
+              child: Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                ),
+                child: Icon(Icons.camera_alt_outlined, size: 20, color: Colors.grey.shade400),
+              ),
+            ),
+          ]),
+        ],
+      ],
+
+      // ── Action buttons always visible when photos > 0 ──
+      if (totalCount > 0) ...[
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final imgs = await _picker.pickMultiImage(imageQuality: 85);
+                if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
+              },
+              icon: const Icon(Icons.photo_library_outlined, size: 16),
+              label: const Text('Gallery'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.black,
+                side: BorderSide(color: Colors.grey.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                if (img != null) setState(() => _newFiles.add(img));
+              },
+              icon: const Icon(Icons.camera_alt_outlined, size: 16),
+              label: const Text('Camera'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.black,
+                side: BorderSide(color: Colors.grey.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ]),
+      ],
+
+      const SizedBox(height: 8),
+    ]);
+  }
+
+  Widget _buildCoverPhoto(int index) {
+    final totalCount = _existingUrls.length + _newFiles.length;
+    if (index >= totalCount) return const SizedBox();
+    final isExisting = index < _existingUrls.length;
+    final isNew = !isExisting;
+    return Stack(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: isExisting
+              ? Image.network(_existingUrls[index], fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
+              : Image.file(File(_newFiles[index - _existingUrls.length].path), fit: BoxFit.cover),
+        ),
       ),
-    ],
-  ]);
+      // Cover label
+      Positioned(
+        top: 10, left: 10,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+            const SizedBox(width: 4),
+            const Text('Cover photo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+      if (isNew)
+        Positioned(
+          bottom: 10, left: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: _kRed, borderRadius: BorderRadius.circular(20)),
+            child: const Text('New', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      // Remove button
+      Positioned(
+        top: 10, right: 10,
+        child: GestureDetector(
+          onTap: () => setState(() {
+            if (isExisting) {
+              _existingUrls.removeAt(index);
+            } else {
+              _newFiles.removeAt(index - _existingUrls.length);
+            }
+          }),
+          child: Container(
+            width: 28, height: 28,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.close, size: 16, color: Colors.white),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildGridTile(int index) {
+    final isExisting = index < _existingUrls.length;
+    final isNew = !isExisting;
+    return Stack(fit: StackFit.expand, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: isExisting
+            ? Image.network(_existingUrls[index], fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
+            : Image.file(File(_newFiles[index - _existingUrls.length].path), fit: BoxFit.cover),
+      ),
+      if (isNew)
+        Positioned(
+          bottom: 5, left: 5,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: _kRed, borderRadius: BorderRadius.circular(20)),
+            child: const Text('New', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      Positioned(
+        top: 5, right: 5,
+        child: GestureDetector(
+          onTap: () => setState(() {
+            if (isExisting) {
+              _existingUrls.removeAt(index);
+            } else {
+              _newFiles.removeAt(index - _existingUrls.length);
+            }
+          }),
+          child: Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+            child: const Icon(Icons.close, size: 13, color: Colors.white),
+          ),
+        ),
+      ),
+    ]);
+  }
 
   // ── Step 4: Amenities ──
   Widget _buildStep4() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -654,6 +869,27 @@ class _BottomNav extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
       ),
     ),
+  );
+}
+
+class _PhotoSourcePill extends StatelessWidget {
+  const _PhotoSourcePill({required this.icon, required this.label, required this.color});
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 14, color: color),
+      const SizedBox(width: 6),
+      Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+    ]),
   );
 }
 
