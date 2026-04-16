@@ -76,7 +76,10 @@ class SessionController extends ChangeNotifier {
   bool get isAuthenticated => _userId.trim().isNotEmpty;
   AuthChangeEvent? get lastAuthEvent => _lastAuthEvent;
   bool _hasEverAuthenticated = false;
-  bool get hasEverAuthenticated => _hasEverAuthenticated;
+  /// True if the user is currently signed in OR has signed in at some point
+  /// in the past (persisted across restarts). Once true, stays true until
+  /// an explicit sign-out.
+  bool get hasEverAuthenticated => _hasEverAuthenticated || isAuthenticated;
   String get language => _language;
   String get currency => _currency;
 
