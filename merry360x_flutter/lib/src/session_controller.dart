@@ -40,6 +40,7 @@ class SessionController extends ChangeNotifier {
   bool _refreshInFlight = false;
   bool _refreshQueued = false;
   bool _queuedSilentRefresh = true;
+  AuthChangeEvent? _lastAuthEvent;
   DateTime? _lastSuccessfulRefreshAt;
   int _userSyncGeneration = 0;
 
@@ -73,6 +74,7 @@ class SessionController extends ChangeNotifier {
   String? get error => _error;
   MobileSyncPayload? get payload => _payload;
   bool get isAuthenticated => _userId.trim().isNotEmpty;
+  AuthChangeEvent? get lastAuthEvent => _lastAuthEvent;
   String get language => _language;
   String get currency => _currency;
 
@@ -149,6 +151,7 @@ class SessionController extends ChangeNotifier {
 
     // Listen for auth state changes
     _authSub = client.auth.onAuthStateChange.listen((data) {
+      _lastAuthEvent = data.event;
       final session = data.session;
       final newId = session?.user.id ?? '';
       if (newId != _userId) {
@@ -162,6 +165,9 @@ class SessionController extends ChangeNotifier {
         notifyListeners();
         // Refresh for both login (load user data) and logout (load public data)
         refresh();
+      } else {
+        // Same user ID but event changed (e.g. tokenRefreshed) — still expose event.
+        notifyListeners();
       }
     });
   }

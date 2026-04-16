@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../app.dart';
 import '../../l10n/app_localizations.dart';
 import '../session_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 import 'screens/ai_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/explore_screen.dart';
@@ -55,15 +56,32 @@ class _MainShellState extends State<MainShell> {
   void _onSessionChanged() {
     if (!mounted) return;
     final isAuth = widget.session.isAuthenticated;
-    if (!_wasAuthenticated && isAuth && !_authSheetOpen) {
-      // Signed in from outside the auth sheet (e.g. Profile screen's own auth route).
-      // _showAuthSheet handles its own toast, so only toast here when sheet is closed.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final profile = widget.session.payload?.profile;
-        final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
-        AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
-      });
+    final event = widget.session.lastAuthEvent;
+
+    // Ignore initial session restore — this fires on startup when Supabase reads
+    // the stored session from secure storage.  It is not a user-initiated sign-in
+    // so we must not show a welcome toast or leave the auth sheet open.
+    final isSessionRestore = event == AuthChangeEvent.initialSession;
+
+    if (!_wasAuthenticated && isAuth) {
+      if (isSessionRestore) {
+        // Session restored from storage — dismiss the auth sheet silently if open.
+        if (_authSheetOpen) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context, rootNavigator: true).maybePop();
+          });
+        }
+      } else if (!_authSheetOpen) {
+        // Signed in from outside the auth sheet (e.g. Profile screen's own auth route).
+        // _showAuthSheet handles its own toast, so only toast here when sheet is closed.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final profile = widget.session.payload?.profile;
+          final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
+          AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+        });
+      }
     } else if (_wasAuthenticated && !isAuth) {
       // Signed out — navigate to Explore and show toast.
       // Use addPostFrameCallback to avoid calling setState during a build/notify cycle.
