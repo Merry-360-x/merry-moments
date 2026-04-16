@@ -125,6 +125,55 @@ class AppDatabase {
     return null;
   }
 
+  /// Enrich stories with profile data (username, avatar_url)
+  Future<List<Map<String, dynamic>>> _enrichStoriesWithProfiles(List<Map<String, dynamic>> stories) async {
+    if (stories.isEmpty) return stories;
+
+    try {
+      final userIds = stories
+          .map((row) => (row['user_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (userIds.isEmpty) return stories;
+
+      final profiles = await _sb
+          .from('profiles')
+          .select('user_id, full_name, nickname, avatar_url, photo_url')
+          .inFilter('user_id', userIds);
+
+      final profileMap = <String, Map<String, dynamic>>{};
+      for (final row in (profiles as List).cast<Map<String, dynamic>>()) {
+        final uid = (row['user_id'] ?? '').toString();
+        if (uid.isNotEmpty) {
+          profileMap[uid] = row;
+        }
+      }
+
+      return stories.map((story) {
+        final uid = (story['user_id'] ?? '').toString();
+        final profile = profileMap[uid];
+        final username = profile != null
+            ? ((profile['full_name'] ?? profile['nickname'] ?? 'User').toString())
+            : 'User';
+        final avatarUrl = profile != null
+            ? ((profile['avatar_url'] ?? profile['photo_url'] ?? '').toString())
+            : '';
+
+        return {
+          ...story,
+          'username': username,
+          'avatar_url': avatarUrl,
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('[_enrichStoriesWithProfiles] error: $e');
+      // Return stories without enrichment if profile fetch fails
+      return stories;
+    }
+  }
+
   // ── Data sync (direct Supabase queries — same tables as website) ──
 
   Future<MobileSyncPayload> fetchSync({String? userId}) async {
@@ -194,7 +243,10 @@ class AppDatabase {
     final tours = results[1];
     final tourPkgs = results[2];
     final transport = results[3];
-    final stories = results[4];
+    final storiesRaw = results[4];
+
+    // Enrich stories with username and avatar from profiles
+    final stories = await _enrichStoriesWithProfiles(storiesRaw);
 
     final listings = <Map<String, dynamic>>[
       for (final p in properties) _normalizeProperty(p),
