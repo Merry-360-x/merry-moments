@@ -72,6 +72,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   int _step = 1;
   static const _totalSteps = 5;
   static const _stepTitles = ['Basic Info', 'Details', 'Photos', 'Amenities', 'Review'];
+  int _uploadDone = 0;
+  int _uploadTotal = 0;
 
   bool _saving = false;
   bool _uploading = false;
@@ -173,63 +175,100 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     if (_canProceed && _step < _totalSteps) setState(() => _step++);
   }
 
+  Map<String, dynamic> _buildFields({List<String> images = const []}) => {
+    'title': _titleCtrl.text.trim(),
+    'location': _locCtrl.text.trim(),
+    'address': _addressCtrl.text.trim(),
+    'description': _descCtrl.text.trim(),
+    'property_type': _propertyType,
+    'listing_mode': _listingMode,
+    'price_per_night': double.tryParse(_priceCtrl.text.trim()) ?? 0,
+    'currency': _currency,
+    'max_guests': _maxGuests,
+    'bedrooms': _bedrooms,
+    'bathrooms': _bathrooms,
+    'beds': _beds,
+    'amenities': _amenities,
+    'cancellation_policy': _cancellationPolicy,
+    'check_in_time': _checkInCtrl.text.trim(),
+    'check_out_time': _checkOutCtrl.text.trim(),
+    'smoking_allowed': _smokingAllowed,
+    'events_allowed': _eventsAllowed,
+    'pets_allowed': _petsAllowed,
+    'weekly_discount': int.tryParse(_weeklyDiscCtrl.text.trim()) ?? 0,
+    'monthly_discount': int.tryParse(_monthlyDiscCtrl.text.trim()) ?? 0,
+    'available_for_monthly_rental': _monthlyRental,
+    if (_monthlyRental || _listingMode == 'monthly_only')
+      'price_per_month': double.tryParse(_priceMonthCtrl.text.trim()),
+    'breakfast_available': _breakfastAvailable,
+    if (_breakfastAvailable)
+      'breakfast_price_per_night': double.tryParse(_bfPriceCtrl.text.trim()),
+    if (images.isNotEmpty) 'images': images,
+    if (images.isNotEmpty) 'main_image': images.first,
+  };
+
   Future<void> _submit() async {
     if (_saving) return;
     setState(() {
       _saving = true;
-      _uploading = true;
+      _uploading = _newFiles.isNotEmpty;
+      _uploadDone = 0;
+      _uploadTotal = _newFiles.length;
       _error = null;
     });
     try {
-      final newUrls = await CloudinaryService.uploadImages(
-        _newFiles.map((f) => f.path).toList(),
-        folder: 'properties',
-      );
-      final allImages = [..._existingUrls, ...newUrls];
-      if (!mounted) return;
-      setState(() => _uploading = false);
+      final existing = widget.existing;
+      String? propertyId = existing?['id']?.toString();
 
-      final fields = <String, dynamic>{
-      'is_published': true,
-      'title': _titleCtrl.text.trim(),
-      'location': _locCtrl.text.trim(),
-      'address': _addressCtrl.text.trim(),
-      'description': _descCtrl.text.trim(),
-      'property_type': _propertyType,
-      'listing_mode': _listingMode,
-      'price_per_night': double.tryParse(_priceCtrl.text.trim()) ?? 0,
-      'currency': _currency,
-      'max_guests': _maxGuests,
-      'bedrooms': _bedrooms,
-      'bathrooms': _bathrooms,
-      'beds': _beds,
-      'amenities': _amenities,
-      'cancellation_policy': _cancellationPolicy,
-      'check_in_time': _checkInCtrl.text.trim(),
-      'check_out_time': _checkOutCtrl.text.trim(),
-      'smoking_allowed': _smokingAllowed,
-      'events_allowed': _eventsAllowed,
-      'pets_allowed': _petsAllowed,
-      'weekly_discount': int.tryParse(_weeklyDiscCtrl.text.trim()) ?? 0,
-      'monthly_discount': int.tryParse(_monthlyDiscCtrl.text.trim()) ?? 0,
-      'available_for_monthly_rental': _monthlyRental,
-      if (_monthlyRental || _listingMode == 'monthly_only')
-        'price_per_month': double.tryParse(_priceMonthCtrl.text.trim()),
-      'breakfast_available': _breakfastAvailable,
-      if (_breakfastAvailable)
-        'breakfast_price_per_night': double.tryParse(_bfPriceCtrl.text.trim()),
-      if (allImages.isNotEmpty) 'images': allImages,
-      if (allImages.isNotEmpty) 'main_image': allImages.first,
-      };
-
-      final e = widget.existing;
-      if (e != null) {
-        await widget.api.updateProperty(id: e['id'], updates: fields);
+      // ── Step 1: Save record immediately (draft) ──
+      if (existing != null) {
+        await widget.api.updateProperty(
+          id: propertyId!,
+          updates: _buildFields(images: _existingUrls),
+        );
       } else {
-        await widget.api.createProperty(userId: widget.userId, fields: fields);
+        propertyId = await widget.api.createProperty(
+          userId: widget.userId,
+          fields: _buildFields(images: _existingUrls),
+        );
+      }
+      if (!mounted) return;
+      if (propertyId == null) throw Exception('Property could not be created. Please retry.');
+
+      // ── Step 2: Upload photos in parallel (batches of 3) ──
+      final newUrls = <String>[];
+      if (_newFiles.isNotEmpty) {
+        const batchSize = 3;
+        final paths = _newFiles.map((f) => f.path).toList();
+        for (int i = 0; i < paths.length; i += batchSize) {
+          final batch = paths.sublist(i, (i + batchSize).clamp(0, paths.length));
+          final batchUrls = await Future.wait(
+            batch.map((p) => CloudinaryService.uploadImage(
+              p,
+              folder: 'properties',
+            ).timeout(const Duration(seconds: 40), onTimeout: () => '').catchError((_) => '')),
+          );
+          newUrls.addAll(batchUrls.where((u) => u.isNotEmpty));
+          if (!mounted) return;
+          setState(() => _uploadDone = (i + batch.length).clamp(0, _uploadTotal));
+        }
       }
 
       if (!mounted) return;
+      setState(() => _uploading = false);
+
+      // ── Step 3: Patch images + publish ──
+      final allImages = [..._existingUrls, ...newUrls];
+      await widget.api.updateProperty(
+        id: propertyId,
+        updates: {
+          ...(_buildFields(images: allImages)),
+          'is_published': true,
+        },
+      );
+
+      if (!mounted) return;
+      AppSnackBar.success(context, 'Property published!');
       setState(() => _saving = false);
       Navigator.pop(context, true);
     } catch (e) {
@@ -830,9 +869,19 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
 
     if (_uploading) ...[
       const SizedBox(height: 16),
-      const LinearProgressIndicator(color: _kRed),
+      LinearProgressIndicator(
+        color: _kRed,
+        value: _uploadTotal > 0 ? _uploadDone / _uploadTotal : null,
+      ),
       const SizedBox(height: 8),
-      const Center(child: Text('Uploading photos to Cloudinary…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
+      Center(
+        child: Text(
+          _uploadTotal > 0
+              ? 'Uploading photos… $_uploadDone of $_uploadTotal'
+              : 'Uploading photos…',
+          style: const TextStyle(fontSize: 13, color: AppColors.foggy),
+        ),
+      ),
     ],
   ]);
 }
