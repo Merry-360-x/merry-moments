@@ -96,6 +96,9 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> _showAuthSheet({int? requestedTab}) async {
     if (_authSheetOpen) return;
+    // Once the user has authenticated at any point, never pop the auth sheet
+    // unprompted — only show it if they have never signed in before.
+    if (widget.session.hasEverAuthenticated) return;
     _authSheetOpen = true;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final didAuthenticate = await showModalBottomSheet<bool>(

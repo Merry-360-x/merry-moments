@@ -75,6 +75,8 @@ class SessionController extends ChangeNotifier {
   MobileSyncPayload? get payload => _payload;
   bool get isAuthenticated => _userId.trim().isNotEmpty;
   AuthChangeEvent? get lastAuthEvent => _lastAuthEvent;
+  bool _hasEverAuthenticated = false;
+  bool get hasEverAuthenticated => _hasEverAuthenticated;
   String get language => _language;
   String get currency => _currency;
 
@@ -149,6 +151,16 @@ class SessionController extends ChangeNotifier {
       unawaited(loadPreferences());
     }
 
+    // Restore persisted "has ever authenticated" flag.
+    unawaited(() async {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getBool('has_ever_authenticated') ?? false;
+      if (stored && !_hasEverAuthenticated) {
+        _hasEverAuthenticated = true;
+        notifyListeners();
+      }
+    }());
+
     // Listen for auth state changes
     _authSub = client.auth.onAuthStateChange.listen((data) {
       _lastAuthEvent = data.event;
@@ -160,6 +172,21 @@ class SessionController extends ChangeNotifier {
         _rebindUserSyncSubscriptions();
         if (_userId.isNotEmpty) {
           unawaited(_pushNotifications.syncForUser(_userId));
+          // Mark as ever authenticated (persisted across sessions).
+          if (!_hasEverAuthenticated) {
+            _hasEverAuthenticated = true;
+            unawaited(() async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('has_ever_authenticated', true);
+            }());
+          }
+        } else {
+          // Signed out — clear the persistent flag.
+          _hasEverAuthenticated = false;
+          unawaited(() async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('has_ever_authenticated');
+          }());
         }
         unawaited(loadPreferences());
         notifyListeners();

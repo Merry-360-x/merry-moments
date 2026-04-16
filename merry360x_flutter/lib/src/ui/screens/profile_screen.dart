@@ -299,9 +299,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   )
                 else
-                  // Unauthenticated — show sign-in card
+                  // Unauthenticated — show sign-in card (only if user has never signed in before)
                   GestureDetector(
                     onTap: () async {
+                      if (session.hasEverAuthenticated) return;
                       final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
                       await showModalBottomSheet<void>(
                         context: context,
