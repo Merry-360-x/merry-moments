@@ -140,7 +140,7 @@ class AppDatabase {
 
       final profiles = await _sb
           .from('profiles')
-          .select('user_id, full_name, nickname, avatar_url, photo_url')
+          .select('user_id, full_name, nickname, avatar_url')
           .inFilter('user_id', userIds);
 
       final profileMap = <String, Map<String, dynamic>>{};
@@ -158,7 +158,7 @@ class AppDatabase {
             ? ((profile['full_name'] ?? profile['nickname'] ?? 'User').toString())
             : 'User';
         final avatarUrl = profile != null
-            ? ((profile['avatar_url'] ?? profile['photo_url'] ?? '').toString())
+            ? ((profile['avatar_url'] ?? '').toString())
             : '';
 
         return {
@@ -2404,8 +2404,6 @@ class AppDatabase {
   }) async {
     final row = <String, dynamic>{
       'host_id': userId,
-      'user_id': userId,
-      'item_type': 'property',
       'is_published': false,
       ...fields,
     };
