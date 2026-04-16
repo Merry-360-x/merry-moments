@@ -1018,10 +1018,10 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
       );
       if (!mounted) return;
       _imageCtrl.text = url;
-      AppSnackBar.success(context, 'Story media uploaded.');
+      AppSnackBar.success(context, 'Image uploaded successfully');
     } catch (error) {
       if (!mounted) return;
-      AppSnackBar.error(context, 'Upload failed. Please try another image.');
+      AppSnackBar.error(context, 'Upload failed. Try again.');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -1029,12 +1029,12 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
 
   Future<void> _submit() async {
     if (_titleCtrl.text.trim().isEmpty) {
-      AppSnackBar.error(context, 'Title is required');
+      AppSnackBar.error(context, 'Please add a title');
       return;
     }
 
     if (widget.session.userId.isEmpty) {
-      AppSnackBar.error(context, 'Sign in to publish your story.');
+      AppSnackBar.error(context, 'Sign in to publish stories');
       return;
     }
 
@@ -1054,9 +1054,9 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
       if (!mounted) return;
       Navigator.pop(context);
       widget.onCreated();
-      AppSnackBar.success(context, 'Story published.');
+      AppSnackBar.success(context, 'Story published successfully');
     } catch (error) {
-      if (mounted) AppSnackBar.error(context, 'Could not publish story. Please try again.');
+      if (mounted) AppSnackBar.error(context, 'Failed to publish story. Try again.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
