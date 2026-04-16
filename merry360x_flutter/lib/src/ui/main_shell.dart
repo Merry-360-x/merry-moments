@@ -63,25 +63,26 @@ class _MainShellState extends State<MainShell> {
     // so we must not show a welcome toast or leave the auth sheet open.
     final isSessionRestore = event == AuthChangeEvent.initialSession;
 
-    if (!_wasAuthenticated && isAuth) {
-      if (isSessionRestore) {
-        // Session restored from storage — dismiss the auth sheet silently if open.
-        if (_authSheetOpen) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            Navigator.of(context, rootNavigator: true).maybePop();
-          });
+    if (!_wasAuthenticated && isAuth && isSessionRestore) {
+      // Session restored from storage — dismiss any open modal (likely auth sheet)
+      // opened before the session finished loading from secure storage.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Close any modal route (auth sheet from Profile or MainShell)
+        final navigator = Navigator.of(context, rootNavigator: false);
+        if (navigator.canPop()) {
+          navigator.pop();
         }
-      } else if (!_authSheetOpen) {
-        // Signed in from outside the auth sheet (e.g. Profile screen's own auth route).
-        // _showAuthSheet handles its own toast, so only toast here when sheet is closed.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final profile = widget.session.payload?.profile;
-          final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
-          AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
-        });
-      }
+        _authSheetOpen = false;
+      });
+    } else if (!_wasAuthenticated && isAuth && !_authSheetOpen) {
+      // Actual user sign-in (not session restore) from outside MainShell's auth sheet.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final profile = widget.session.payload?.profile;
+        final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
+        AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+      });
     } else if (_wasAuthenticated && !isAuth) {
       // Signed out — navigate to Explore and show toast.
       // Use addPostFrameCallback to avoid calling setState during a build/notify cycle.
