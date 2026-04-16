@@ -1064,111 +1064,326 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = _imageCtrl.text.trim().isNotEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final cardColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF7F7F7);
+    
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF48484A) : const Color(0xFFDDDDDD),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+            child: Row(
               children: [
                 const Expanded(
                   child: Text(
-                    'Share a Story',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.black),
+                    'Create Story',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.foggy),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.pop(context),
+                  style: IconButton.styleFrom(
+                    backgroundColor: cardColor,
+                    padding: const EdgeInsets.all(8),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _field(_titleCtrl, 'Title *', Icons.title),
-            const SizedBox(height: 12),
-            _field(_bodyCtrl, 'Description', Icons.notes, maxLines: 3),
-            const SizedBox(height: 12),
-            _field(_locationCtrl, 'Location', Icons.location_on_outlined),
-            const SizedBox(height: 12),
-            _field(_imageCtrl, 'Media URL (optional)', Icons.image_outlined),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _uploading ? null : _pickAndUploadImage,
-                icon: _uploading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.file_upload_outlined),
-                label: Text(_uploading ? 'Uploading...' : 'Pick & upload image'),
-              ),
-            ),
-            if (_imageCtrl.text.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Image.network(
-                    _imageCtrl.text.trim(),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.surfaceSubtle,
-                      child: const Center(child: Text('Preview unavailable')),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Visual-first: Image picker
+                  GestureDetector(
+                    onTap: _uploading ? null : _pickAndUploadImage,
+                    child: Container(
+                      height: hasImage ? 240 : 160,
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8E8),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (hasImage)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14.5),
+                              child: Image.network(
+                                _imageCtrl.text.trim(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _emptyImagePlaceholder(isDark),
+                              ),
+                            )
+                          else
+                            _emptyImagePlaceholder(isDark),
+                          // Upload overlay
+                          if (_uploading)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14.5),
+                              child: Container(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                child: const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'Uploading...',
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          // Remove image button
+                          if (hasImage && !_uploading)
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: IconButton(
+                                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                                onPressed: () => setState(() => _imageCtrl.clear()),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (_saving || _uploading) ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.rausch,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Publish Story', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 20),
+                  // Title with character count
+                  _modernField(
+                    controller: _titleCtrl,
+                    label: 'Title',
+                    hint: 'What\'s your story about?',
+                    icon: Icons.edit_outlined,
+                    required: true,
+                    maxLength: 100,
+                    isDark: isDark,
+                    cardColor: cardColor,
+                  ),
+                  const SizedBox(height: 14),
+                  // Description
+                  _modernField(
+                    controller: _bodyCtrl,
+                    label: 'Description',
+                    hint: 'Share more details...',
+                    icon: Icons.subject_rounded,
+                    maxLines: 4,
+                    maxLength: 500,
+                    isDark: isDark,
+                    cardColor: cardColor,
+                  ),
+                  const SizedBox(height: 14),
+                  // Location
+                  _modernField(
+                    controller: _locationCtrl,
+                    label: 'Location',
+                    hint: 'Where is this?',
+                    icon: Icons.location_on_outlined,
+                    isDark: isDark,
+                    cardColor: cardColor,
+                  ),
+                  const SizedBox(height: 24),
+                  // Publish button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: (_saving || _uploading) ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.rausch,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: AppColors.rausch.withValues(alpha: 0.5),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.send_rounded, size: 20),
+                                SizedBox(width: 8),
+                                Text('Publish Story', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _field(TextEditingController c, String label, IconData icon, {int maxLines = 1}) {
-    return TextField(
-      controller: c,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 18, color: AppColors.foggy),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  Widget _emptyImagePlaceholder(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.rausch.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.rausch),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Add Photo or Video',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Tap to upload from gallery',
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? const Color(0xFF98A2B3) : const Color(0xFF6B7280),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _modernField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required bool isDark,
+    required Color cardColor,
+    bool required = false,
+    int maxLines = 1,
+    int? maxLength,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            if (required) ...[
+              const SizedBox(width: 4),
+              const Text('*', style: TextStyle(color: AppColors.rausch, fontSize: 14)),
+            ],
+            if (!required) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8E8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Optional',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xFF98A2B3) : const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          buildCounter: maxLength != null
+              ? (context, {required currentLength, required isFocused, maxLength}) {
+                  if (!isFocused && currentLength == 0) return null;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '$currentLength${maxLength != null ? '/$maxLength' : ''}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: currentLength > (maxLength ?? 0)
+                            ? AppColors.rausch
+                            : (isDark ? const Color(0xFF98A2B3) : const Color(0xFF9CA3AF)),
+                      ),
+                    ),
+                  );
+                }
+              : null,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, size: 20, color: isDark ? const Color(0xFF98A2B3) : const Color(0xFF9CA3AF)),
+            filled: true,
+            fillColor: cardColor,
+            hintStyle: TextStyle(
+              color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+              fontSize: 15,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8E8),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8E8),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.rausch, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          ),
+          style: const TextStyle(fontSize: 15),
+        ),
+      ],
     );
   }
 }
