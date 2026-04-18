@@ -362,44 +362,114 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final hostName = widget.session.userEmail?.split('@').first ?? 'Host';
+    final initials = hostName.isNotEmpty ? hostName[0].toUpperCase() : 'H';
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        shadowColor: Colors.black.withValues(alpha: 0.06),
         leading: const ReturnButton(color: AppColors.black, fallbackRoute: '/'),
-        title: const Text(
-          'Host Dashboard',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-            color: AppColors.black,
-          ),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF385C), Color(0xFFE00B3C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Host Dashboard',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: AppColors.black,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  hostName,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.foggy,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.hof),
-            onPressed: _load,
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: AppColors.hof),
+              onPressed: _load,
+              tooltip: 'Refresh',
+            ),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          labelColor: AppColors.rausch,
-          unselectedLabelColor: AppColors.foggy,
-          indicatorColor: AppColors.rausch,
-          indicatorWeight: 2,
-          dividerColor: AppColors.border,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(42),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.border, width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabs,
+              isScrollable: true,
+              labelColor: AppColors.rausch,
+              unselectedLabelColor: AppColors.foggy,
+              indicatorColor: AppColors.rausch,
+              indicatorWeight: 2.5,
+              indicatorSize: TabBarIndicatorSize.label,
+              dividerColor: Colors.transparent,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: 13,
+              ),
+              tabAlignment: TabAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              tabs: _tabLabels
+                  .map((t) => Tab(
+                        height: 40,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Text(t),
+                        ),
+                      ))
+                  .toList(),
+            ),
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w400,
-            fontSize: 13,
-          ),
-          tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
         ),
       ),
       body: _loading
@@ -500,6 +570,8 @@ class _OverviewTab extends StatelessWidget {
     final pending =
         (stats?['pending_bookings'] as num?)?.toInt() ??
         bookings.where((b) => b['status'] == 'pending').length;
+    final confirmed = bookings.where((b) => b['status'] == 'confirmed').length;
+    final completed = bookings.where((b) => b['status'] == 'completed').length;
     final publishedProperties =
         (stats?['published_property_count'] as num?)?.toInt() ??
         properties.where((item) => item['is_published'] == true).length;
@@ -507,107 +579,541 @@ class _OverviewTab extends StatelessWidget {
         (stats?['property_count'] as num?)?.toInt() ?? properties.length;
     final currency = (stats?['currency'] ?? 'RWF').toString();
 
+    // Revenue proportion for bar
+    final payoutBar = (netEarnings > 0)
+        ? (completedPayout / netEarnings).clamp(0.0, 1.0)
+        : 0.0;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('At a Glance'),
-          const SizedBox(height: 8),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.7,
+          // ── Dark hero earnings card ───────────────────────────────────
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1A2E4A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _kRed.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 30,
+                  bottom: -15,
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.04),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Host Earnings',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _kRed.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$totalBookings bookings',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Net Earnings',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatMoney(netEarnings, currency),
+                        style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 0.95,
+                          letterSpacing: -1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Payout progress bar
+                      if (netEarnings > 0) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${(payoutBar * 100).toStringAsFixed(0)}% paid out',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              '${_formatMoney(availableForPayout, currency)} available',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF22C55E),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Stack(
+                            children: [
+                              Container(
+                                height: 5,
+                                width: double.infinity,
+                                color: Colors.white.withValues(alpha: 0.1),
+                              ),
+                              FractionallySizedBox(
+                                widthFactor: payoutBar,
+                                child: Container(
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(0xFF22C55E),
+                                        const Color(0xFF16A34A),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _darkPill(
+                              label: 'Available',
+                              value: _formatMoney(availableForPayout, currency),
+                              color: const Color(0xFF22C55E),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _darkPill(
+                              label: 'Paid out',
+                              value: _formatMoney(completedPayout, currency),
+                              color: const Color(0xFF60A5FA),
+                            ),
+                          ),
+                          if (pendingPayout > 0) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _darkPill(
+                                label: 'Pending',
+                                value: _formatMoney(pendingPayout, currency),
+                                color: const Color(0xFFFBBF24),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Booking stats row ─────────────────────────────────────────
+          Row(
             children: [
-              _StatCard(
-                title: 'Available for payout',
-                value: _formatMoney(availableForPayout, currency),
-                icon: Icons.account_balance_wallet_outlined,
-                color: Colors.green,
+              Expanded(
+                child: _statTile(
+                  value: '$totalBookings',
+                  label: 'Total',
+                  icon: Icons.calendar_month_rounded,
+                  color: const Color(0xFF6C63FF),
+                ),
               ),
-              _StatCard(
-                title: 'Properties',
-                value: '$publishedProperties / $propertyCount',
-                icon: Icons.home_outlined,
-                color: Colors.indigo,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _statTile(
+                  value: '$pending',
+                  label: 'Pending',
+                  icon: Icons.hourglass_top_rounded,
+                  color: const Color(0xFFF59E0B),
+                ),
               ),
-              _StatCard(
-                title: 'Pending',
-                value: '$pending',
-                icon: Icons.hourglass_empty_outlined,
-                color: Colors.amber,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _statTile(
+                  value: '$confirmed',
+                  label: 'Confirmed',
+                  icon: Icons.check_circle_rounded,
+                  color: const Color(0xFF22C55E),
+                ),
               ),
-              _StatCard(
-                title: 'Total bookings',
-                value: '$totalBookings',
-                icon: Icons.calendar_today_outlined,
-                color: _kRed,
-              ),
-              _StatCard(
-                title: 'Tours',
-                value: '${tours.length}',
-                icon: Icons.explore_outlined,
-                color: Colors.teal,
-              ),
-              _StatCard(
-                title: 'Transport',
-                value: '${transport.length}',
-                icon: Icons.directions_car_outlined,
-                color: Colors.orange,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _statTile(
+                  value: '$completed',
+                  label: 'Done',
+                  icon: Icons.done_all_rounded,
+                  color: const Color(0xFF0EA5E9),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
+
+          const SizedBox(height: 20),
+
+          // ── Listings inventory ────────────────────────────────────────
+          Row(
+            children: [
+              const Text(
+                'Your Listings',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.black,
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              const Spacer(),
+              Text(
+                '${propertyCount + tours.length + transport.length} total',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.foggy,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _inventoryCard(
+                  icon: Icons.home_rounded,
+                  label: 'Properties',
+                  total: propertyCount,
+                  live: publishedProperties,
+                  color: const Color(0xFF2563EB),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _inventoryCard(
+                  icon: Icons.explore_rounded,
+                  label: 'Tours',
+                  total: tours.length,
+                  live: tours
+                      .where((t) => t['is_published'] == true)
+                      .length,
+                  color: const Color(0xFF0D9488),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _inventoryCard(
+                  icon: Icons.directions_car_rounded,
+                  label: 'Transport',
+                  total: transport.length,
+                  live: transport
+                      .where((t) => t['is_published'] == true)
+                      .length,
+                  color: const Color(0xFFF59E0B),
+                ),
+              ),
+            ],
+          ),
+
+          if (bookings.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
               children: [
-                Text(
-                  'Net Earnings',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatMoney(netEarnings, currency),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: _kRed,
+                const Text(
+                  'Recent Bookings',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.black,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Pending payouts: ${_formatMoney(pendingPayout, currency)}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                ),
-                Text(
-                  'Completed payouts: ${_formatMoney(completedPayout, currency)}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                ),
+                const Spacer(),
+                if (pending > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$pending pending',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
-          if (bookings.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _sectionTitle('Recent Bookings'),
-            const SizedBox(height: 8),
-            ...bookings.take(3).map((b) => _BookingSummaryRow(booking: b)),
+            const SizedBox(height: 10),
+            ...bookings.take(5).map(
+                  (b) => _BookingSummaryRow(booking: b),
+                ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _darkPill({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statTile({
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: color,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: color.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inventoryCard({
+    required IconData icon,
+    required String label,
+    required int total,
+    required int live,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$total',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: AppColors.black,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.hof,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: live > 0
+                      ? const Color(0xFF22C55E)
+                      : AppColors.border,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$live live',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: live > 0
+                      ? const Color(0xFF22C55E)
+                      : AppColors.foggy,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -650,8 +1156,14 @@ class _PropertiesTab extends StatelessWidget {
               label: 'No properties yet',
               icon: Icons.home_outlined,
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
+          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.68,
+              ),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i],
@@ -1466,8 +1978,14 @@ class _ToursTab extends StatelessWidget {
               label: 'No tours yet',
               icon: Icons.explore_outlined,
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
+          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.68,
+              ),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i],
@@ -2098,8 +2616,14 @@ class _TransportTab extends StatelessWidget {
               label: 'No vehicles yet',
               icon: Icons.directions_car_outlined,
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
+          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.68,
+              ),
               itemCount: items.length,
               itemBuilder: (ctx, i) => _ListingCard(
                 item: items[i],
@@ -2124,7 +2648,16 @@ class _TransportTab extends StatelessWidget {
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Vehicle'),
-        onPressed: () => _showTransportSheet(context, api, userId, onRefresh),
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  VehicleWizardScreen(api: api, userId: userId),
+            ),
+          );
+          if (result == true) onRefresh();
+        },
       ),
     );
   }
@@ -2432,9 +2965,10 @@ void _showTransportSheet(
                       ),
                       const SizedBox(width: 8),
                       SizedBox(
-                        width: 90,
+                        width: 115,
                         child: DropdownButtonFormField<int>(
                           key: ValueKey('year_$carYear'),
+                          isExpanded: true,
                           initialValue: years.contains(carYear)
                               ? carYear
                               : currentYear,
@@ -2870,42 +3404,67 @@ class _BookingsTabState extends State<_BookingsTab> {
     );
   }
 
+  // Status colour helpers
+  Color _statusBg(String s) {
+    switch (s) {
+      case 'confirmed': return const Color(0xFFDCFCE7);
+      case 'completed': return const Color(0xFFDBEAFE);
+      case 'cancelled': return const Color(0xFFFFE4E6);
+      default:          return const Color(0xFFFEF9C3);
+    }
+  }
+  Color _statusFg(String s) {
+    switch (s) {
+      case 'confirmed': return const Color(0xFF16A34A);
+      case 'completed': return const Color(0xFF1D4ED8);
+      case 'cancelled': return AppColors.rausch;
+      default:          return const Color(0xFF854D0E);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
     return Column(
       children: [
+        // ── Filter pills ──────────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children:
-                  ['all', 'pending', 'confirmed', 'completed', 'cancelled']
-                      .map(
-                        (s) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(
-                              s == 'all'
-                                  ? 'All'
-                                  : s[0].toUpperCase() + s.substring(1),
-                            ),
-                            selected: _filter == s,
-                            selectedColor: _kRed,
-                            onSelected: (_) => setState(() => _filter = s),
-                            labelStyle: TextStyle(
-                              color: _filter == s
-                                  ? Colors.white
-                                  : AppColors.black,
-                              fontSize: 12,
-                            ),
-                          ),
+              children: filters.map((s) {
+                final active = _filter == s;
+                final label = s == 'all' ? 'All' : '${s[0].toUpperCase()}${s.substring(1)}';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 7),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _filter = s),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: active ? AppColors.rausch : AppColors.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: active ? AppColors.rausch : AppColors.border,
                         ),
-                      )
-                      .toList(),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: active ? Colors.white : AppColors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ),
+        // ── List ─────────────────────────────────────────────────────
         Expanded(
           child: _filtered.isEmpty
               ? _EmptyState(
@@ -2913,202 +3472,285 @@ class _BookingsTabState extends State<_BookingsTab> {
                   icon: Icons.calendar_today_outlined,
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
                   itemCount: _filtered.length,
                   itemBuilder: (ctx, i) {
                     final b = _filtered[i];
                     final status = b['status'] as String? ?? 'pending';
                     final actionKey = (b['order_id'] ?? b['id']).toString();
                     final isBusy = _busyIds.contains(actionKey);
-                    return Card(
+                    final guestName = (b['guest_name'] ?? b['user_name'] ?? '?').toString();
+                    final initial = guestName.isNotEmpty ? guestName[0].toUpperCase() : '?';
+                    final listingTitle = (b['listing_title'] ?? b['item_title'] ?? 'Booking').toString();
+                    final checkIn  = (b['check_in']  ?? '').toString();
+                    final checkOut = (b['check_out'] ?? '').toString();
+                    final amount   = ((b['total_amount'] ?? b['total_price']) as num?) ?? 0;
+                    final currency = (b['currency'] ?? 'RWF').toString();
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    b['listing_title'] ??
-                                        b['item_title'] ??
-                                        'Booking',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                    ),
-                                  ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Header row ──
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Guest avatar
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: AppColors.rausch.withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
                                 ),
-                                _StatusChip(status: status),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Guest: ${b['guest_name'] ?? b['user_name'] ?? '—'}',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if ((b['guest_email'] ?? '').toString().isNotEmpty)
-                              Text(
-                                (b['guest_email'] ?? '').toString(),
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            if (b['check_in'] != null)
-                              Text(
-                                'Check-in: ${b['check_in']}  ->  ${b['check_out'] ?? ''}',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            Text(
-                              'Total: ${_formatMoney(((b['total_amount'] ?? b['total_price']) as num?) ?? 0, (b['currency'] ?? 'RWF').toString())}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if ((b['rejection_reason'] ?? '')
-                                .toString()
-                                .isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
+                                alignment: Alignment.center,
                                 child: Text(
-                                  'Reason: ${b['rejection_reason']}',
+                                  initial,
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
                                     color: AppColors.rausch,
                                   ),
                                 ),
                               ),
-                            if (status == 'pending') ...[
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.red,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      listingTitle,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: AppColors.black,
                                       ),
-                                      onPressed: isBusy
-                                          ? null
-                                          : () async {
-                                              final reason =
-                                                  await _askRejectReason();
-                                              if (reason == null ||
-                                                  reason.isEmpty) {
-                                                return;
-                                              }
-                                              await _runBookingAction(
-                                                actionKey,
-                                                () => widget.api
-                                                    .rejectHostBookingRequest(
-                                                      actorUserId:
-                                                          widget.userId,
-                                                      booking: b,
-                                                      reason: reason,
-                                                    ),
-                                                'Booking rejected',
-                                              );
-                                            },
-                                      child: const Text('Decline'),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        foregroundColor: Colors.white,
+                                    Text(
+                                      guestName,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.foggy,
                                       ),
-                                      onPressed: isBusy
-                                          ? null
-                                          : () async {
-                                              await _runBookingAction(
-                                                actionKey,
-                                                () => widget.api
-                                                    .confirmHostBookingRequest(
-                                                      actorUserId:
-                                                          widget.userId,
-                                                      booking: b,
-                                                    ),
-                                                'Booking confirmed',
-                                              );
-                                            },
-                                      child: const Text('Confirm'),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ],
-                            if (status == 'confirmed') ...[
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
+                              // Status badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _statusBg(status),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${status[0].toUpperCase()}${status.substring(1)}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: _statusFg(status),
                                   ),
-                                  onPressed: isBusy
-                                      ? null
-                                      : () async {
-                                          await _runBookingAction(
-                                            actionKey,
-                                            () => widget.api
-                                                .markHostBookingComplete(
-                                                  booking: b,
-                                                ),
-                                            'Booking marked complete',
-                                          );
-                                        },
-                                  child: const Text('Mark Complete'),
                                 ),
                               ),
                             ],
-                            if ((status == 'confirmed' ||
-                                    status == 'completed') &&
-                                (b['review_token'] ?? '')
-                                    .toString()
-                                    .isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  icon: const Icon(Icons.star_outline),
-                                  label: Text(
-                                    b['review_email_sent'] == true
-                                        ? 'Review Request Sent'
-                                        : 'Send Review Request',
+                          ),
+                          const SizedBox(height: 10),
+                          // ── Dates + amount ──
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSubtle,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_month_rounded,
+                                    size: 13, color: AppColors.foggy),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    checkIn.isNotEmpty
+                                        ? '$checkIn → $checkOut'
+                                        : 'No dates',
+                                    style: const TextStyle(
+                                        fontSize: 12, color: AppColors.foggy),
                                   ),
-                                  onPressed:
-                                      isBusy || b['review_email_sent'] == true
-                                      ? null
-                                      : () async {
-                                          await _runBookingAction(
-                                            actionKey,
-                                            () => widget.api
-                                                .sendBookingReviewEmail(
-                                                  booking: b,
-                                                ),
-                                            'Review request sent',
-                                          );
-                                        },
                                 ),
+                                Text(
+                                  _formatMoney(amount, currency),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Rejection reason
+                          if ((b['rejection_reason'] ?? '').toString().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Reason: ${b['rejection_reason']}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.rausch,
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                          // ── Actions ──
+                          if (status == 'pending') ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: isBusy ? null : () async {
+                                      final reason = await _askRejectReason();
+                                      if (reason == null || reason.isEmpty) return;
+                                      await _runBookingAction(
+                                        actionKey,
+                                        () => widget.api.rejectHostBookingRequest(
+                                          actorUserId: widget.userId,
+                                          booking: b,
+                                          reason: reason,
+                                        ),
+                                        'Booking rejected',
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.rausch.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: isBusy
+                                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.rausch))
+                                          : const Text('Decline', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: isBusy ? null : () async {
+                                      await _runBookingAction(
+                                        actionKey,
+                                        () => widget.api.confirmHostBookingRequest(
+                                          actorUserId: widget.userId,
+                                          booking: b,
+                                        ),
+                                        'Booking confirmed',
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF16A34A),
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: isBusy
+                                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                                          : const Text('Confirm', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (status == 'confirmed') ...[
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: isBusy ? null : () async {
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.markHostBookingComplete(booking: b),
+                                  'Booking marked complete',
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB),
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                alignment: Alignment.center,
+                                child: isBusy
+                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                                    : const Text('Mark Complete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                              ),
+                            ),
+                          ],
+                          if ((status == 'confirmed' || status == 'completed') &&
+                              (b['review_token'] ?? '').toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: (isBusy || b['review_email_sent'] == true) ? null : () async {
+                                await _runBookingAction(
+                                  actionKey,
+                                  () => widget.api.sendBookingReviewEmail(booking: b),
+                                  'Review request sent',
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: b['review_email_sent'] == true
+                                      ? AppColors.surfaceSubtle
+                                      : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(
+                                    color: b['review_email_sent'] == true
+                                        ? AppColors.border
+                                        : const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 13,
+                                      color: b['review_email_sent'] == true
+                                          ? AppColors.foggy
+                                          : const Color(0xFFD97706),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      b['review_email_sent'] == true
+                                          ? 'Review Request Sent'
+                                          : 'Send Review Request',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: b['review_email_sent'] == true
+                                            ? AppColors.foggy
+                                            : const Color(0xFFD97706),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   },
@@ -3241,7 +3883,7 @@ class _ManualReviewsContentState extends State<_ManualReviewsContent> {
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEBEBEB)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3303,7 +3945,7 @@ class _ManualReviewsContentState extends State<_ManualReviewsContent> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEBEBEB)),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3409,63 +4051,325 @@ class _CalendarTabState extends State<_CalendarTab> {
         icon: Icons.calendar_month_outlined,
       );
     }
+
+    final selectedProperty = widget.properties.firstWhere(
+      (p) => p['id'] == _selectedPropertyId,
+      orElse: () => <String, dynamic>{},
+    );
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Property selector ─────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: DropdownButtonFormField<String>(
-            key: ValueKey(_selectedPropertyId),
-            initialValue: _selectedPropertyId,
-            hint: const Text('Select a property'),
-            decoration: _inputDecoration('Property'),
-            items: widget.properties
-                .map(
-                  (p) => DropdownMenuItem<String>(
-                    value: p['id'] as String?,
-                    child: Text(
-                      p['title'] as String? ?? 'Property',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) {
-              if (v != null) {
-                setState(() => _selectedPropertyId = v);
-                _loadExceptions(v);
-              }
-            },
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select Property',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.foggy,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 68,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.properties.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, i) {
+                    final p = widget.properties[i];
+                    final pid = p['id'] as String?;
+                    final isActive = pid == _selectedPropertyId;
+                    final imgUrl = resolveListingImageUrl(p);
+                    return GestureDetector(
+                      onTap: () {
+                        if (pid != null) {
+                          setState(() => _selectedPropertyId = pid);
+                          _loadExceptions(pid);
+                        }
+                      },
+                      child: Container(
+                        width: 200,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.rausch.withValues(alpha: 0.06)
+                              : AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isActive
+                                ? AppColors.rausch
+                                : AppColors.border,
+                            width: isActive ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(7),
+                              child: imgUrl != null
+                                  ? Image.network(
+                                      imgUrl,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) =>
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            color: const Color(0xFFF1F5F9),
+                                            child: const Icon(
+                                                Icons.home_rounded,
+                                                size: 18,
+                                                color: Color(0xFFCBD5E1)),
+                                          ),
+                                    )
+                                  : Container(
+                                      width: 40,
+                                      height: 40,
+                                      color: const Color(0xFFF1F5F9),
+                                      child: const Icon(Icons.home_rounded,
+                                          size: 18, color: Color(0xFFCBD5E1)),
+                                    ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    (p['title'] ?? 'Property').toString(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: isActive
+                                          ? AppColors.rausch
+                                          : AppColors.black,
+                                    ),
+                                  ),
+                                  if ((p['location'] ?? '').toString().isNotEmpty)
+                                    Text(
+                                      (p['location'] ?? '').toString(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.foggy,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (isActive)
+                              const Icon(Icons.check_circle_rounded,
+                                  size: 14, color: AppColors.rausch),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-        if (_selectedPropertyId != null)
-          _loadingEx
-              ? const CircularProgressIndicator(color: _kRed)
-              : Expanded(
-                  child: Column(
-                    children: [
-                      TableCalendar(
-                        firstDay: DateTime.now().subtract(
-                          const Duration(days: 30),
-                        ),
-                        lastDay: DateTime.now().add(const Duration(days: 365)),
+
+        // ── Blocked-days belt ─────────────────────────────────────────
+        if (_selectedPropertyId != null && !_loadingEx && _blockedDays.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.rausch.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: AppColors.rausch.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.block_rounded,
+                      size: 14, color: AppColors.rausch),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${_blockedDays.length} day${_blockedDays.length == 1 ? '' : 's'} blocked',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.rausch,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Tap day to unblock',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.foggy),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 10),
+
+        // ── Calendar ──────────────────────────────────────────────────
+        if (_selectedPropertyId == null)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.rausch.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.calendar_month_rounded,
+                        size: 32, color: AppColors.rausch),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Select a property above\nto manage availability',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.foggy,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_loadingEx)
+          const Expanded(
+            child: Center(child: CircularProgressIndicator(color: _kRed)),
+          )
+        else
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Property name header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_month_rounded,
+                              size: 15, color: AppColors.rausch),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              (selectedProperty['title'] ?? 'Property')
+                                  .toString(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: TableCalendar(
+                        firstDay: DateTime.now()
+                            .subtract(const Duration(days: 30)),
+                        lastDay:
+                            DateTime.now().add(const Duration(days: 365)),
                         focusedDay: _focusedDay,
-                        onPageChanged: (fd) => setState(() => _focusedDay = fd),
+                        onPageChanged: (fd) =>
+                            setState(() => _focusedDay = fd),
+                        headerStyle: const HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                          titleTextStyle: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.black,
+                          ),
+                          leftChevronIcon: Icon(
+                              Icons.chevron_left_rounded,
+                              size: 20,
+                              color: AppColors.black),
+                          rightChevronIcon: Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: AppColors.black),
+                        ),
+                        daysOfWeekStyle: const DaysOfWeekStyle(
+                          weekdayStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.foggy),
+                          weekendStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.foggy),
+                        ),
+                        calendarStyle: const CalendarStyle(
+                          defaultTextStyle:
+                              TextStyle(fontSize: 13, color: AppColors.black),
+                          weekendTextStyle:
+                              TextStyle(fontSize: 13, color: AppColors.black),
+                          outsideDaysVisible: false,
+                          todayDecoration: BoxDecoration(
+                            color: Color(0xFFFF385C),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                         calendarBuilders: CalendarBuilders(
                           defaultBuilder: (ctx, day, _) {
-                            final norm = DateTime(day.year, day.month, day.day);
+                            final norm =
+                                DateTime(day.year, day.month, day.day);
                             final blocked = _blockedDays.contains(norm);
                             return Container(
                               margin: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
                                 color: blocked
-                                    ? _kRed.withValues(alpha: 0.15)
+                                    ? _kRed.withValues(alpha: 0.12)
                                     : null,
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(8),
+                                border: blocked
+                                    ? Border.all(
+                                        color: _kRed.withValues(alpha: 0.3))
+                                    : null,
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 '${day.day}',
-                                style: TextStyle(color: blocked ? _kRed : null),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: blocked
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                  color: blocked ? _kRed : AppColors.black,
+                                ),
                               ),
                             );
                           },
@@ -3477,7 +4381,8 @@ class _CalendarTabState extends State<_CalendarTab> {
                             selectedDay.month,
                             selectedDay.day,
                           );
-                          final dateStr = DateFormat('yyyy-MM-dd').format(norm);
+                          final dateStr =
+                              DateFormat('yyyy-MM-dd').format(norm);
                           if (_blockedDays.contains(norm)) {
                             await widget.api.deleteAvailabilityException(
                               propertyId: _selectedPropertyId!,
@@ -3494,49 +4399,56 @@ class _CalendarTabState extends State<_CalendarTab> {
                           }
                         },
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: _kRed.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
+                    ),
+                    // Legend
+                    Padding(
+                      padding:
+                          const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: _kRed.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: _kRed.withValues(alpha: 0.3)),
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Blocked',
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('Blocked',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.foggy,
-                              ),
+                                  fontSize: 11, color: AppColors.foggy)),
+                          const SizedBox(width: 16),
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: const BoxDecoration(
+                              color: AppColors.rausch,
+                              shape: BoxShape.circle,
                             ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.touch_app,
-                              size: 14,
-                              color: AppColors.foggy,
-                            ),
-                            const SizedBox(width: 4),
-                            const Text(
-                              'Tap to toggle',
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('Today',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.foggy,
-                              ),
-                            ),
-                          ],
-                        ),
+                                  fontSize: 11, color: AppColors.foggy)),
+                          const Spacer(),
+                          const Icon(Icons.touch_app_rounded,
+                              size: 13, color: AppColors.foggy),
+                          const SizedBox(width: 4),
+                          const Text('Tap to toggle',
+                              style: TextStyle(
+                                  fontSize: 11, color: AppColors.foggy)),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -3572,14 +4484,14 @@ class _DiscountsTab extends StatelessWidget {
                 final isActive = d['is_active'] == true;
                 final type = d['discount_type'] as String? ?? 'percentage';
                 final value = (d['discount_value'] as num?) ?? 0;
-                final uses = (d['uses_count'] as num?)?.toInt() ?? 0;
+                final uses = (d['current_uses'] as num?)?.toInt() ?? 0;
                 final maxUses = (d['max_uses'] as num?)?.toInt();
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFEBEBEB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: ListTile(
                     leading: Container(
@@ -3871,103 +4783,242 @@ class _FinancialTab extends StatelessWidget {
         (stats?['net_earnings'] as num?) ??
         (stats?['total_revenue'] as num?) ??
         0;
-    final pending = (stats?['pending_payout'] as num?) ?? 0;
+    final pending   = (stats?['pending_payout'] as num?) ?? 0;
     final completed = (stats?['completed_payout'] as num?) ?? 0;
     final available = (stats?['available_for_payout'] as num?) ?? 0;
     final totalBookings = (stats?['total_bookings'] as num?)?.toInt() ?? 0;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  title: 'Net Earnings',
-                  value: _formatMoney(revenue, currency),
-                  icon: Icons.payments_outlined,
-                  color: Colors.green,
-                ),
+          // ── Dark hero ─────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1A3A2F)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatCard(
-                  title: 'Available for payout',
-                  value: _formatMoney(available, currency),
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: Colors.amber,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Stack(
+              children: [
+                // Decorative circle
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Net Earnings',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatMoney(revenue, currency),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Available for payout progress
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Available for payout',
+                          style: TextStyle(
+                              fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                        Text(
+                          _formatMoney(available, currency),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF86EFAC),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: revenue > 0
+                            ? (available / revenue).clamp(0.0, 1.0)
+                            : 0,
+                        minHeight: 5,
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF16A34A)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+
+          // ── 3-metric row ──────────────────────────────────────────
           Row(
             children: [
               Expanded(
-                child: _StatCard(
-                  title: 'Pending payouts',
+                child: _metricTile(
+                  label: 'Pending',
                   value: _formatMoney(pending, currency),
-                  icon: Icons.schedule_outlined,
-                  color: Colors.orange,
+                  iconColor: const Color(0xFFD97706),
+                  bgColor: const Color(0xFFFEF9C3),
+                  icon: Icons.schedule_rounded,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
-                child: _StatCard(
-                  title: 'Completed payouts',
+                child: _metricTile(
+                  label: 'Paid Out',
                   value: _formatMoney(completed, currency),
-                  icon: Icons.check_circle_outline,
-                  color: Colors.blue,
+                  iconColor: const Color(0xFF1D4ED8),
+                  bgColor: const Color(0xFFDBEAFE),
+                  icon: Icons.check_circle_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _metricTile(
+                  label: 'Bookings',
+                  value: '$totalBookings',
+                  iconColor: AppColors.rausch,
+                  bgColor: AppColors.rausch.withValues(alpha: 0.08),
+                  icon: Icons.calendar_today_rounded,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _StatCard(
-            title: 'Total Bookings',
-            value: '$totalBookings',
-            icon: Icons.calendar_today_outlined,
-            color: _kRed,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.rausch,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+
+          // ── Request payout ────────────────────────────────────────
+          GestureDetector(
+            onTap: () => _showRequestPayoutSheet(
+              context,
+              api,
+              userId,
+              payoutMethods,
+              available.toDouble(),
+              currency,
+              onRefresh,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              decoration: BoxDecoration(
+                color: AppColors.rausch,
+                borderRadius: BorderRadius.circular(12),
               ),
-              icon: const Icon(Icons.send),
-              label: const Text(
-                'Request Payout',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-              ),
-              onPressed: () => _showRequestPayoutSheet(
-                context,
-                api,
-                userId,
-                payoutMethods,
-                available.toDouble(),
-                currency,
-                onRefresh,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.send_rounded, size: 16, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    'Request Payout',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 24),
-          _sectionTitle('Payout History'),
-          const SizedBox(height: 8),
+
+          // ── Payout history ────────────────────────────────────────
+          const Text(
+            'Payout History',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.black,
+            ),
+          ),
+          const SizedBox(height: 10),
           if (payouts.isEmpty)
-            const Text(
-              'No payouts yet.',
-              style: TextStyle(color: AppColors.foggy),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSubtle,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.history_rounded, size: 18, color: AppColors.foggy),
+                  SizedBox(width: 10),
+                  Text(
+                    'No payouts yet.',
+                    style: TextStyle(color: AppColors.foggy, fontSize: 13),
+                  ),
+                ],
+              ),
             )
           else
             ...payouts.map((p) => _PayoutRow(payout: p)),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: iconColor,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: AppColors.foggy),
+          ),
         ],
       ),
     );
@@ -4112,7 +5163,7 @@ class _PayoutMethodsTab extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFEBEBEB)),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: ListTile(
                     leading: Icon(
@@ -4122,7 +5173,7 @@ class _PayoutMethodsTab extends StatelessWidget {
                       color: AppColors.rausch,
                     ),
                     title: Text(
-                      '${m['account_name'] ?? ''} (${(m['method_type'] as String? ?? '').replaceAll('_', ' ')})',
+                      '${m['bank_account_name'] ?? m['nickname'] ?? ''} (${(m['method_type'] as String? ?? '').replaceAll('_', ' ')})',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         color: AppColors.black,
@@ -4313,163 +5364,461 @@ class _ListingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final imgUrl = resolveListingImageUrl(item);
     final published = item['is_published'] == true;
+    final title = (item['title'] ?? '—').toString();
+    final location = (item['location'] ?? '').toString();
+    final priceNum = item[priceField];
+    final currency = (item['currency'] ?? 'USD').toString();
+    final priceText = priceNum != null
+        ? '$currency ${(priceNum as num).toStringAsFixed(0)} / $priceLabel'
+        : null;
+    final ratingValue = double.tryParse(
+        (item['rating'] ?? item['average_rating'] ?? '').toString());
+    final showRating = ratingValue != null && ratingValue > 0;
+    final rating = ratingValue == null
+        ? ''
+        : (ratingValue % 1 == 0
+            ? ratingValue.toStringAsFixed(0)
+            : ratingValue.toStringAsFixed(1));
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (imgUrl != null)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: Image.network(
-                imgUrl,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox(height: 60),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
+          // ── Image with overlaid badges ──
+          AspectRatio(
+            aspectRatio: 1.15,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['title'] as String? ?? '—',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: AppColors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (item['location'] != null)
-                        Text(
-                          item['location'].toString(),
-                          style: const TextStyle(
-                            color: AppColors.foggy,
-                            fontSize: 13,
+                imgUrl != null
+                    ? Image.network(
+                        imgUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: const Icon(
+                            Icons.home_rounded,
+                            size: 36,
+                            color: Color(0xFFCBD5E1),
                           ),
                         ),
-                      if (item[priceField] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '\$${(item[priceField] as num).toStringAsFixed(2)} $priceLabel',
+                      )
+                    : Container(
+                        color: const Color(0xFFF1F5F9),
+                        child: const Icon(
+                          Icons.home_rounded,
+                          size: 36,
+                          color: Color(0xFFCBD5E1),
+                        ),
+                      ),
+                // Bottom gradient
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.45),
+                        ],
+                        stops: const [0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                // Live / Draft badge — bottom left
+                Positioned(
+                  left: 8,
+                  bottom: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: published
+                          ? const Color(0xFF0D9488)
+                          : Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: published
+                                ? const Color(0xFF6EE7B7)
+                                : Colors.grey.shade400,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          published ? 'Live' : 'Draft',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Rating — bottom right
+                if (showRating)
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded,
+                              size: 11, color: Color(0xFFFBBF24)),
+                          const SizedBox(width: 3),
+                          Text(
+                            rating,
                             style: const TextStyle(
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppColors.black,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                // Toggle — top right
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: GestureDetector(
+                    onTap: () => onToggle(!published),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: published
+                            ? const Color(0xFF0D9488).withValues(alpha: 0.9)
+                            : Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            published
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                            size: 11,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            published ? 'ON' : 'OFF',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Info ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.black,
+                  ),
+                ),
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded,
+                          size: 10, color: AppColors.foggy),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.foggy,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (priceText != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    priceText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                // ── Action row ──
+                Row(
+                  children: [
+                    if (onEdit != null)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: onEdit,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.edit_rounded,
+                                    size: 12, color: AppColors.black),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Edit',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
                       ),
-                      decoration: BoxDecoration(
-                        color: published
-                            ? const Color(0xFF008489).withValues(alpha: 0.1)
-                            : Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        published ? 'Live' : 'Draft',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: published
-                              ? const Color(0xFF008489)
-                              : AppColors.foggy,
-                          fontWeight: FontWeight.w600,
+                    if (onEdit != null) const SizedBox(width: 6),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _confirmDelete(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.rausch.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.delete_rounded,
+                                  size: 12, color: AppColors.rausch),
+                              SizedBox(width: 4),
+                              Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.rausch,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Switch(
-                      value: published,
-                      activeThumbColor: const Color(0xFF008489),
-                      onChanged: onToggle,
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8, right: 8, bottom: 10),
-            child: Row(
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    final title = (item['title'] ?? 'this listing').toString();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1C1C1E)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (onEdit != null)
-                  TextButton.icon(
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      size: 16,
-                      color: AppColors.black,
-                    ),
-                    label: const Text(
-                      'Edit',
-                      style: TextStyle(color: AppColors.black),
-                    ),
-                    onPressed: onEdit,
+                // handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                TextButton.icon(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 16,
+                ),
+                // icon
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.rausch.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
                     color: AppColors.rausch,
+                    size: 26,
                   ),
-                  label: const Text(
-                    'Delete',
-                    style: TextStyle(color: AppColors.rausch),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Delete listing?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.black,
                   ),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (dCtx) => AlertDialog(
-                      title: const Text('Delete listing?'),
-                      content: const Text('This cannot be undone.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dCtx),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.rausch,
-                          ),
-                          onPressed: () {
-                            Navigator.pop(dCtx);
-                            onDelete();
-                          },
-                          child: const Text('Delete'),
-                        ),
-                      ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '"$title" will be permanently removed\nand cannot be recovered.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.foggy,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetCtx);
+                      onDelete();
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.rausch,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                    child: const Text('Delete'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(sheetCtx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.black,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text('Cancel'),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IconTextBtn extends StatelessWidget {
+  const _IconTextBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 2, right: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 3),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline)),
+          ],
+        ),
       ),
     );
   }
@@ -4498,7 +5847,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
@@ -4576,37 +5925,147 @@ class _BookingSummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = booking['status'] as String? ?? 'pending';
+    final amount = (booking['total_amount'] ?? booking['total_price']) as num?;
+    final currency = (booking['currency'] ?? 'RWF').toString();
+    final checkIn = (booking['check_in'] ?? '').toString();
+    final shortDate =
+        checkIn.length >= 10 ? checkIn.substring(5, 10) : checkIn;
+    final guestName =
+        (booking['guest_name'] ?? booking['user_name'] ?? '?').toString();
+    final initial = guestName.isNotEmpty ? guestName[0].toUpperCase() : '?';
+    final bookingType = (booking['booking_type'] ?? '').toString();
+
+    Color statusBg, statusFg;
+    switch (status) {
+      case 'confirmed':
+        statusBg = const Color(0xFFDCFCE7);
+        statusFg = const Color(0xFF16A34A);
+        break;
+      case 'completed':
+        statusBg = const Color(0xFFDBEAFE);
+        statusFg = const Color(0xFF1D4ED8);
+        break;
+      case 'cancelled':
+        statusBg = const Color(0xFFFFE4E6);
+        statusFg = AppColors.rausch;
+        break;
+      default:
+        statusBg = const Color(0xFFFEF9C3);
+        statusFg = const Color(0xFF854D0E);
+    }
+
+    // Category colour for avatar
+    Color avatarColor;
+    switch (bookingType) {
+      case 'tour':
+        avatarColor = const Color(0xFF7C3AED);
+        break;
+      case 'transport':
+        avatarColor = const Color(0xFF0369A1);
+        break;
+      default:
+        avatarColor = AppColors.rausch;
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
+          // Guest avatar
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: avatarColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: avatarColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  booking['listing_title'] ?? booking['item_title'] ?? '—',
+                  (booking['listing_title'] ?? booking['item_title'] ?? '—')
+                      .toString(),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                     color: AppColors.black,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  booking['guest_name'] ?? booking['user_name'] ?? '—',
-                  style: const TextStyle(color: AppColors.foggy, fontSize: 13),
+                const SizedBox(height: 1),
+                Row(
+                  children: [
+                    Text(
+                      guestName,
+                      style: const TextStyle(
+                          color: AppColors.foggy, fontSize: 11),
+                    ),
+                    if (shortDate.isNotEmpty) ...[
+                      const Text(' · ',
+                          style: TextStyle(
+                              color: AppColors.foggy, fontSize: 11)),
+                      Text(
+                        shortDate,
+                        style: const TextStyle(
+                            color: AppColors.foggy, fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          _StatusChip(status: status),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (amount != null)
+                Text(
+                  _formatMoney(amount, currency),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: AppColors.black,
+                  ),
+                ),
+              const SizedBox(height: 3),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${status[0].toUpperCase()}${status.substring(1)}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: statusFg,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -4628,7 +6087,7 @@ class _PayoutRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [

@@ -246,23 +246,75 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            const Text(
-              'Payments, payouts, refund pressure, and booking revenue in one place.',
-              style: TextStyle(fontSize: 13, color: AppColors.foggy),
+            // ── Hero revenue banner ──
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.rausch,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'NET REVENUE',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9DA3AE),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _money(_stats['net_revenue']),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.0,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'After PawaPay & platform fees',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
             GridView.count(
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.45,
+              childAspectRatio: 1.35,
               children: [
-                _MetricCard(label: 'Gross Revenue', value: _money(_stats['total_revenue']), accent: const Color(0xFF155EEF)),
-                _MetricCard(label: 'Platform Earnings', value: _money(_stats['total_platform_earnings']), accent: const Color(0xFF0F9D58)),
-                _MetricCard(label: 'Paid Bookings', value: '$paidBookings', accent: const Color(0xFF7C3AED)),
-                _MetricCard(label: 'Payment Requests', value: '$requestedBookings', accent: const Color(0xFFEF6C00)),
+                _MetricCard(label: 'Gross Revenue', value: _money(_stats['total_revenue']), accent: const Color(0xFF155EEF), icon: Icons.account_balance_wallet_outlined),
+                _MetricCard(label: 'Platform Earnings', value: _money(_stats['total_platform_earnings']), accent: const Color(0xFF0F9D58), icon: Icons.trending_up_rounded),
+                _MetricCard(label: 'Paid Bookings', value: '$paidBookings', accent: const Color(0xFF7C3AED), icon: Icons.check_circle_outline),
+                _MetricCard(label: 'Payment Requests', value: '$requestedBookings', accent: const Color(0xFFEF6C00), icon: Icons.pending_outlined),
               ],
             ),
             const SizedBox(height: 14),
@@ -345,11 +397,11 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F8FA),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFECECF1)),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,20 +411,46 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                                   Expanded(
                                     child: Text(
                                       (payout['profiles'] is Map ? ((payout['profiles'] as Map)['full_name'] ?? 'Host payout') : 'Host payout').toString(),
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.black,
+                                      ),
                                     ),
                                   ),
-                                  _Pill(label: _label((payout['status'] ?? 'unknown').toString()), color: _statusColor((payout['status'] ?? '').toString())),
+                                  _Pill(
+                                    label: _label((payout['status'] ?? 'unknown').toString()),
+                                    color: _statusColor((payout['status'] ?? '').toString()),
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
-                              Text(_money(payout['amount'], (payout['currency'] ?? 'RWF').toString()), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                               const SizedBox(height: 8),
+                              Text(
+                                _money(payout['amount'], (payout['currency'] ?? 'RWF').toString()),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
                               if ((payout['status'] ?? '').toString() == 'pending')
                                 SizedBox(
-                                  height: 36,
+                                  width: double.infinity,
                                   child: FilledButton(
                                     onPressed: _updatingPayoutId == payout['id'] ? null : () => _markPayoutPaid((payout['id'] ?? '').toString()),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.rausch,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      textStyle: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                     child: Text(_updatingPayoutId == payout['id'] ? 'Updating...' : 'Mark as paid'),
                                   ),
                                 ),
@@ -451,11 +529,17 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value, required this.accent});
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.icon,
+  });
 
   final String label;
   final String value;
   final Color accent;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -464,20 +548,41 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFECECF1)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 17, color: accent),
           ),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.black)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: AppColors.black,
+              height: 1.0,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.foggy,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -498,12 +603,30 @@ class _TabStrip extends StatelessWidget {
       child: Row(
         children: [
           for (final tab in tabs)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(tab.$2),
-                selected: value == tab.$1,
-                onSelected: (_) => onChanged(tab.$1),
+            GestureDetector(
+              onTap: () => onChanged(tab.$1),
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: value == tab.$1
+                      ? AppColors.rausch
+                      : AppColors.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: value == tab.$1
+                        ? AppColors.rausch
+                        : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  tab.$2,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: value == tab.$1 ? Colors.white : AppColors.hof,
+                  ),
+                ),
               ),
             ),
         ],
@@ -523,19 +646,33 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.black,
+            ),
+          ),
           const SizedBox(height: 3),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-          const SizedBox(height: 12),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.foggy,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
           child,
         ],
       ),
@@ -552,19 +689,35 @@ class _KeyValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: emphasized ? AppColors.black : AppColors.hof, fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500),
-            ),
+    return Column(
+      children: [
+        const Divider(height: 1, thickness: 0.6),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: emphasized ? AppColors.black : AppColors.hof,
+                    fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: emphasized ? AppColors.rausch : AppColors.black,
+                ),
+              ),
+            ],
           ),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -597,29 +750,86 @@ class _FinanceBookingCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F8FA),
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFECECF1)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
-                Text(amount, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceSubtle,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    amount,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 3),
-            Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+            ),
             const SizedBox(height: 6),
-            Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: loading ? null : onRequestPayment,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.black,
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     child: const Text('Request'),
                   ),
                 ),
@@ -627,6 +837,18 @@ class _FinanceBookingCard extends StatelessWidget {
                 Expanded(
                   child: FilledButton(
                     onPressed: loading ? null : onMarkPaid,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.rausch,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     child: Text(loading ? 'Updating...' : 'Mark Paid'),
                   ),
                 ),
@@ -667,18 +889,46 @@ class _FinanceRefundCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F8FA),
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFECECF1)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.black,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+            ),
             const SizedBox(height: 6),
-            Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
+              ),
+            ),
             if (booking != null) ...[
               const SizedBox(height: 4),
               Text('Booking ${(booking!['id'] ?? '').toString().substring(0, 8)}', style: const TextStyle(fontSize: 11, color: AppColors.hof)),
@@ -688,6 +938,18 @@ class _FinanceRefundCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: loading ? null : onDecline,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.rausch,
+                        side: const BorderSide(color: AppColors.rausch),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       child: const Text('Decline'),
                     ),
                   ),
@@ -695,6 +957,18 @@ class _FinanceRefundCard extends StatelessWidget {
                   Expanded(
                     child: FilledButton(
                       onPressed: loading ? null : onApprove,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E8E5A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       child: Text(loading ? 'Updating...' : 'Approve'),
                     ),
                   ),

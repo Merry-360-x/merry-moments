@@ -1,12 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-
-import '../../app.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../widgets/cloudinary_image_picker.dart';
 import '../widgets/host_creation_scaffold.dart';
 
 const _kRed = AppColors.rausch;
@@ -57,7 +55,6 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   static const _stepTitles = ['Vehicle', 'Pricing', 'Photos', 'Documents', 'Review'];
 
   bool _saving = false;
-  bool _uploading = false;
   String? _error;
 
   // ── Step 1: Basics ──
@@ -75,8 +72,8 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   List<String> _keyFeatures = [];
 
   // ── Step 2: Media ──
-  List<String> _existingUrls = [];
-  final List<XFile> _newFiles = [];
+  List<String> _uploadedImageUrls = [];
+  bool _uploadingDoc = false;
   final _picker = ImagePicker();
 
   // ── Step 4: Documents ──
@@ -113,7 +110,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       _providerCtrl.text = e['provider_name'] ?? '';
       _descCtrl.text = e['description'] ?? '';
       _keyFeatures = List<String>.from(e['key_features'] as List? ?? []);
-      _existingUrls = List<String>.from(e['images'] as List? ?? []);
+      _uploadedImageUrls = List<String>.from(e['images'] as List? ?? []);
       _dailyPriceCtrl.text = e['daily_price'] != null ? e['daily_price'].toString() : '';
       _weeklyPriceCtrl.text = e['weekly_price'] != null ? e['weekly_price'].toString() : '';
       _monthlyPriceCtrl.text = e['monthly_price'] != null ? e['monthly_price'].toString() : '';
@@ -163,7 +160,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
     final file = await _picker.pickImage(source: ImageSource.gallery);
     if (file == null) return;
 
-    setState(() { _uploading = true; });
+    setState(() { _uploadingDoc = true; });
     try {
       final urls = await CloudinaryService.uploadImages(
         [file.path],
@@ -173,7 +170,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
         onUploaded(urls.first);
       }
     } finally {
-      if (mounted) setState(() { _uploading = false; });
+      if (mounted) setState(() { _uploadingDoc = false; });
     }
   }
 
@@ -185,18 +182,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
     });
 
     try {
-      final uploadedUrls = <String>[];
-      if (_newFiles.isNotEmpty) {
-        setState(() => _uploading = true);
-        final newUrls = await CloudinaryService.uploadImages(
-          _newFiles.map((f) => f.path).toList(),
-          folder: 'transport',
-        );
-        uploadedUrls.addAll(newUrls);
-      }
-
-      final allImages = [..._existingUrls, ...uploadedUrls];
-      setState(() => _uploading = false);
+      final allImages = List<String>.from(_uploadedImageUrls);
 
       final fields = <String, dynamic>{
         'is_published': true,
@@ -239,12 +225,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _uploading = false;
-        });
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -345,7 +326,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
             ),
             const SizedBox(width: 10),
             OutlinedButton(
-              onPressed: _uploading ? null : onPick,
+              onPressed: _uploadingDoc ? null : onPick,
               child: Text(url == null ? 'Upload' : 'Replace'),
             ),
           ],
@@ -490,91 +471,13 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
   // ── Step 2: Media ──
   Widget _buildStep2() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const _VStepHeader(icon: Icons.photo_camera_outlined, title: 'Add vehicle photos', subtitle: 'Help renters see what to expect'),
-    const SizedBox(height: 24),
-
-    Row(children: [
-      Expanded(child: OutlinedButton.icon(
-        onPressed: () async {
-          final imgs = await _picker.pickMultiImage(imageQuality: 85);
-          if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-        },
-        icon: const Icon(Icons.photo_library_outlined),
-        label: const Text('Gallery'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      )),
-      const SizedBox(width: 10),
-      OutlinedButton(
-        onPressed: () async {
-          final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-          if (img != null) setState(() => _newFiles.add(img));
-        },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        ),
-        child: const Icon(Icons.camera_alt_outlined),
-      ),
-    ]),
-    const SizedBox(height: 16),
-
-    if (_existingUrls.isEmpty && _newFiles.isEmpty)
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 2),
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey.shade50,
-        ),
-        child: Column(children: [
-          Icon(Icons.add_photo_alternate_outlined, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('No photos yet', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
-        ]),
-      )
-    else
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-        ),
-        itemCount: _existingUrls.length + _newFiles.length,
-        itemBuilder: (ctx, i) {
-          final isExisting = i < _existingUrls.length;
-          return Stack(fit: StackFit.expand, children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: isExisting
-                  ? Image.network(_existingUrls[i], fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
-                  : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
-            ),
-            Positioned(
-              top: 4, right: 4,
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  if (isExisting) {
-                    _existingUrls.removeAt(i);
-                  } else {
-                    _newFiles.removeAt(i - _existingUrls.length);
-                  }
-                }),
-                child: Container(
-                  width: 22, height: 22,
-                  decoration: const BoxDecoration(color: AppColors.foggy, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 14, color: AppColors.surface),
-                ),
-              ),
-            ),
-          ]);
-        },
-      ),
+    const SizedBox(height: 20),
+    CloudinaryImagePicker(
+      folder: 'transport',
+      uploadedUrls: _uploadedImageUrls,
+      onChanged: (urls) => setState(() => _uploadedImageUrls = List<String>.from(urls)),
+      hint: 'Show exterior, interior, and key features',
+    ),
   ]);
 
   // ── Step 3: Pricing ──
@@ -628,16 +531,9 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
     ]),
     const SizedBox(height: 12),
     _VReviewCard(children: [
-      _VReviewRow(label: 'Photos', value: '${_existingUrls.length + _newFiles.length} selected'),
+      _VReviewRow(label: 'Photos', value: '${_uploadedImageUrls.length} uploaded'),
       _VReviewRow(label: 'Key Features', value: '${_keyFeatures.length} selected'),
     ]),
-
-    if (_uploading) ...[
-      const SizedBox(height: 16),
-      const LinearProgressIndicator(color: _kRed),
-      const SizedBox(height: 8),
-      const Center(child: Text('Uploading photos…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
-    ],
   ]);
 }
 

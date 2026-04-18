@@ -71,7 +71,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
           indicatorWeight: 2,
           labelColor: AppColors.black,
           unselectedLabelColor: AppColors.foggy,
-          dividerColor: const Color(0xFFEBEBEB),
+          dividerColor: AppColors.border,
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: [Tab(text: l.upcoming), Tab(text: l.past)],
         ),
@@ -138,11 +138,12 @@ class _BookingTile extends StatelessWidget {
     final bookingId = (booking['id'] ?? '').toString();
     final hasReview = booking['has_review'] == true;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final (statusColor, statusBg) = switch (status) {
-      'confirmed' => (const Color(0xFF008489), const Color(0xFFE6F6F5)),
-      'completed' => (const Color(0xFF2196F3), const Color(0xFFE3F2FD)),
-      'cancelled' => (AppColors.rausch, const Color(0xFFFFF0F1)),
-      _ => (const Color(0xFFFFB400), const Color(0xFFFFF8E1)),
+      'confirmed' => (const Color(0xFF008489), isDark ? const Color(0xFF003D3A) : const Color(0xFFE6F6F5)),
+      'completed' => (const Color(0xFF2196F3), isDark ? const Color(0xFF0D2238) : const Color(0xFFE3F2FD)),
+      'cancelled' => (AppColors.rausch, isDark ? const Color(0xFF3A0A0F) : const Color(0xFFFFF0F1)),
+      _ => (const Color(0xFFFFB400), isDark ? const Color(0xFF3A2800) : const Color(0xFFFFF8E1)),
     };
 
     return Container(
@@ -150,7 +151,7 @@ class _BookingTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -355,9 +356,9 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
             decoration: InputDecoration(
               hintText: 'Share your experience\u2026',
               hintStyle: const TextStyle(color: AppColors.foggy),
-              filled: true, fillColor: AppColors.surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFEBEBEB))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFEBEBEB))),
+              filled: true, fillColor: AppColors.surfaceSubtle,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppColors.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppColors.border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.black, width: 2)),
             ),
           ),

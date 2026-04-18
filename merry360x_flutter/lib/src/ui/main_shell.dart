@@ -482,7 +482,7 @@ class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
   Widget _ring(AnimationController ctrl, double maxRadius) {
     return AnimatedBuilder(
       animation: ctrl,
-      builder: (_, __) {
+      builder: (_, _) {
         final t = ctrl.value;
         return Container(
           width: maxRadius * 2 * t,

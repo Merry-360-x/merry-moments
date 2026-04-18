@@ -226,7 +226,7 @@ class _CartItemTile extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFEEEE),
+          color: AppColors.rausch.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(Icons.delete_outline, color: AppColors.rausch),
@@ -527,6 +527,7 @@ class _TotalBarState extends State<_TotalBar> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseTotals = _computeBaseTotals();
     final serviceFees = _computeServiceFees(baseTotals: baseTotals);
     final totals = _computeTotals();
@@ -544,7 +545,7 @@ class _TotalBarState extends State<_TotalBar> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
+                color: isDark ? const Color(0xFF003D1A) : const Color(0xFFE8F5E9),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
               ),
@@ -555,7 +556,7 @@ class _TotalBarState extends State<_TotalBar> {
                   Expanded(
                     child: Text(
                       '${_appliedData!['code']}  •  Save ${totals.keys.isNotEmpty ? totals.keys.first : ''} ${_discount.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF2E7D32)),
                     ),
                   ),
                   GestureDetector(onTap: _removePromo, child: const Icon(Icons.close, size: 16, color: Color(0xFF757575))),
@@ -701,7 +702,7 @@ class _TypePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE8E9),
+        color: AppColors.rausch.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(label,

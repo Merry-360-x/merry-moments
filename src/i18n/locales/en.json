@@ -627,5 +627,9 @@
       "tours": "Tours & Packages",
       "transport": "Transport"
     }
+  },
+  "notFound": {
+    "message": "The page you're looking for doesn't exist.",
+    "returnHome": "Return to Home"
   }
 }

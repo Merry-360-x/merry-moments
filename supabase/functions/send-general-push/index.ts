@@ -510,14 +510,6 @@ serve(async (req: Request) => {
     return json(401, { error: "Missing bearer token" });
   }
 
-  const authedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
-
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
@@ -531,6 +523,24 @@ serve(async (req: Request) => {
     const sendPush = (payload as { sendPush?: unknown }).sendPush !== false;
     const sendInApp = (payload as { sendInApp?: unknown }).sendInApp !== false;
     const customUserIds = normalizeUserIds((payload as { userIds?: unknown }).userIds);
+
+    // When the project issues ES256 JWTs the gateway rejects them with
+    // UNAUTHORIZED_UNSUPPORTED_TOKEN_ALGORITHM before the function runs.
+    // The Flutter client works around this by sending the anon key as the
+    // Bearer token (HS256, always accepted) and forwarding the user JWT in
+    // the body as `userToken`. Use that when present.
+    const bodyUserToken = String((payload as { userToken?: unknown }).userToken || "").trim();
+    const effectiveAuthHeader = bodyUserToken
+      ? `Bearer ${bodyUserToken}`
+      : authHeader;
+
+    const authedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: effectiveAuthHeader,
+        },
+      },
+    });
 
     if (title.length < 3) {
       return json(400, { error: "title must be at least 3 characters" });

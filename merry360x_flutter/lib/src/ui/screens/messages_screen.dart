@@ -31,18 +31,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String? _error;
   String _lastUserId = '';
   bool _initialThreadOpened = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _lastUserId = widget.session.userId;
     widget.session.addListener(_onSessionChanged);
+    _searchCtrl.addListener(() {
+      setState(() => _searchQuery = _searchCtrl.text.trim().toLowerCase());
+    });
     unawaited(_loadConversations());
   }
 
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -123,106 +129,204 @@ class _MessagesScreenState extends State<MessagesScreen> {
     await _loadConversations(silent: true);
   }
 
+  void _showNewChatSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => _NewChatSheet(
+        session: widget.session,
+        onSelected: (peerId, peerName) {
+          Navigator.pop(sheetCtx);
+          _openConversation(peerId, peerDisplayName: peerName);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final session = widget.session;
 
     if (!session.isAuthenticated) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        children: [
-          Text(
-            l.messages,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.black,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            title: l.connectYourAccount,
-            subtitle: l.signInToMessage,
-          ),
-        ],
-      );
-    }
-
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.rausch),
-      );
-    }
-
-    return RefreshIndicator(
-      color: AppColors.rausch,
-      onRefresh: () => _loadConversations(silent: true),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l.messages,
-                  style: const TextStyle(
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Messages',
+                  style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: AppColors.black,
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: l.refreshMessages,
-                icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy),
-                onPressed: () => unawaited(_loadConversations(silent: true)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _InfoCard(
-            title: l.safetyFirst,
-            subtitle: l.safetyDesc,
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 10),
-            _InfoCard(title: l.couldNotLoadConversations, subtitle: _error!),
-          ],
-          const SizedBox(height: 12),
-          if (_conversations.isEmpty)
-            _InfoCard(
-              title: l.noConversationsYet,
-              subtitle: l.openPropertyToMessage,
-            )
-          else
-            ..._conversations.map((conversation) {
-              final peerId = (conversation['peer_id'] ?? '').toString();
-              final peerProfile = conversation['peer_profile'];
-              final profile =
-                  peerProfile is Map ? Map<String, dynamic>.from(peerProfile) : null;
-              final peerName =
-                  _resolvePeerName(profile) ?? 'Host';
-              final lastMessage =
-                  (conversation['last_message'] ?? '').toString().trim();
-              final lastMessageAt =
-                  (conversation['last_message_at'] ?? '').toString();
-              final unreadCount =
-                  ((conversation['unread_count'] as num?)?.toInt() ?? 0);
-
-              return _ConversationTile(
-                peerName: peerName,
-                lastMessage: lastMessage,
-                lastMessageAt: lastMessageAt,
-                unreadCount: unreadCount,
-                avatarUrl: profile?['avatar_url']?.toString(),
-                onTap: () => _openConversation(
-                  peerId,
-                  peerDisplayName: peerName,
+                const SizedBox(height: 16),
+                _InfoCard(
+                  title: l.connectYourAccount,
+                  subtitle: l.signInToMessage,
                 ),
-              );
-            }),
-        ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final filtered = _searchQuery.isEmpty
+        ? _conversations
+        : _conversations.where((c) {
+            final profile = c['peer_profile'];
+            final p = profile is Map ? Map<String, dynamic>.from(profile) : null;
+            final name = (_resolvePeerName(p) ?? '').toLowerCase();
+            return name.contains(_searchQuery);
+          }).toList();
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Messages',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l.refreshMessages,
+                    icon: const Icon(Icons.refresh_outlined, color: AppColors.foggy),
+                    onPressed: () => unawaited(_loadConversations(silent: true)),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Search bar ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Search conversations…',
+                  hintStyle: const TextStyle(color: AppColors.foggy, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.foggy, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 18, color: AppColors.foggy),
+                          onPressed: () => _searchCtrl.clear(),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.surfaceSubtle,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Body ──
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.rausch),
+                    )
+                  : RefreshIndicator(
+                      color: AppColors.rausch,
+                      onRefresh: () => _loadConversations(silent: true),
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                        children: [
+                          _InfoCard(
+                            title: l.safetyFirst,
+                            subtitle: l.safetyDesc,
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 10),
+                            _InfoCard(
+                              title: l.couldNotLoadConversations,
+                              subtitle: _error!,
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          if (filtered.isEmpty)
+                            _EmptyConversations(
+                              hasSearch: _searchQuery.isNotEmpty,
+                              onNewChat: _showNewChatSheet,
+                            )
+                          else
+                            ...filtered.map((conversation) {
+                              final peerId =
+                                  (conversation['peer_id'] ?? '').toString();
+                              final peerProfile = conversation['peer_profile'];
+                              final profile = peerProfile is Map
+                                  ? Map<String, dynamic>.from(peerProfile)
+                                  : null;
+                              final peerName =
+                                  _resolvePeerName(profile) ?? 'Host';
+                              final lastMessage =
+                                  (conversation['last_message'] ?? '')
+                                      .toString()
+                                      .trim();
+                              final lastMessageAt =
+                                  (conversation['last_message_at'] ?? '')
+                                      .toString();
+                              final unreadCount = ((conversation['unread_count']
+                                          as num?)
+                                      ?.toInt() ??
+                                  0);
+
+                              return _ConversationTile(
+                                peerName: peerName,
+                                lastMessage: lastMessage,
+                                lastMessageAt: lastMessageAt,
+                                unreadCount: unreadCount,
+                                avatarUrl:
+                                    profile?['avatar_url']?.toString(),
+                                onTap: () => _openConversation(
+                                  peerId,
+                                  peerDisplayName: peerName,
+                                ),
+                              );
+                            }),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showNewChatSheet,
+        backgroundColor: AppColors.rausch,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.edit_outlined),
+        label: const Text(
+          'New message',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        elevation: 3,
       ),
     );
   }
@@ -574,6 +678,252 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
     final minute = dt.minute.toString().padLeft(2, '0');
     final meridiem = dt.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $meridiem';
+  }
+}
+
+class _EmptyConversations extends StatelessWidget {
+  const _EmptyConversations({required this.hasSearch, required this.onNewChat});
+  final bool hasSearch;
+  final VoidCallback onNewChat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF0F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.chat_bubble_outline_rounded,
+                  size: 36, color: AppColors.rausch),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              hasSearch ? 'No matching conversations' : 'No messages yet',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: AppColors.black,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              hasSearch
+                  ? 'Try a different name'
+                  : 'Start a conversation with a host or guest',
+              style: const TextStyle(color: AppColors.foggy, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            if (!hasSearch) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onNewChat,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.rausch,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('New message',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewChatSheet extends StatefulWidget {
+  const _NewChatSheet({required this.session, required this.onSelected});
+  final SessionController session;
+  final void Function(String peerId, String peerName) onSelected;
+
+  @override
+  State<_NewChatSheet> createState() => _NewChatSheetState();
+}
+
+class _NewChatSheetState extends State<_NewChatSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _results = const [];
+  bool _searching = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    final q = _searchCtrl.text.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _results = const [];
+        _searching = false;
+      });
+      return;
+    }
+    // Clear stale results immediately so the list doesn't show old names
+    // that don't match the current query.
+    setState(() => _results = const []);
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q));
+  }
+
+  Future<void> _search(String q) async {
+    setState(() => _searching = true);
+    try {
+      final rows = await widget.session.searchProfiles(query: q);
+      // Exclude self
+      final myId = widget.session.userId;
+      final filtered = rows.where((r) => r['user_id']?.toString() != myId).toList();
+      if (mounted) setState(() => _results = filtered);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  String _nameOf(Map<String, dynamic> p) {
+    final nick = (p['nickname'] ?? '').toString().trim();
+    if (nick.isNotEmpty) return nick;
+    final full = (p['full_name'] ?? '').toString().trim();
+    return full.isNotEmpty ? full : 'User';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'New message',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search by name…',
+                  hintStyle: const TextStyle(color: AppColors.foggy, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.foggy, size: 20),
+                  suffixIcon: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.rausch),
+                          ),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.surfaceSubtle,
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 0, horizontal: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _results.isEmpty && _searchCtrl.text.trim().isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Type a name to search',
+                        style: TextStyle(color: AppColors.foggy, fontSize: 14),
+                      ),
+                    )
+                  : _results.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No users found',
+                            style: TextStyle(color: AppColors.foggy, fontSize: 14),
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollCtrl,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                          itemCount: _results.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final p = _results[i];
+                            final name = _nameOf(p);
+                            final peerId = p['user_id']?.toString() ?? '';
+                            final avatarUrl = p['avatar_url']?.toString();
+                            return ListTile(
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 4),
+                              leading: _Avatar(
+                                peerName: name,
+                                avatarUrl: avatarUrl,
+                              ),
+                              title: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              trailing: const Icon(Icons.chevron_right,
+                                  color: AppColors.foggy),
+                              onTap: () => widget.onSelected(peerId, name),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

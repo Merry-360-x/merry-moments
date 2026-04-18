@@ -545,5 +545,9 @@
       "tours": "Circuits & Forfaits",
       "transport": "Transport"
     }
+  },
+  "notFound": {
+    "message": "La page que vous recherchez n'existe pas.",
+    "returnHome": "Retour à l'accueil"
   }
 }

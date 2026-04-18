@@ -568,7 +568,7 @@ class AppDatabase {
     // Build an OR filter string that also matches individual tokens so that
     // formatted destinations like "Rubavu (Gisenyi)" match rows where the
     // location column contains only "Rubavu" or only "Gisenyi".
-    String _buildLocationFilter(String raw) {
+    String buildLocationFilter(String raw) {
       final tokens = raw
           .split(RegExp(r'[()\[\],]+'))
           .map((t) => t.trim())
@@ -591,7 +591,7 @@ class AppDatabase {
             .from('properties')
           .select('id, title, location, price_per_night, currency, property_type, rating, review_count, images, main_image')
             .eq('is_published', true);
-        if (q.isNotEmpty) req = req.or(_buildLocationFilter(q));
+        if (q.isNotEmpty) req = req.or(buildLocationFilter(q));
         if (minPrice != null) req = req.gte('price_per_night', minPrice);
         if (maxPrice != null) req = req.lte('price_per_night', maxPrice);
         final data = await req.limit(30);
@@ -604,7 +604,7 @@ class AppDatabase {
             .from('tours')
             .select('id, title, location, price_per_person, currency, images, main_image, rating, review_count, category, duration_days')
             .or('is_published.eq.true,is_published.is.null');
-        if (q.isNotEmpty) req2 = req2.or(_buildLocationFilter(q));
+        if (q.isNotEmpty) req2 = req2.or(buildLocationFilter(q));
         final data = await req2.limit(30);
         for (final r in (data as List).cast<Map<String, dynamic>>()) {
           results.add(_normalizeTour(r));
@@ -1162,10 +1162,10 @@ class AppDatabase {
   Future<List<Map<String, dynamic>>> fetchHostBookings({required String userId}) async {
     try {
       final inventoryResults = await Future.wait<dynamic>([
-        _sb.from('properties').select('id').or('host_id.eq.$userId,user_id.eq.$userId'),
-        _sb.from('tours').select('id').or('host_id.eq.$userId,user_id.eq.$userId,guide_id.eq.$userId,created_by.eq.$userId'),
+        _sb.from('properties').select('id').eq('host_id', userId),
+        _sb.from('tours').select('id').eq('created_by', userId),
         _sb.from('tour_packages').select('id').eq('host_id', userId),
-        _sb.from('transport_vehicles').select('id').or('host_id.eq.$userId,user_id.eq.$userId,owner_id.eq.$userId,created_by.eq.$userId'),
+        _sb.from('transport_vehicles').select('id').eq('created_by', userId),
       ]);
 
       final propertyIds = (inventoryResults[0] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
@@ -1174,12 +1174,13 @@ class AppDatabase {
       final transportIds = (inventoryResults[3] as List).map((row) => (row as Map)['id']?.toString()).whereType<String>().toList();
       final allTourIds = {...tourIds, ...tourPackageIds}.toList();
 
+      // Use '*' (like the web) to avoid failures from non-existent columns in explicit lists
       final bookingQueries = <Future<dynamic>>[];
       if (propertyIds.isNotEmpty) {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('id, order_id, booking_type, property_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, properties(title, currency)')
+              .select('*, properties(title, price_per_night, currency)')
               .eq('booking_type', 'property')
               .inFilter('property_id', propertyIds)
               .order('created_at', ascending: false),
@@ -1189,7 +1190,7 @@ class AppDatabase {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('id, order_id, booking_type, tour_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, tours(title, currency), tour_packages(title, currency)')
+              .select('*, tour_packages(title, price_per_adult, currency)')
               .eq('booking_type', 'tour')
               .inFilter('tour_id', allTourIds)
               .order('created_at', ascending: false),
@@ -1199,7 +1200,7 @@ class AppDatabase {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('id, order_id, booking_type, transport_id, guest_id, guest_name, guest_email, guest_phone, check_in, check_out, total_price, currency, status, payment_status, confirmation_status, rejection_reason, review_email_sent, has_review, review_token, created_at, transport_vehicles(title, currency)')
+              .select('*, transport_vehicles(title, currency)')
               .eq('booking_type', 'transport')
               .inFilter('transport_id', transportIds)
               .order('created_at', ascending: false),
@@ -1212,6 +1213,28 @@ class AppDatabase {
 
       final bookingResults = await Future.wait<dynamic>(bookingQueries);
       final bookingRows = bookingResults.expand((rows) => (rows as List).cast<Map<String, dynamic>>()).toList();
+
+      // Fetch checkout_requests by order_id (same as web) for accurate payment amounts
+      final orderIds = bookingRows
+          .map((row) => row['order_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final checkoutByOrderId = <String, Map<String, dynamic>>{};
+      if (orderIds.isNotEmpty) {
+        final checkouts = await _sb
+            .from('checkout_requests')
+            .select('id, total_amount, currency, payment_status, payment_method, base_price_amount, service_fee_amount')
+            .inFilter('id', orderIds);
+        for (final cr in (checkouts as List).cast<Map<String, dynamic>>()) {
+          final cid = cr['id']?.toString();
+          if (cid != null && cid.isNotEmpty) checkoutByOrderId[cid] = cr;
+        }
+      }
+
+      // Fetch guest profiles
       final guestIds = bookingRows
           .map((row) => row['guest_id']?.toString())
           .whereType<String>()
@@ -1226,29 +1249,33 @@ class AppDatabase {
             .select('user_id, full_name, avatar_url, email, phone')
             .inFilter('user_id', guestIds);
         for (final guest in (guests as List).cast<Map<String, dynamic>>()) {
-          final userId = guest['user_id']?.toString();
-          if (userId != null && userId.isNotEmpty) {
-            guestLookup[userId] = guest;
-          }
+          final gId = guest['user_id']?.toString();
+          if (gId != null && gId.isNotEmpty) guestLookup[gId] = guest;
         }
       }
 
       final normalized = bookingRows.map((row) {
         final bookingType = (row['booking_type'] ?? '').toString();
         final property = row['properties'] as Map<String, dynamic>?;
-        final tour = row['tours'] as Map<String, dynamic>?;
         final tourPackage = row['tour_packages'] as Map<String, dynamic>?;
         final transport = row['transport_vehicles'] as Map<String, dynamic>?;
         final guestProfile = guestLookup[row['guest_id']?.toString() ?? ''];
+        final checkout = checkoutByOrderId[row['order_id']?.toString() ?? ''];
 
         String listingTitle = 'Booking';
         if (bookingType == 'property') {
           listingTitle = (property?['title'] ?? 'Accommodation booking').toString();
         } else if (bookingType == 'tour') {
-          listingTitle = (tourPackage?['title'] ?? tour?['title'] ?? 'Tour booking').toString();
+          listingTitle = (tourPackage?['title'] ?? 'Tour booking').toString();
         } else if (bookingType == 'transport') {
           listingTitle = (transport?['title'] ?? 'Transport booking').toString();
         }
+
+        // Prefer checkout_request total_amount (authoritative) over bookings.total_price
+        final totalAmount = checkout?['total_amount'] != null
+            ? (checkout!['total_amount'] as num).toDouble()
+            : (row['total_price'] as num?)?.toDouble();
+        final currency = checkout?['currency'] ?? row['currency'];
 
         return {
           ...row,
@@ -1258,13 +1285,17 @@ class AppDatabase {
           'guest_email': row['guest_email'] ?? guestProfile?['email'],
           'guest_phone': row['guest_phone'] ?? guestProfile?['phone'],
           'guest_avatar_url': guestProfile?['avatar_url'],
-          'total_amount': row['total_price'],
+          'total_amount': totalAmount,
+          'currency': currency,
+          'payment_status': checkout?['payment_status'] ?? row['payment_status'],
+          'payment_method': checkout?['payment_method'] ?? row['payment_method'],
         };
       }).toList()
         ..sort((a, b) => ((b['created_at'] ?? '') as String).compareTo((a['created_at'] ?? '') as String));
 
       return normalized;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[fetchHostBookings] error: $e');
       return [];
     }
   }
@@ -1394,6 +1425,21 @@ class AppDatabase {
       return Map<String, dynamic>.from(data as Map);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchProfiles({required String query, int limit = 20}) async {
+    if (query.trim().isEmpty) return [];
+    try {
+      final q = '%${query.trim().toLowerCase()}%';
+      final data = await _sb
+          .from('profiles')
+          .select('user_id, full_name, nickname, avatar_url')
+          .or('full_name.ilike.$q,nickname.ilike.$q')
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
     }
   }
 
@@ -2065,14 +2111,19 @@ class AppDatabase {
 
     Future<Map<String, dynamic>> invokeSendGeneralPush(String token) async {
       final uri = Uri.parse('${AppConfig.supabaseUrl}/functions/v1/send-general-push');
+      // Use the anon key as the Bearer token so the Edge Function gateway accepts
+      // the call even when the project issues ES256-algorithm JWTs (which the
+      // gateway JWT verifier rejects with UNAUTHORIZED_UNSUPPORTED_TOKEN_ALGORITHM).
+      // The actual user JWT is forwarded in the body as `userToken` so the function
+      // can still call auth.getUser() to verify identity and role.
       final resp = await _http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
           'apikey': AppConfig.supabaseAnonKey,
         },
-        body: jsonEncode(payload),
+        body: jsonEncode({...payload, 'userToken': token}),
       );
 
       final rawBody = resp.body.trim();
@@ -2391,11 +2442,14 @@ class AppDatabase {
     try {
       final data = await _sb
           .from('properties')
-          .select('id, title, location, price_per_night, currency, is_published, images, main_image, property_type, rating, review_count, max_guests, bedrooms, bathrooms')
-          .or('host_id.eq.$userId,user_id.eq.$userId')
+          .select('id, title, location, price_per_night, price_per_month, currency, is_published, images, main_image, property_type, listing_mode, rating, review_count, max_guests, bedrooms, bathrooms')
+          .eq('host_id', userId)
           .order('created_at', ascending: false);
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeProperty).toList();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchHostProperties] error: $e');
+      return [];
+    }
   }
 
   Future<String?> createProperty({
@@ -2433,7 +2487,7 @@ class AppDatabase {
             .order('created_at', ascending: false),
         _sb
             .from('tour_packages')
-            .select('id, title, city, country, price_per_person, price_per_adult, currency, status, cover_image, gallery_images, rating, review_count, max_guests, duration, created_at')
+            .select('id, title, city, country, price_per_person, price_per_adult, currency, status, cover_image, gallery_images, max_guests, duration, created_at')
             .eq('host_id', userId)
             .order('created_at', ascending: false),
       ]);
@@ -2443,7 +2497,10 @@ class AppDatabase {
       final merged = [...tours, ...packages].toList()
         ..sort((a, b) => ((b['created_at'] ?? '') as String).compareTo((a['created_at'] ?? '') as String));
       return merged;
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchHostTours] error: $e');
+      return [];
+    }
   }
 
   Future<String?> createTour({
@@ -2498,10 +2555,13 @@ class AppDatabase {
       final data = await _sb
           .from('transport_vehicles')
           .select('id, title, provider_name, vehicle_type, seats, price_per_day, daily_price, currency, is_published, image_url, media, created_at')
-          .or('host_id.eq.$userId,user_id.eq.$userId,owner_id.eq.$userId,created_by.eq.$userId')
+          .eq('created_by', userId)
           .order('created_at', ascending: false);
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeTransport).toList();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchHostTransport] error: $e');
+      return [];
+    }
   }
 
   Future<void> updateHostTourListing({
@@ -2607,7 +2667,10 @@ class AppDatabase {
           .eq('property_id', propertyId)
           .order('date', ascending: true);
       return (data as List).cast<Map<String, dynamic>>();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchAvailabilityExceptions] error: $e');
+      return [];
+    }
   }
 
   Future<void> setAvailabilityException({
@@ -2636,11 +2699,14 @@ class AppDatabase {
     try {
       final data = await _sb
           .from('discount_codes')
-          .select('id, code, discount_type, discount_value, max_uses, uses_count, expires_at, is_active, created_at')
+          .select('id, code, discount_type, discount_value, max_uses, current_uses, valid_until, is_active, created_at')
           .eq('host_id', userId)
           .order('created_at', ascending: false);
       return (data as List).cast<Map<String, dynamic>>();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchHostDiscounts] error: $e');
+      return [];
+    }
   }
 
   Future<void> createDiscount({
@@ -2666,7 +2732,7 @@ class AppDatabase {
       'minimum_amount': minimumAmount,
       'valid_until': validUntil,
       'applies_to': appliesTo,
-      'uses_count': 0,
+      'current_uses': 0,
       'is_active': true,
     });
   }
@@ -2687,11 +2753,14 @@ class AppDatabase {
     try {
       final data = await _sb
           .from('host_payout_methods')
-          .select('id, method_type, account_name, phone_number, mobile_provider, bank_name, bank_account_number, is_primary, created_at')
+          .select('id, method_type, nickname, bank_account_name, phone_number, mobile_provider, bank_name, bank_account_number, bank_swift_code, is_primary, created_at')
           .eq('host_id', userId)
           .order('created_at', ascending: false);
       return (data as List).cast<Map<String, dynamic>>();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchPayoutMethods] error: $e');
+      return [];
+    }
   }
 
   Future<void> createPayoutMethod({
@@ -2707,7 +2776,8 @@ class AppDatabase {
     await _sb.from('host_payout_methods').insert({
       'host_id': userId,
       'method_type': methodType,
-      'account_name': accountName,
+      'nickname': accountName.isNotEmpty ? accountName : null,
+      'bank_account_name': accountName.isNotEmpty ? accountName : null,
       'phone_number': ?phoneNumber,
       'mobile_provider': ?mobileProvider,
       'bank_name': ?bankName,
@@ -2734,12 +2804,15 @@ class AppDatabase {
     try {
       final data = await _sb
           .from('host_payouts')
-          .select('id, amount, currency, status, payout_method_type, created_at, completed_at')
+          .select('id, amount, currency, status, payout_method, payout_details, processed_at, created_at')
           .eq('host_id', userId)
           .order('created_at', ascending: false)
           .limit(50);
       return (data as List).cast<Map<String, dynamic>>();
-    } catch (_) { return []; }
+    } catch (e) {
+      debugPrint('[fetchHostPayouts] error: $e');
+      return [];
+    }
   }
 
   Future<void> requestPayout({
@@ -2754,8 +2827,11 @@ class AppDatabase {
       'amount': amount,
       'currency': currency,
       'status': 'pending',
-      'payout_method_id': ?payoutMethodId,
-      'payout_method_type': ?payoutMethodType,
+      'payout_method': payoutMethodType ?? 'mobile_money',
+      'payout_details': {
+        'payout_method_id': ?payoutMethodId,
+        'method_type': ?payoutMethodType,
+      },
     });
   }
 
@@ -3034,7 +3110,7 @@ class AppDatabase {
       'start_date': startDate,
       'end_date': endDate,
       'reason': reason,
-      if (createdBy != null) 'created_by': createdBy,
+      'created_by': ?createdBy,
     });
   }
 
@@ -3111,8 +3187,8 @@ class AppDatabase {
       'host_id': hostId,
       'original_start_date': originalStartDate,
       'original_end_date': originalEndDate,
-      if (requestedStartDate != null) 'requested_start_date': requestedStartDate,
-      if (requestedEndDate != null) 'requested_end_date': requestedEndDate,
+      'requested_start_date': ?requestedStartDate,
+      'requested_end_date': ?requestedEndDate,
       if (reason != null && reason.isNotEmpty) 'reason': reason,
     });
   }

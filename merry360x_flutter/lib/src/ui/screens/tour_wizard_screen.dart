@@ -1,12 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
-import 'package:image_picker/image_picker.dart';
-
-import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../widgets/cloudinary_image_picker.dart';
 import '../widgets/host_creation_scaffold.dart';
 
 const _kRed = AppColors.rausch;
@@ -38,8 +34,6 @@ class TourWizardScreen extends StatefulWidget {
 
 class _TourWizardScreenState extends State<TourWizardScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _picker = ImagePicker();
-
   late final TextEditingController _titleCtrl;
   late final TextEditingController _locCtrl;
   late final TextEditingController _descCtrl;
@@ -56,11 +50,9 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
   String _pricingModel = _kPricingModels.first;
   bool _hasDifferentialPricing = false;
   final Set<String> _categories = <String>{};
-  final List<String> _existingUrls = <String>[];
-  final List<XFile> _newFiles = <XFile>[];
+  List<String> _uploadedImageUrls = [];
   bool _submitting = false;
   String? _error;
-  bool _uploading = false;
 
   @override
   void initState() {
@@ -90,7 +82,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
 
     final images = ex?['images'] ?? ex?['gallery_urls'] ?? ex?['image_urls'];
     if (images is List) {
-      _existingUrls.addAll(images.map((e) => e.toString()));
+      _uploadedImageUrls = images.map((e) => e.toString()).toList();
     }
   }
 
@@ -204,91 +196,13 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
   // ── Step 3: Media ──
   Widget _buildStep3() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const _TStepHeader(icon: Icons.photo_camera_outlined, title: 'Add tour photos', subtitle: 'Show travelers what to expect'),
-    const SizedBox(height: 24),
-
-    Row(children: [
-      Expanded(child: OutlinedButton.icon(
-        onPressed: () async {
-          final imgs = await _picker.pickMultiImage(imageQuality: 85);
-          if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-        },
-        icon: const Icon(Icons.photo_library_outlined),
-        label: const Text('Gallery'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      )),
-      const SizedBox(width: 10),
-      OutlinedButton(
-        onPressed: () async {
-          final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-          if (img != null) setState(() => _newFiles.add(img));
-        },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.black,
-          side: BorderSide(color: Colors.grey.shade300),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        ),
-        child: const Icon(Icons.camera_alt_outlined),
-      ),
-    ]),
-    const SizedBox(height: 16),
-
-    if (_existingUrls.isEmpty && _newFiles.isEmpty)
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 2),
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey.shade50,
-        ),
-        child: Column(children: [
-          Icon(Icons.add_photo_alternate_outlined, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('No photos yet', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
-        ]),
-      )
-    else
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-        ),
-        itemCount: _existingUrls.length + _newFiles.length,
-        itemBuilder: (ctx, i) {
-          final isExisting = i < _existingUrls.length;
-          return Stack(fit: StackFit.expand, children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: isExisting
-                  ? Image.network(_existingUrls[i], fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
-                  : Image.file(File(_newFiles[i - _existingUrls.length].path), fit: BoxFit.cover),
-            ),
-            Positioned(
-              top: 4, right: 4,
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  if (isExisting) {
-                    _existingUrls.removeAt(i);
-                  } else {
-                    _newFiles.removeAt(i - _existingUrls.length);
-                  }
-                }),
-                child: Container(
-                  width: 22, height: 22,
-                  decoration: const BoxDecoration(color: AppColors.foggy, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 14, color: AppColors.surface),
-                ),
-              ),
-            ),
-          ]);
-        },
-      ),
+    const SizedBox(height: 20),
+    CloudinaryImagePicker(
+      folder: 'tours',
+      uploadedUrls: _uploadedImageUrls,
+      onChanged: (urls) => setState(() => _uploadedImageUrls = List<String>.from(urls)),
+      hint: 'Show travelers what your tour looks like',
+    ),
   ]);
 
   // ── Step 4: Review ──
@@ -311,15 +225,8 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
     ]),
     const SizedBox(height: 12),
     _TReviewCard(children: [
-      _TReviewRow(label: 'Photos', value: '${_existingUrls.length + _newFiles.length} selected'),
+      _TReviewRow(label: 'Photos', value: '${_uploadedImageUrls.length} uploaded'),
     ]),
-
-    if (_uploading) ...[
-      const SizedBox(height: 16),
-      const LinearProgressIndicator(color: _kRed),
-      const SizedBox(height: 8),
-      const Center(child: Text('Uploading photos…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
-    ],
   ]);
 
   bool get _canProceed {
@@ -332,7 +239,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
       case 2:
         return double.tryParse(_priceCtrl.text.trim()) != null;
       case 3:
-        return (_existingUrls.length + _newFiles.length) > 0;
+        return _uploadedImageUrls.isNotEmpty;
       case 4:
         return true;
       default:
@@ -348,19 +255,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
     });
 
     try {
-      final uploadedUrls = <String>[];
-      if (_newFiles.isNotEmpty) {
-        setState(() => _uploading = true);
-        for (final f in _newFiles) {
-          final url = await CloudinaryService.uploadImage(
-            f.path,
-            folder: 'tours',
-          );
-          uploadedUrls.add(url);
-        }
-      }
-
-      final allImages = [..._existingUrls, ...uploadedUrls];
+      final allImages = List<String>.from(_uploadedImageUrls);
       final fields = <String, dynamic>{
         'is_published': true,
         'title': _titleCtrl.text.trim(),
@@ -392,12 +287,7 @@ class _TourWizardScreenState extends State<TourWizardScreen> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-          _uploading = false;
-        });
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 

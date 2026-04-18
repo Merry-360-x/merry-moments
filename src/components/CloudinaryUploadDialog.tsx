@@ -175,16 +175,16 @@ export function CloudinaryUploadDialog(props: {
     const newUrls: string[] = [];
     
     try {
-      // Upload in parallel for faster performance (limit to 3 concurrent uploads)
+      // Upload in parallel for faster performance (up to 5 concurrent uploads)
       const queuedItems = items.filter(it => it.status === "queued");
-      const batchSize = 3;
+      const batchSize = 5;
       
       for (let i = 0; i < queuedItems.length; i += batchSize) {
         const batch = queuedItems.slice(i, i + batchSize);
         
         await Promise.all(
           batch.map(async (it) => {
-            setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "uploading", percent: 1 } : p)));
+            setItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, status: "uploading", percent: 0 } : p)));
 
             try {
               const res = await uploadFile(it.file, {
@@ -363,15 +363,29 @@ export function CloudinaryUploadDialog(props: {
 
                       {/* Status overlay */}
                       {item.status === "uploading" && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <div className="h-8 w-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
-                        </div>
+                        <>
+                          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                            <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="text-white text-lg font-bold">{Math.round(item.percent)}%</div>
+                          </div>
+                          {/* Prominent progress bar */}
+                          <div className="absolute bottom-0 left-0 right-0 h-2 bg-black/50">
+                            <div 
+                              className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300 ease-out" 
+                              style={{ width: `${item.percent}%` }} 
+                            />
+                          </div>
+                        </>
                       )}
                       {item.status === "done" && (
-                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">✓</div>
+                        <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                          <div className="bg-green-500 text-white text-sm font-semibold px-3 py-1.5 rounded-full shadow-lg">
+                            ✓ Uploaded
+                          </div>
+                        </div>
                       )}
                       {item.status === "error" && (
-                        <div className="absolute inset-0 bg-red-500/70 flex items-center justify-center text-white text-xs px-2">
+                        <div className="absolute inset-0 bg-red-500/70 flex items-center justify-center text-white text-sm font-medium px-2">
                           Failed
                         </div>
                       )}
@@ -380,18 +394,11 @@ export function CloudinaryUploadDialog(props: {
                       <button
                         type="button"
                         onClick={() => clearItem(item.id)}
-                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                         aria-label="Remove"
                       >
                         <X className="w-4 h-4" />
                       </button>
-
-                      {/* Progress bar */}
-                      {item.status === "uploading" && (
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
-                          <div className="h-full bg-white transition-all" style={{ width: `${item.percent}%` }} />
-                        </div>
-                      )}
                     </div>
                   ))}
 

@@ -545,5 +545,9 @@
       "tours": "Ingendo & Pake",
       "transport": "Ubwikorezi"
     }
+  },
+  "notFound": {
+    "message": "Urupapuro ushaka ntiruboneka.",
+    "returnHome": "Subira mu rugo"
   }
 }

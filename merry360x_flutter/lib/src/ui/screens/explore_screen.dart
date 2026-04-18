@@ -229,6 +229,9 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserver {
+  // Static flag: sheet shows at most once per app process lifetime.
+  static bool _startupSheetEverShown = false;
+
   bool _startupSheetsQueued = false;
   bool _startupSheetsInProgress = false;
   DateTime? _lastStartupSheetsAt;
@@ -262,8 +265,9 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Do not re-trigger the sheet on OAuth/app resume.
     if (state == AppLifecycleState.resumed) {
-      _queueStartupBottomSheets(force: true);
+      _queueStartupBottomSheets();
     }
   }
 
@@ -289,6 +293,9 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
 
   Future<void> _showStartupBottomSheetsInSeries() async {
     if (_startupSheetsInProgress) return;
+    // Only show once per app process (survives tab switches and OAuth redirects).
+    if (_startupSheetEverShown) return;
+    _startupSheetEverShown = true;
 
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     if (isTablet) return;
@@ -326,7 +333,7 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
     final payload = session.payload;
     final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
     final stories = payload?.stories ?? const <Map<String, dynamic>>[];
-    final hasStoriesStrip = session.isAuthenticated || stories.isNotEmpty;
+    final hasStoriesStrip = stories.isNotEmpty;
 
     _precacheListingImages(context, all);
 
@@ -451,9 +458,12 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
               ),
             ),
           ),
-          // Hero video full width (no padding)
-          SliverToBoxAdapter(
-            child: _HeroVideoSection(isTablet: isTablet, l: l, fullWidth: true),
+          // Hero video with 3 px side inset and 5 px corner radius
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            sliver: SliverToBoxAdapter(
+              child: _HeroVideoSection(isTablet: isTablet, l: l, fullWidth: true),
+            ),
           ),
           // Rest of content with padding
           SliverPadding(
@@ -640,8 +650,9 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
   @override
   Widget build(BuildContext context) {
     final height = widget.isTablet ? 300.0 : 260.0;
-    final radius = widget.fullWidth ? 0.0 : (widget.isTablet ? 20.0 : 16.0);
-    return ClipRect(
+    final radius = widget.fullWidth ? 5.0 : (widget.isTablet ? 20.0 : 16.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
       child: SizedBox(
         height: height,
         width: double.infinity,
@@ -1096,7 +1107,7 @@ class _MomoProviderCard extends StatelessWidget {
           height: 40,
           fit: BoxFit.contain,
           placeholderBuilder: (_) => _brandIcon(initial),
-          errorBuilder: (_, __, ___) => _brandIcon(initial),
+          errorBuilder: (_, _, _) => _brandIcon(initial),
         );
       } else {
         logoWidget = Image.asset(
@@ -1452,10 +1463,6 @@ class ListingCard extends StatelessWidget {
                   child: GestureDetector(
                     onTap: () async {
                       HapticFeedback.lightImpact();
-                      if (!session.isAuthenticated) {
-                        AppSnackBar.info(context, l.signInToSaveToWishlist);
-                        return;
-                      }
                       await session.addListingToWishlist(item);
                       if (context.mounted) {
                         AppSnackBar.success(context, l.savedToWishlist);
@@ -1676,8 +1683,8 @@ class _ListingImage extends StatelessWidget {
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       placeholderFadeInDuration: Duration.zero,
-      placeholder: (_, __) => _placeholder(),
-      errorWidget: (_, __, ___) => _placeholder(),
+      placeholder: (_, _) => _placeholder(),
+      errorWidget: (_, _, _) => _placeholder(),
     );
   }
 }

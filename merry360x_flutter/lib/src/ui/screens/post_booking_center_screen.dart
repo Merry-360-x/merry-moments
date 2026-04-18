@@ -249,10 +249,10 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
-                                color: method == 'mobile_money' ? const Color(0xFFF2F8FF) : AppColors.surface,
+                                color: method == 'mobile_money' ? AppColors.rausch.withValues(alpha: 0.07) : AppColors.surfaceSubtle,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: method == 'mobile_money' ? AppColors.rausch : const Color(0xFFE7E7EC),
+                                  color: method == 'mobile_money' ? AppColors.rausch : AppColors.border,
                                   width: 1.5,
                                 ),
                               ),
@@ -289,10 +289,10 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
-                                color: method == 'card' ? const Color(0xFFF2F8FF) : AppColors.surface,
+                                color: method == 'card' ? AppColors.rausch.withValues(alpha: 0.07) : AppColors.surfaceSubtle,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: method == 'card' ? AppColors.rausch : const Color(0xFFE7E7EC),
+                                  color: method == 'card' ? AppColors.rausch : AppColors.border,
                                   width: 1.5,
                                 ),
                               ),
@@ -679,7 +679,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -775,7 +775,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8E1),
+                        color: AppColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -783,7 +783,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                           const Expanded(
                             child: Text(
                               'Payment is required to finalize this change.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF8A5100)),
+                              style: TextStyle(fontSize: 12, color: AppColors.hof),
                             ),
                           ),
                           TextButton(
@@ -825,7 +825,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7E7EC)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -861,7 +861,7 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF7F7FA),
+                        color: AppColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -1138,7 +1138,7 @@ class _ChargeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
+        border: Border.all(color: AppColors.border),
       ),
       clipBehavior: Clip.hardEdge,
       child: IntrinsicHeight(
@@ -1195,9 +1195,9 @@ class _ChargeCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
+                          color: AppColors.surfaceSubtle,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Row(
                           children: [
@@ -1205,7 +1205,7 @@ class _ChargeCard extends StatelessWidget {
                             const SizedBox(width: 6),
                             Text(
                               'Dispute ${_chipLabel((linkedDispute!['status'] ?? '').toString())}',
-                              style: const TextStyle(color: Color(0xFF92400E), fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(color: AppColors.hof, fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
@@ -1259,7 +1259,8 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (fg, bg) = _colors(status.toLowerCase());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final (fg, bg) = _colors(status.toLowerCase(), isDark);
     final label = status.isEmpty ? 'unknown' : status.replaceAll('_', ' ');
     final capitalized = label.isNotEmpty ? '${label[0].toUpperCase()}${label.substring(1)}' : label;
     return Container(
@@ -1269,20 +1270,30 @@ class _StatusChip extends StatelessWidget {
     );
   }
 
-  static (Color, Color) _colors(String v) {
+  static (Color, Color) _colors(String v, bool isDark) {
     if (v == 'paid' || v == 'approved' || v == 'settled') {
-      return (const Color(0xFF166534), const Color(0xFFDCFCE7));
+      return isDark
+          ? (const Color(0xFF4ADE80), const Color(0xFF003D1A))
+          : (const Color(0xFF166534), const Color(0xFFDCFCE7));
     }
     if (v == 'failed' || v == 'rejected' || v == 'cancelled' || v == 'closed') {
-      return (const Color(0xFFB42318), const Color(0xFFFEE4E2));
+      return isDark
+          ? (const Color(0xFFFC8181), const Color(0xFF3A0A0F))
+          : (const Color(0xFFB42318), const Color(0xFFFEE4E2));
     }
     if (v == 'disputed' || v == 'in_review' || v == 'open') {
-      return (const Color(0xFF92400E), const Color(0xFFFFFBEB));
+      return isDark
+          ? (const Color(0xFFFCD34D), const Color(0xFF3A2800))
+          : (const Color(0xFF92400E), const Color(0xFFFFFBEB));
     }
     if (v == 'pending') {
-      return (const Color(0xFF9A3412), const Color(0xFFFFF7ED));
+      return isDark
+          ? (const Color(0xFFFB923C), const Color(0xFF3A1A00))
+          : (const Color(0xFF9A3412), const Color(0xFFFFF7ED));
     }
-    return (const Color(0xFF475467), const Color(0xFFF2F4F7));
+    return isDark
+        ? (AppColors.foggy, AppColors.surfaceSubtle)
+        : (const Color(0xFF475467), const Color(0xFFF2F4F7));
   }
 }
 
@@ -1296,7 +1307,7 @@ class _OutlineChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD9D9E3)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.hof, fontWeight: FontWeight.w600)),
     );
@@ -1360,8 +1371,8 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
           children: [
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFEBEBEB), width: 0.5)),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
               ),
               child: Row(
                 children: [

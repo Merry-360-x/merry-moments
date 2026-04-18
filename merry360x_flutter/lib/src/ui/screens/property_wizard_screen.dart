@@ -1,14 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
 import '../utils/app_snackbar.dart';
 import '../widgets/host_creation_scaffold.dart';
+import '../widgets/cloudinary_image_picker.dart';
 
 // ─────────────────────────────────────────────────
 // Property Creation / Edit Wizard (5 steps)
@@ -23,32 +20,73 @@ const _kPropertyTypes = [
 ];
 const _kCurrencies = ['RWF', 'USD', 'EUR', 'GBP', 'KES', 'UGX', 'TZS'];
 const _kCancellationPolicies = ['strict', 'fair', 'lenient'];
-const _kAmenityOptions = {
-  'wifi': 'Wi-Fi', 'tv_smart': 'Smart TV', 'tv_basic': 'Basic TV',
-  'parking_free': 'Free Parking', 'parking_paid': 'Paid Parking',
-  'workspace': 'Workspace', 'wardrobe': 'Wardrobe', 'safe': 'Safe',
-  'ac': 'Air Conditioning', 'heating': 'Heating', 'fans': 'Fans',
-  'hot_water': 'Hot Water', 'toiletries': 'Toiletries', 'bathroom_essentials': 'Bathroom Essentials',
-  'bedsheets_pillows': 'Bed Linens & Pillows',
-  'washing_machine': 'Washing Machine', 'dryer': 'Dryer', 'iron': 'Iron & Board',
-  'kitchen': 'Full Kitchen', 'kitchenette': 'Kitchenette', 'refrigerator': 'Refrigerator',
-  'microwave': 'Microwave', 'stove': 'Stove/Cooker', 'oven': 'Oven',
-  'dishwasher': 'Dishwasher', 'cookware': 'Cookware', 'dishes': 'Dishes & Utensils',
-  'kettle': 'Electric Kettle', 'coffee_maker': 'Coffee Maker',
-  'breakfast_included': 'Breakfast Included', 'breakfast_available': 'Breakfast (Paid)',
-  'gym': 'Gym', 'pool': 'Swimming Pool', 'spa': 'Spa', 'jacuzzi': 'Hot Tub',
-  'smoke_alarm': 'Smoke Alarm', 'fire_extinguisher': 'Fire Extinguisher',
-  'first_aid': 'First Aid Kit', 'security_cameras': 'Security Cameras', 'security_system': 'Security System',
-  'no_smoking': 'No Smoking', 'pets_allowed': 'Pets Allowed',
-  'balcony': 'Balcony', 'patio': 'Patio', 'garden': 'Garden', 'terrace': 'Terrace',
-  'city_view': 'City View', 'mountain_view': 'Mountain View', 'sea_view': 'Sea View',
-  'lake_view': 'Lake View', 'landscape_view': 'Landscape View',
-  'elevator': 'Elevator', 'wheelchair_accessible': 'Wheelchair Accessible',
-  'meeting_room': 'Meeting Room', 'reception': '24/7 Reception',
-  'restaurant': 'On-site Restaurant', 'room_service': 'Room Service',
-  'family_friendly': 'Family Friendly', 'crib': 'Crib/Baby Bed',
-  'fireplace': 'Fireplace', 'air_purifier': 'Air Purifier',
-};
+final _kAmenitiesByCategory = <(String, Map<String, String>)>[
+  ('📶 Entertainment', {
+    'wifi': 'Wi-Fi', 'tv_smart': 'Smart TV', 'tv_basic': 'Basic TV',
+  }),
+  ('🚗 Parking', {
+    'parking_free': 'Free Parking', 'parking_paid': 'Paid Parking',
+  }),
+  ('💼 Work & Storage', {
+    'workspace': 'Dedicated Workspace', 'wardrobe': 'Wardrobe',
+    'hangers': 'Hangers', 'safe': 'Safe',
+  }),
+  ('❄️ Climate Control', {
+    'ac': 'Air Conditioning', 'heating': 'Heating', 'fans': 'Fans',
+    'fireplace': 'Fireplace', 'air_purifier': 'Air Purifier',
+  }),
+  ('🚿 Bathroom', {
+    'hot_water': 'Hot Water', 'toiletries': 'Toiletries',
+    'bathroom_essentials': 'Bathroom Essentials', 'cleaning_items': 'Cleaning Supplies',
+  }),
+  ('🛏️ Bedroom', {
+    'bedsheets_pillows': 'Bed Linens & Pillows', 'soundproofing': 'Soundproofing',
+  }),
+  ('👕 Laundry', {
+    'washing_machine': 'Washing Machine', 'dryer': 'Dryer', 'iron': 'Iron & Ironing Board',
+  }),
+  ('🍳 Kitchen', {
+    'kitchen': 'Full Kitchen', 'kitchenette': 'Kitchenette', 'refrigerator': 'Refrigerator',
+    'microwave': 'Microwave', 'stove': 'Stove/Cooker', 'oven': 'Oven',
+    'dishwasher': 'Dishwasher', 'cookware': 'Cookware', 'dishes': 'Dishes & Utensils',
+    'dining_table': 'Dining Table', 'blender': 'Blender',
+    'kettle': 'Electric Kettle', 'coffee_maker': 'Coffee Maker',
+  }),
+  ('🍽️ Meals', {
+    'breakfast_included': 'Breakfast Included', 'breakfast_available': 'Breakfast Available (Paid)',
+  }),
+  ('💪 Recreation', {
+    'gym': 'Gym/Fitness Center', 'pool': 'Swimming Pool', 'spa': 'Spa',
+    'sauna': 'Sauna', 'jacuzzi': 'Hot Tub/Jacuzzi',
+  }),
+  ('🔒 Safety', {
+    'smoke_alarm': 'Smoke Alarm', 'carbon_monoxide_alarm': 'Carbon Monoxide Alarm',
+    'fire_extinguisher': 'Fire Extinguisher', 'first_aid': 'First Aid Kit',
+    'security_cameras': 'Security Cameras', 'security_system': 'Security System',
+  }),
+  ('🛎️ Services', {
+    'meeting_room': 'Meeting Room', 'conference_room': 'Conference Room',
+    'reception': '24/7 Reception', 'concierge': 'Concierge Service',
+    'restaurant': 'On-site Restaurant', 'room_service': 'Room Service',
+  }),
+  ('🌿 Outdoor', {
+    'balcony': 'Balcony', 'patio': 'Patio', 'garden': 'Garden', 'terrace': 'Terrace',
+  }),
+  ('🌄 Views', {
+    'city_view': 'City View', 'mountain_view': 'Mountain View',
+    'sea_view': 'Sea/Ocean View', 'lake_view': 'Lake View', 'landscape_view': 'Landscape View',
+  }),
+  ('♿ Accessibility', {
+    'elevator': 'Elevator', 'wheelchair_accessible': 'Wheelchair Accessible',
+    'ground_floor': 'Ground Floor Access',
+  }),
+  ('📋 Rules', {
+    'no_smoking': 'No Smoking', 'pets_allowed': 'Pets Allowed',
+  }),
+  ('👶 Family', {
+    'family_friendly': 'Family Friendly', 'crib': 'Crib/Baby Bed', 'high_chair': 'High Chair',
+  }),
+];
 
 class PropertyWizardScreen extends StatefulWidget {
   const PropertyWizardScreen({
@@ -72,11 +110,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   int _step = 1;
   static const _totalSteps = 5;
   static const _stepTitles = ['Basic Info', 'Details', 'Photos', 'Amenities', 'Review'];
-  int _uploadDone = 0;
-  int _uploadTotal = 0;
 
   bool _saving = false;
-  bool _uploading = false;
   String? _error;
 
   // ── Step 1: Basic Info ──
@@ -101,10 +136,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   bool _monthlyRental = false, _breakfastAvailable = false;
   bool _petsAllowed = false, _eventsAllowed = false, _smokingAllowed = false;
 
-  // ── Step 3: Photos ──
-  List<String> _existingUrls = [];
-  final List<XFile> _newFiles = [];
-  final _picker = ImagePicker();
+  // ── Step 3: Photos — uploaded URLs collected in real-time by CloudinaryImagePicker ──
+  List<String> _uploadedImageUrls = [];
 
   // ── Step 4: Amenities ──
   List<String> _amenities = [];
@@ -138,7 +171,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       _petsAllowed = e['pets_allowed'] == true;
       _eventsAllowed = e['events_allowed'] == true;
       _smokingAllowed = e['smoking_allowed'] == true;
-      _existingUrls = List<String>.from(e['images'] as List? ?? []);
+      _uploadedImageUrls = List<String>.from(e['images'] as List? ?? []);
       _amenities = List<String>.from(e['amenities'] as List? ?? []);
     } else if (widget.seedTitle?.trim().isNotEmpty ?? false) {
       _titleCtrl.text = widget.seedTitle!.trim();
@@ -207,78 +240,75 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     if (images.isNotEmpty) 'main_image': images.first,
   };
 
+  void _showCancellationPolicyInfo(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text('Cancellation Policies', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            _PolicyTile(
+              icon: Icons.lock_outline,
+              color: Colors.red.shade600,
+              title: 'Strict',
+              description: 'Guests receive a 50% refund (minus the first night and fees) if cancelled at least 7 days before check-in. No refund within 7 days of arrival.',
+            ),
+            const SizedBox(height: 12),
+            _PolicyTile(
+              icon: Icons.balance_outlined,
+              color: Colors.orange.shade700,
+              title: 'Fair',
+              description: 'Full refund if cancelled at least 5 days before check-in. 50% refund for cancellations 1–5 days prior. No refund within 24 hours of arrival.',
+            ),
+            const SizedBox(height: 12),
+            _PolicyTile(
+              icon: Icons.sentiment_satisfied_alt_outlined,
+              color: Colors.green.shade600,
+              title: 'Lenient',
+              description: 'Full refund up to 24 hours before check-in. 50% refund for cancellations made within 24 hours of arrival.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (_saving) return;
     setState(() {
       _saving = true;
-      _uploading = _newFiles.isNotEmpty;
-      _uploadDone = 0;
-      _uploadTotal = _newFiles.length;
       _error = null;
     });
     try {
+      // All images are already uploaded by CloudinaryImagePicker — just save and publish immediately
+      final fields = _buildFields(images: _uploadedImageUrls);
       final existing = widget.existing;
-      String? propertyId = existing?['id']?.toString();
-
-      // ── Step 1: Save record immediately (draft) ──
       if (existing != null) {
-        await widget.api.updateProperty(
-          id: propertyId!,
-          updates: _buildFields(images: _existingUrls),
-        );
+        await widget.api.updateProperty(id: existing['id'].toString(), updates: {...fields, 'is_published': true});
       } else {
-        propertyId = await widget.api.createProperty(
-          userId: widget.userId,
-          fields: _buildFields(images: _existingUrls),
-        );
+        await widget.api.createProperty(userId: widget.userId, fields: {...fields, 'is_published': true});
       }
-      if (!mounted) return;
-      if (propertyId == null) throw Exception('Property could not be created. Please retry.');
-
-      // ── Step 2: Upload photos in parallel (batches of 3) ──
-      final newUrls = <String>[];
-      if (_newFiles.isNotEmpty) {
-        const batchSize = 3;
-        final paths = _newFiles.map((f) => f.path).toList();
-        for (int i = 0; i < paths.length; i += batchSize) {
-          final batch = paths.sublist(i, (i + batchSize).clamp(0, paths.length));
-          final batchUrls = await Future.wait(
-            batch.map((p) => CloudinaryService.uploadImage(
-              p,
-              folder: 'properties',
-            ).timeout(const Duration(seconds: 40), onTimeout: () => '').catchError((_) => '')),
-          );
-          newUrls.addAll(batchUrls.where((u) => u.isNotEmpty));
-          if (!mounted) return;
-          setState(() => _uploadDone = (i + batch.length).clamp(0, _uploadTotal));
-        }
-      }
-
-      if (!mounted) return;
-      setState(() => _uploading = false);
-
-      // ── Step 3: Patch images + publish ──
-      final allImages = [..._existingUrls, ...newUrls];
-      await widget.api.updateProperty(
-        id: propertyId,
-        updates: {
-          ...(_buildFields(images: allImages)),
-          'is_published': true,
-        },
-      );
-
       if (!mounted) return;
       AppSnackBar.success(context, 'Property published!');
-      setState(() => _saving = false);
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceAll('Exception: ', '');
-      setState(() {
-        _saving = false;
-        _uploading = false;
-        _error = msg;
-      });
+      setState(() { _saving = false; _error = msg; });
       AppSnackBar.error(context, 'Failed to publish. Check details and retry.');
     }
   }
@@ -316,7 +346,28 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            _buildStep(),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.05, 0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    )),
+                    child: child,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(_step),
+                child: _buildStep(),
+              ),
+            ),
           ],
         ),
       ),
@@ -378,12 +429,10 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     const SizedBox(height: 8),
     Wrap(
       spacing: 8, runSpacing: 8,
-      children: _kPropertyTypes.map((t) => ChoiceChip(
-        label: Text(t, style: const TextStyle(fontSize: 12)),
+      children: _kPropertyTypes.map((t) => _AnimatedPropertyTypeChip(
+        label: t,
         selected: _propertyType == t,
-        selectedColor: _kRed.withValues(alpha: 0.15),
-        checkmarkColor: _kRed,
-        onSelected: (_) => setState(() => _propertyType = t),
+        onTap: () => setState(() => _propertyType = t),
       )).toList(),
     ),
   ]);
@@ -450,12 +499,29 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       const SizedBox(width: 10),
       Expanded(child: _WizField(ctrl: _checkOutCtrl, label: 'Check-out', hint: '11:00')),
     ]),
-    _WizDropdown<String>(
-      label: 'Cancellation Policy',
-      value: _cancellationPolicy,
-      items: _kCancellationPolicies,
-      itemLabel: (p) => p[0].toUpperCase() + p.substring(1),
-      onChanged: (v) => setState(() => _cancellationPolicy = v ?? _cancellationPolicy),
+    Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: _WizDropdown<String>(
+            label: 'Cancellation Policy',
+            value: _cancellationPolicy,
+            items: _kCancellationPolicies,
+            itemLabel: (p) => p[0].toUpperCase() + p.substring(1),
+            onChanged: (v) => setState(() => _cancellationPolicy = v ?? _cancellationPolicy),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: IconButton(
+            icon: const Icon(Icons.info_outline, size: 22),
+            color: _kRed,
+            tooltip: 'About cancellation policies',
+            onPressed: () => _showCancellationPolicyInfo(context),
+          ),
+        ),
+      ],
     ),
 
     const Divider(height: 28),
@@ -488,355 +554,102 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   ]);
 
   // ── Step 3: Photos ──
-  Widget _buildStep3() {
-    final totalCount = _existingUrls.length + _newFiles.length;
+  Widget _buildStep3() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    const _StepHeader(
+      icon: Icons.photo_library_outlined,
+      title: 'Add photos of your property',
+      subtitle: 'Great photos help your listing stand out',
+    ),
+    const SizedBox(height: 20),
+    CloudinaryImagePicker(
+      folder: 'properties',
+      uploadedUrls: _uploadedImageUrls,
+      onChanged: (urls) => setState(() => _uploadedImageUrls = List<String>.from(urls)),
+      hint: 'Add at least 5 photos · Use daylight · Show every room',
+    ),
+    const SizedBox(height: 8),
+  ]);
+
+  // ── Step 4: Amenities ──
+  Widget _buildStep4() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const _StepHeader(
-        icon: Icons.photo_library_outlined,
-        title: 'Add photos of your property',
-        subtitle: 'Great photos help your listing stand out',
-      ),
-      const SizedBox(height: 20),
-
-      // ── Tips banner ──
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: _kRed.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(children: [
-          Icon(Icons.tips_and_updates_outlined, size: 16, color: _kRed),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Add at least 5 photos · Use daylight · Show every room',
-              style: TextStyle(fontSize: 12, color: _kRed.withValues(alpha: 0.85), height: 1.4),
-            ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-
-      // ── Hero add zone (shown when no photos yet) ──
-      if (totalCount == 0)
-        GestureDetector(
-          onTap: () async {
-            final imgs = await _picker.pickMultiImage(imageQuality: 85);
-            if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-          },
+      const _StepHeader(icon: Icons.star_border_rounded, title: 'What does your place offer?', subtitle: 'Select all amenities available to guests'),
+      const SizedBox(height: 24),
+      for (final (category, items) in _kAmenitiesByCategory) ..._buildAmenityGroup(category, items),
+      if (_amenities.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(milliseconds: 300),
           child: Container(
-            width: double.infinity,
-            height: 200,
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_kRed.withValues(alpha: 0.07), _kRed.withValues(alpha: 0.02)],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _kRed.withValues(alpha: 0.25), width: 1.5),
+              color: _kRed.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kRed.withValues(alpha: 0.2)),
             ),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                  color: _kRed.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
+            child: Row(children: [
+              Icon(Icons.check_circle, color: _kRed, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_amenities.length} amenity${_amenities.length == 1 ? '' : 'ties'} selected',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _kRed),
                 ),
-                child: Icon(Icons.add_photo_alternate_outlined, size: 30, color: _kRed),
               ),
-              const SizedBox(height: 14),
-              Text('Tap to add photos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black.withValues(alpha: 0.8))),
-              const SizedBox(height: 4),
-              Text('JPG, PNG, HEIC · Up to 20 photos', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
-              const SizedBox(height: 16),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                _PhotoSourcePill(icon: Icons.photo_library_outlined, label: 'Gallery', color: _kRed),
-                const SizedBox(width: 10),
-                _PhotoSourcePill(icon: Icons.camera_alt_outlined, label: 'Camera', color: AppColors.foggy),
-              ]),
             ]),
           ),
         ),
-
-      // ── Cover hero (first photo large) + grid when photos exist ──
-      if (totalCount > 0) ...[
-        // Cover shot label
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('${totalCount} photo${totalCount == 1 ? '' : 's'} added',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.foggy)),
-          if (totalCount >= 5)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(20)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.check_circle, size: 12, color: Colors.green.shade600),
-                const SizedBox(width: 4),
-                Text('Looking great!', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
-              ]),
-            ),
-        ]),
-        const SizedBox(height: 10),
-
-        // First photo as large cover card
-        _buildCoverPhoto(0),
-        const SizedBox(height: 8),
-
-        // Remaining photos in 3-col grid + add tile
-        if (totalCount > 1)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-            ),
-            itemCount: totalCount - 1 + 1, // rest + add tile
-            itemBuilder: (ctx, i) {
-              final photoIndex = i + 1; // skip cover
-              if (photoIndex >= totalCount) {
-                // ── Add more tile ──
-                return GestureDetector(
-                  onTap: () async {
-                    final imgs = await _picker.pickMultiImage(imageQuality: 85);
-                    if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                    ),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add, size: 24, color: Colors.grey.shade400),
-                      const SizedBox(height: 4),
-                      Text('Add more', style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
-                    ]),
-                  ),
-                );
-              }
-              return _buildGridTile(photoIndex);
-            },
-          )
-        else ...[
-          // Only 1 photo — show add-more row
-          Row(children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () async {
-                  final imgs = await _picker.pickMultiImage(imageQuality: 85);
-                  if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-                },
-                child: Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                  ),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.add_photo_alternate_outlined, size: 20, color: Colors.grey.shade400),
-                    const SizedBox(width: 8),
-                    Text('Add more photos', style: TextStyle(fontSize: 13, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
-                  ]),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () async {
-                final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-                if (img != null) setState(() => _newFiles.add(img));
-              },
-              child: Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                ),
-                child: Icon(Icons.camera_alt_outlined, size: 20, color: Colors.grey.shade400),
-              ),
-            ),
-          ]),
-        ],
       ],
-
-      // ── Action buttons always visible when photos > 0 ──
-      if (totalCount > 0) ...[
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final imgs = await _picker.pickMultiImage(imageQuality: 85);
-                if (imgs.isNotEmpty) setState(() => _newFiles.addAll(imgs));
-              },
-              icon: const Icon(Icons.photo_library_outlined, size: 16),
-              label: const Text('Gallery'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.black,
-                side: BorderSide(color: Colors.grey.shade300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-                if (img != null) setState(() => _newFiles.add(img));
-              },
-              icon: const Icon(Icons.camera_alt_outlined, size: 16),
-              label: const Text('Camera'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.black,
-                side: BorderSide(color: Colors.grey.shade300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-        ]),
-      ],
-
-      const SizedBox(height: 8),
     ]);
   }
 
-  Widget _buildCoverPhoto(int index) {
-    final totalCount = _existingUrls.length + _newFiles.length;
-    if (index >= totalCount) return const SizedBox();
-    final isExisting = index < _existingUrls.length;
-    final isNew = !isExisting;
-    return Stack(children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: isExisting
-              ? Image.network(_existingUrls[index], fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
-              : Image.file(File(_newFiles[index - _existingUrls.length].path), fit: BoxFit.cover),
-        ),
+  List<Widget> _buildAmenityGroup(String category, Map<String, String> items) => [
+    Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 10),
+      child: Text(
+        category,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.foggy, letterSpacing: 0.2),
       ),
-      // Cover label
-      Positioned(
-        top: 10, left: 10,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-            const SizedBox(width: 4),
-            const Text('Cover photo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ),
-      if (isNew)
-        Positioned(
-          bottom: 10, left: 10,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: _kRed, borderRadius: BorderRadius.circular(20)),
-            child: const Text('New', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-          ),
-        ),
-      // Remove button
-      Positioned(
-        top: 10, right: 10,
-        child: GestureDetector(
-          onTap: () => setState(() {
-            if (isExisting) {
-              _existingUrls.removeAt(index);
-            } else {
-              _newFiles.removeAt(index - _existingUrls.length);
-            }
-          }),
-          child: Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.55),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.close, size: 16, color: Colors.white),
-          ),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _buildGridTile(int index) {
-    final isExisting = index < _existingUrls.length;
-    final isNew = !isExisting;
-    return Stack(fit: StackFit.expand, children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: isExisting
-            ? Image.network(_existingUrls[index], fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200))
-            : Image.file(File(_newFiles[index - _existingUrls.length].path), fit: BoxFit.cover),
-      ),
-      if (isNew)
-        Positioned(
-          bottom: 5, left: 5,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: _kRed, borderRadius: BorderRadius.circular(20)),
-            child: const Text('New', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
-          ),
-        ),
-      Positioned(
-        top: 5, right: 5,
-        child: GestureDetector(
-          onTap: () => setState(() {
-            if (isExisting) {
-              _existingUrls.removeAt(index);
-            } else {
-              _newFiles.removeAt(index - _existingUrls.length);
-            }
-          }),
-          child: Container(
-            width: 22, height: 22,
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
-            child: const Icon(Icons.close, size: 13, color: Colors.white),
-          ),
-        ),
-      ),
-    ]);
-  }
-
-  // ── Step 4: Amenities ──
-  Widget _buildStep4() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    const _StepHeader(icon: Icons.chair_outlined, title: 'What does your place offer?', subtitle: 'Select all amenities available to guests'),
-    const SizedBox(height: 24),
+    ),
     Wrap(
       spacing: 8, runSpacing: 8,
-      children: _kAmenityOptions.entries.map((e) => FilterChip(
-        label: Text(e.value, style: const TextStyle(fontSize: 12)),
-        selected: _amenities.contains(e.key),
-        selectedColor: _kRed.withValues(alpha: 0.15),
-        checkmarkColor: _kRed,
-        onSelected: (sel) => setState(() {
-          if (sel) {
-            _amenities.add(e.key);
-          } else {
-            _amenities.remove(e.key);
-          }
-        }),
-      )).toList(),
+      children: items.entries.map((e) {
+        final isSelected = _amenities.contains(e.key);
+        return _AnimatedAmenityChip(
+          label: e.value,
+          selected: isSelected,
+          onTap: () => setState(() {
+            if (isSelected) {
+              _amenities.remove(e.key);
+            } else {
+              _amenities.add(e.key);
+            }
+          }),
+        );
+      }).toList(),
     ),
-  ]);
+    const SizedBox(height: 20),
+    const Divider(height: 1, color: Color(0xFFF0F0F0)),
+    const SizedBox(height: 16),
+  ];
 
   // ── Step 5: Review ──
   Widget _buildStep5() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const _StepHeader(icon: Icons.check_circle_outline, title: "You're all set!", subtitle: 'Review your listing before publishing'),
     const SizedBox(height: 24),
+
+    // Cover photo preview
+    if (_uploadedImageUrls.isNotEmpty) ...[
+      ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Image.network(_uploadedImageUrls.first, fit: BoxFit.cover),
+        ),
+      ),
+      const SizedBox(height: 16),
+    ],
 
     _ReviewCard(children: [
       _ReviewRow(label: 'Title', value: _titleCtrl.text.trim()),
@@ -854,7 +667,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
     ]),
     const SizedBox(height: 12),
     _ReviewCard(children: [
-      _ReviewRow(label: 'Photos', value: '${_existingUrls.length + _newFiles.length} selected'),
+      _ReviewRow(label: 'Photos', value: '${_uploadedImageUrls.length} uploaded'),
       _ReviewRow(label: 'Amenities', value: '${_amenities.length} selected'),
     ]),
     const SizedBox(height: 12),
@@ -866,23 +679,6 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       _ReviewRow(label: 'Events', value: _eventsAllowed ? 'Allowed' : 'Not allowed'),
       _ReviewRow(label: 'Smoking', value: _smokingAllowed ? 'Allowed' : 'Not allowed'),
     ]),
-
-    if (_uploading) ...[
-      const SizedBox(height: 16),
-      LinearProgressIndicator(
-        color: _kRed,
-        value: _uploadTotal > 0 ? _uploadDone / _uploadTotal : null,
-      ),
-      const SizedBox(height: 8),
-      Center(
-        child: Text(
-          _uploadTotal > 0
-              ? 'Uploading photos… $_uploadDone of $_uploadTotal'
-              : 'Uploading photos…',
-          style: const TextStyle(fontSize: 13, color: AppColors.foggy),
-        ),
-      ),
-    ],
   ]);
 }
 
@@ -921,27 +717,6 @@ class _BottomNav extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
       ),
     ),
-  );
-}
-
-class _PhotoSourcePill extends StatelessWidget {
-  const _PhotoSourcePill({required this.icon, required this.label, required this.color});
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 14, color: color),
-      const SizedBox(width: 6),
-      Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-    ]),
   );
 }
 
@@ -1046,28 +821,167 @@ class _CountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: const EdgeInsets.symmetric(vertical: 8),
     child: Row(children: [
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
-      IconButton(
-        icon: const Icon(Icons.remove_circle_outline, size: 22),
+      Expanded(child: Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500))),
+      _AnimatedCountButton(
+        icon: Icons.remove_circle_outline,
         onPressed: onDec,
-        color: _kRed,
       ),
       SizedBox(
-        width: 36,
-        child: Text('$value', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        width: 50,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+          child: Text(
+            '$value',
+            key: ValueKey(value),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+          ),
+        ),
       ),
-      IconButton(
-        icon: const Icon(Icons.add_circle_outline, size: 22),
+      _AnimatedCountButton(
+        icon: Icons.add_circle_outline,
         onPressed: onInc,
-        color: _kRed,
       ),
     ]),
   );
 }
 
-class _ModeCard extends StatelessWidget {
+class _AnimatedCountButton extends StatefulWidget {
+  const _AnimatedCountButton({required this.icon, required this.onPressed});
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  State<_AnimatedCountButton> createState() => _AnimatedCountButtonState();
+}
+
+class _AnimatedCountButtonState extends State<_AnimatedCountButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _controller.forward().then((_) => _controller.reverse());
+    widget.onPressed();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: _handleTap,
+    child: ScaleTransition(
+      scale: _scaleAnimation,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        child: Icon(widget.icon, size: 26, color: _kRed),
+      ),
+    ),
+  );
+}
+
+class _AnimatedPropertyTypeChip extends StatefulWidget {
+  const _AnimatedPropertyTypeChip({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_AnimatedPropertyTypeChip> createState() => _AnimatedPropertyTypeChipState();
+}
+
+class _AnimatedPropertyTypeChipState extends State<_AnimatedPropertyTypeChip> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.93).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) => _controller.forward();
+  void _handleTapUp(TapUpDetails _) {
+    _controller.reverse();
+    widget.onTap();
+  }
+  void _handleTapCancel() => _controller.reverse();
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTapDown: _handleTapDown,
+    onTapUp: _handleTapUp,
+    onTapCancel: _handleTapCancel,
+    child: ScaleTransition(
+      scale: _scaleAnimation,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: widget.selected ? _kRed : Colors.grey.shade300,
+            width: widget.selected ? 1.5 : 1,
+          ),
+          color: widget.selected ? _kRed.withValues(alpha: 0.12) : AppColors.surface,
+          boxShadow: widget.selected ? [
+            BoxShadow(color: _kRed.withValues(alpha: 0.2), blurRadius: 6, offset: const Offset(0, 2)),
+          ] : null,
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+            child: widget.selected
+              ? Icon(Icons.check_circle, key: const ValueKey('check'), size: 14, color: _kRed)
+              : const SizedBox.shrink(key: ValueKey('empty')),
+          ),
+          if (widget.selected) const SizedBox(width: 5),
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+              color: widget.selected ? _kRed : AppColors.foggy,
+            ),
+          ),
+        ]),
+      ),
+    ),
+  );
+}
+
+class _ModeCard extends StatefulWidget {
   const _ModeCard({required this.label, required this.subtitle, required this.icon, required this.selected, required this.onTap});
   final String label, subtitle;
   final IconData icon;
@@ -1075,22 +989,68 @@ class _ModeCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_ModeCard> createState() => _ModeCardState();
+}
+
+class _ModeCardState extends State<_ModeCard> with SingleTickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) => _scaleController.forward();
+  void _handleTapUp(TapUpDetails _) {
+    _scaleController.reverse();
+    widget.onTap();
+  }
+  void _handleTapCancel() => _scaleController.reverse();
+
+  @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selected ? _kRed : Colors.grey.shade300, width: selected ? 2 : 1),
-        color: selected ? _kRed.withValues(alpha: 0.05) : AppColors.surface,
+    onTapDown: _handleTapDown,
+    onTapUp: _handleTapUp,
+    onTapCancel: _handleTapCancel,
+    child: ScaleTransition(
+      scale: _scaleAnimation,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.selected ? _kRed : Colors.grey.shade300, width: widget.selected ? 2 : 1),
+          color: widget.selected ? _kRed.withValues(alpha: 0.08) : AppColors.surface,
+          boxShadow: widget.selected ? [
+            BoxShadow(color: _kRed.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
+          ] : null,
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(widget.icon, color: widget.selected ? _kRed : Colors.grey.shade500, size: 24),
+            const Spacer(),
+            if (widget.selected) Icon(Icons.check_circle, color: _kRed, size: 18),
+          ]),
+          const SizedBox(height: 10),
+          Text(widget.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: widget.selected ? _kRed : AppColors.black)),
+          const SizedBox(height: 2),
+          Text(widget.subtitle, style: TextStyle(fontSize: 11, color: widget.selected ? _kRed.withValues(alpha: 0.7) : AppColors.foggy)),
+        ]),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: selected ? _kRed : Colors.grey.shade500, size: 22),
-        const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: selected ? _kRed : AppColors.black)),
-        Text(subtitle, style: TextStyle(fontSize: 11, color: selected ? _kRed.withValues(alpha: 0.7) : AppColors.foggy)),
-      ]),
     ),
   );
 }
@@ -1124,4 +1084,151 @@ class _ReviewRow extends StatelessWidget {
       Text(value.isEmpty ? '—' : value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
     ]),
   );
+}
+
+class _PolicyTile extends StatelessWidget {
+  const _PolicyTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+  });
+  final IconData icon;
+  final Color color;
+  final String title, description;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 18, color: color),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 3),
+          Text(description, style: const TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.4)),
+        ]),
+      ),
+    ],
+  );
+}
+
+// ─────────────────────────────────────── Modern Animated Widgets ───────────────────
+
+class _AnimatedAmenityChip extends StatefulWidget {
+  const _AnimatedAmenityChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_AnimatedAmenityChip> createState() => _AnimatedAmenityChipState();
+}
+
+class _AnimatedAmenityChipState extends State<_AnimatedAmenityChip> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: widget.onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.selected 
+              ? _kRed.withValues(alpha: 0.12)
+              : AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: widget.selected 
+                ? _kRed
+                : Colors.grey.shade300,
+              width: widget.selected ? 1.5 : 1,
+            ),
+            boxShadow: widget.selected ? [
+              BoxShadow(
+                color: _kRed.withValues(alpha: 0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(scale: animation, child: child);
+                },
+                child: widget.selected
+                  ? Icon(Icons.check_circle, key: const ValueKey('check'), size: 16, color: _kRed)
+                  : SizedBox(key: const ValueKey('empty'), width: 16),
+              ),
+              if (widget.selected) const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                  color: widget.selected ? _kRed : AppColors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

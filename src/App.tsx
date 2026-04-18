@@ -677,6 +677,7 @@ const App = () => (
                 }
               />
               <Route path="/properties/:id" element={<PropertyDetails />} />
+              <Route path="/listing/:id" element={<PropertyDetails />} />
               <Route path="/hosts/:id" element={<HostAbout />} />
               <Route path="/hosts/:id/reviews" element={<HostReviews />} />
               <Route path="/review/:token" element={<ReviewPage />} />

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../app.dart';
 import '../../services/app_database.dart';
-import '../../services/cloudinary_service.dart';
+import '../widgets/cloudinary_image_picker.dart';
 import '../widgets/host_creation_scaffold.dart';
 
 const _kRed = AppColors.rausch;
@@ -34,7 +33,6 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
   static const _stepTitles = ['Basic Info', 'Itinerary', 'Pricing', 'Media & Review'];
 
   bool _saving = false;
-  bool _uploading = false;
   String? _error;
 
   // ── Step 1: Basic Info ──
@@ -55,10 +53,7 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
   final _priceChildCtrl = TextEditingController();
 
   // ── Step 4: Media & Review ──
-  String? _coverImageUrl;
-  final List<String> _galleryUrls = [];
-  final List<XFile> _newGalleryFiles = [];
-  final _picker = ImagePicker();
+  List<String> _uploadedImageUrls = [];
 
   @override
   void initState() {
@@ -81,6 +76,13 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
       _currency = (e['currency'] ?? 'RWF').toString();
       _priceAdultCtrl.text = (e['price_per_adult'] ?? e['price_per_person'] ?? '').toString();
       _priceChildCtrl.text = (e['price_per_child'] ?? '').toString();
+
+      final cover = (e['cover_image'] ?? '').toString();
+      final gallery = List<String>.from(e['gallery_images'] as List? ?? []);
+      _uploadedImageUrls = [
+        if (cover.isNotEmpty) cover,
+        ...gallery.where((u) => u != cover),
+      ];
     } else if (widget.seedTitle?.trim().isNotEmpty ?? false) {
       _titleCtrl.text = widget.seedTitle!.trim();
     }
@@ -130,24 +132,6 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
     if (_canProceed && _step < _totalSteps) setState(() => _step++);
   }
 
-  Future<void> _pickCover() async {
-    final img = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (img == null) return;
-    setState(() { _uploading = true; });
-    try {
-      final urls = await CloudinaryService.uploadImages([img.path], folder: 'tour-packages');
-      if (urls.isNotEmpty) setState(() => _coverImageUrl = urls.first);
-    } finally {
-      if (mounted) setState(() { _uploading = false; });
-    }
-  }
-
-  Future<void> _pickGallery() async {
-    final imgs = await _picker.pickMultiImage(imageQuality: 85);
-    if (imgs.isEmpty) return;
-    setState(() => _newGalleryFiles.addAll(imgs));
-  }
-
   Future<void> _submit() async {
     if (_saving) return;
     setState(() {
@@ -156,24 +140,14 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
     });
 
     try {
-      final uploadedGalleryUrls = <String>[];
-      if (_newGalleryFiles.isNotEmpty) {
-        setState(() => _uploading = true);
-        final newUrls = await CloudinaryService.uploadImages(
-          _newGalleryFiles.map((f) => f.path).toList(),
-          folder: 'tour-packages',
-        );
-        uploadedGalleryUrls.addAll(newUrls);
-      }
-
-      final gallery = [..._galleryUrls, ...uploadedGalleryUrls];
-      setState(() => _uploading = false);
-
       final pricingTiers = <String, dynamic>{
         'itinerary': _itineraryCtrl.text.trim(),
         if (_priceChildCtrl.text.trim().isNotEmpty)
           'price_per_child': double.tryParse(_priceChildCtrl.text.trim()),
       };
+
+      final coverImage = _uploadedImageUrls.isNotEmpty ? _uploadedImageUrls.first : null;
+      final galleryImages = _uploadedImageUrls.length > 1 ? _uploadedImageUrls.sublist(1) : <String>[];
 
       final fields = <String, dynamic>{
         'title': _titleCtrl.text.trim(),
@@ -186,8 +160,8 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
         'currency': _currency,
         'price_per_adult': double.tryParse(_priceAdultCtrl.text.trim()) ?? 0,
         'pricing_tiers': pricingTiers,
-        if ((_coverImageUrl ?? '').trim().isNotEmpty) 'cover_image': _coverImageUrl,
-        if (gallery.isNotEmpty) 'gallery_images': gallery,
+        'cover_image': ?coverImage,
+        if (galleryImages.isNotEmpty) 'gallery_images': galleryImages,
       };
 
       final e = widget.existing;
@@ -203,12 +177,7 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _uploading = false;
-        });
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -368,56 +337,42 @@ class _TourPackageWizardScreenState extends State<TourPackageWizardScreen> {
     );
   }
 
-  Widget _stepMediaReview() {
-    final totalImages = (_coverImageUrl == null ? 0 : 1) + _galleryUrls.length + _newGalleryFiles.length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _StepHeader(
-          icon: Icons.photo_camera_outlined,
-          title: 'Media & review',
-          subtitle: 'Add photos and double-check details',
-        ),
-        const SizedBox(height: 24),
-        OutlinedButton.icon(
-          onPressed: _uploading ? null : _pickCover,
-          icon: const Icon(Icons.image_outlined),
-          label: Text(_coverImageUrl == null ? 'Upload cover image' : 'Replace cover image'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.black,
-            side: BorderSide(color: Colors.grey.shade300),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _pickGallery,
-          icon: const Icon(Icons.photo_library_outlined),
-          label: const Text('Add gallery images'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.black,
-            side: BorderSide(color: Colors.grey.shade300),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+  Widget _stepMediaReview() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _StepHeader(
+        icon: Icons.photo_camera_outlined,
+        title: 'Media & review',
+        subtitle: 'Add photos and double-check details',
+      ),
+      const SizedBox(height: 20),
+      CloudinaryImagePicker(
+        folder: 'tour-packages',
+        uploadedUrls: _uploadedImageUrls,
+        onChanged: (urls) => setState(() => _uploadedImageUrls = List<String>.from(urls)),
+        hint: 'First photo becomes the cover image',
+      ),
+      const SizedBox(height: 20),
+      if (_uploadedImageUrls.isNotEmpty) ...[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Image.network(_uploadedImageUrls.first, fit: BoxFit.cover),
           ),
         ),
         const SizedBox(height: 16),
-        _ReviewCard(children: [
-          _ReviewRow(label: 'Title', value: _titleCtrl.text.trim()),
-          _ReviewRow(label: 'Location', value: '${_cityCtrl.text.trim()}, ${_countryCtrl.text.trim()}'),
-          _ReviewRow(label: 'Duration', value: '${_durationCtrl.text.trim()} day(s)'),
-          _ReviewRow(label: 'Max guests', value: _maxGuestsCtrl.text.trim()),
-          _ReviewRow(label: 'Price', value: '$_currency ${_priceAdultCtrl.text.trim()}'),
-          _ReviewRow(label: 'Images', value: '$totalImages added'),
-        ]),
-        if (_uploading) ...[
-          const SizedBox(height: 16),
-          const LinearProgressIndicator(color: _kRed),
-          const SizedBox(height: 8),
-          const Center(child: Text('Uploading…', style: TextStyle(fontSize: 13, color: AppColors.foggy))),
-        ],
       ],
-    );
-  }
+      _ReviewCard(children: [
+        _ReviewRow(label: 'Title', value: _titleCtrl.text.trim()),
+        _ReviewRow(label: 'Location', value: '${_cityCtrl.text.trim()}, ${_countryCtrl.text.trim()}'),
+        _ReviewRow(label: 'Duration', value: '${_durationCtrl.text.trim()} day(s)'),
+        _ReviewRow(label: 'Max guests', value: _maxGuestsCtrl.text.trim()),
+        _ReviewRow(label: 'Price', value: '$_currency ${_priceAdultCtrl.text.trim()}'),
+        _ReviewRow(label: 'Images', value: '${_uploadedImageUrls.length} uploaded'),
+      ]),
+    ],
+  );
 }
 
 class _WizardBottomNav extends StatelessWidget {

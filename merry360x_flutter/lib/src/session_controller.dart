@@ -1056,6 +1056,10 @@ class SessionController extends ChangeNotifier {
     return _api.fetchPublicProfile(userId: userId);
   }
 
+  Future<List<Map<String, dynamic>>> searchProfiles({required String query}) {
+    return _api.searchProfiles(query: query);
+  }
+
   Future<int> fetchHostFollowersCount({required String hostId}) {
     return _api.fetchHostFollowersCount(hostId: hostId);
   }

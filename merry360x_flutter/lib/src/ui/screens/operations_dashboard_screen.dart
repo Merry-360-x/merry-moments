@@ -249,9 +249,9 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F8FA),
+                            color: AppColors.surfaceSubtle,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFECECF1)),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,24 +280,35 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                               ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: _updatingApplicationId == app['id'] ? null : () => _setApplicationStatus((app['id'] ?? '').toString(), 'rejected'),
-                                      child: const Text('Reject'),
-                                    ),
+                              if (_updatingApplicationId == app['id']) ...[
+                                const SizedBox(height: 10),
+                                const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: FilledButton(
-                                      onPressed: _updatingApplicationId == app['id'] ? null : () => _setApplicationStatus((app['id'] ?? '').toString(), 'approved'),
-                                      child: Text(_updatingApplicationId == app['id'] ? 'Updating...' : 'Approve'),
+                                ),
+                              ] else if ((app['status'] ?? '').toString() == 'pending') ...[
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => _setApplicationStatus((app['id'] ?? '').toString(), 'rejected'),
+                                        child: const Text('Reject'),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton(
+                                        onPressed: () => _setApplicationStatus((app['id'] ?? '').toString(), 'approved'),
+                                        child: const Text('Approve'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -317,9 +328,9 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F8FA),
+                            color: AppColors.surfaceSubtle,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFECECF1)),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Row(
                             children: [
@@ -413,7 +424,7 @@ class _OpsMetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFECECF1)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,7 +483,7 @@ class _OpsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE7E7EC)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

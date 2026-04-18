@@ -233,7 +233,7 @@ class _SupportContactRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F7),
+            color: AppColors.surfaceSubtle,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: AppColors.black, size: 20),
@@ -288,7 +288,7 @@ class _TicketTile extends StatelessWidget {
           child: Row(children: [
             Container(
               width: 40, height: 40,
-              decoration: BoxDecoration(color: const Color(0xFFF2F2F5), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppColors.surfaceSubtle, borderRadius: BorderRadius.circular(12)),
               child: const Icon(Icons.support_agent_outlined, size: 20, color: AppColors.hof),
             ),
             const SizedBox(width: 12),
@@ -878,7 +878,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6E6E9),
+                  color: AppColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -904,7 +904,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECECEF),
+                  color: AppColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -936,7 +936,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBCBCF),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: const Icon(
@@ -965,7 +965,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE7E7EA),
+                          color: AppColors.surfaceElevated,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Text(
@@ -997,7 +997,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF5A00),
+                  color: AppColors.rausch,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
@@ -1058,7 +1058,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE7E7EA),
+                        color: AppColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: const _TypingDots(),
@@ -1073,9 +1073,9 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F1F4),
+      backgroundColor: AppColors.surfaceSubtle,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF1F1F4),
+        backgroundColor: AppColors.surfaceSubtle,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: const StageSafeLeadingButton(color: AppColors.black),
@@ -1093,9 +1093,9 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
           margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE4E4E8)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -1103,7 +1103,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECECEF),
+                  color: AppColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(17),
                 ),
                 child: const Icon(
@@ -1163,7 +1163,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE7E7EA),
+                        color: AppColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
@@ -1180,7 +1180,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
           ),
         ),
         Container(
-          color: const Color(0xFFF1F1F4),
+          color: AppColors.surfaceSubtle,
           padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 16),
           child: Row(children: [
             Expanded(
@@ -1189,7 +1189,7 @@ class _TicketThreadScreenState extends State<_TicketThreadScreen> {
                 decoration: InputDecoration(
                   hintText: l.typeAMessage,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,

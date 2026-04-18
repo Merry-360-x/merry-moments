@@ -759,7 +759,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     padding: const EdgeInsets.all(10),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3CD),
+                      color: AppColors.surfaceSubtle,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(_l.someDetailsUnavailable, style: const TextStyle(fontSize: 13)),
@@ -863,7 +863,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFFEFF0),
+                                      color: AppColors.rausch.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: const Icon(Icons.person_outline, color: AppColors.rausch, size: 20),
@@ -875,7 +875,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFEFF0),
+                                  color: AppColors.rausch.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.person_outline, color: AppColors.rausch, size: 20),
@@ -1178,11 +1178,11 @@ class _GalleryViewState extends State<_GalleryView> {
           fadeInDuration: Duration.zero,
           fadeOutDuration: Duration.zero,
           placeholderFadeInDuration: Duration.zero,
-          placeholder: (_, __) => Container(
+          placeholder: (_, _) => Container(
             color: placeholderColor,
             child: Center(child: Icon(Icons.image_outlined, size: 60, color: placeholderIconColor)),
           ),
-          errorWidget: (_, __, ___) {
+          errorWidget: (_, _, _) {
             _onError(index);
             return const SizedBox.shrink();
           },
@@ -1294,7 +1294,7 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
                         fadeInDuration: Duration.zero,
                         fadeOutDuration: Duration.zero,
                         placeholderFadeInDuration: Duration.zero,
-                        errorWidget: (_, __, ___) => const Icon(
+                        errorWidget: (_, _, _) => const Icon(
                           Icons.broken_image_outlined,
                           color: Colors.white54,
                           size: 48,
@@ -1394,7 +1394,7 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
                               fadeInDuration: Duration.zero,
                               fadeOutDuration: Duration.zero,
                               placeholderFadeInDuration: Duration.zero,
-                              errorWidget: (_, __, ___) => Container(
+                              errorWidget: (_, _, _) => Container(
                                 color: const Color(0xFF1F1F1F),
                                 child: const Icon(Icons.image_outlined, color: Colors.white38),
                               ),
@@ -1688,7 +1688,7 @@ class _TypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFE8E9),
+        color: AppColors.rausch.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),

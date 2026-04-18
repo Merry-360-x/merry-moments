@@ -547,5 +547,9 @@
       "tours": "Ziara & Vifurushi",
       "transport": "Usafiri"
     }
+  },
+  "notFound": {
+    "message": "Ukurasa unaoutafuta haupo.",
+    "returnHome": "Rudi Nyumbani"
   }
 }

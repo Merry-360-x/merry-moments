@@ -311,6 +311,7 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
       ),
       child: child,
     );
@@ -348,8 +349,11 @@ class _StatusBadge extends StatelessWidget {
       'open' => (const Color(0xFFFFF8E1), const Color(0xFFF57F17)),
       'closed' => (neutralBg, neutralFg),
       'processing' => (const Color(0xFFE8EAF6), const Color(0xFF3949AB)),
-      'high' => (const Color(0xFFFFEBEE), AppColors.rausch),
+      'high' || 'critical' => (const Color(0xFFFFEBEE), AppColors.rausch),
+      'medium' || 'normal' => (const Color(0xFFFFF8E1), const Color(0xFFF57F17)),
       'low' => (neutralBg, neutralFg),
+      'active' || 'live' => (const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
+      'paused' || 'hidden' => (neutralBg, neutralFg),
       _ => (fallbackBg, fallbackFg),
     };
     return Container(
@@ -458,6 +462,7 @@ class _AdminListingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,20 +470,37 @@ class _AdminListingCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 68,
-                  height: 68,
-                  color: AppColors.surfaceSubtle,
+              Container(
+                width: 82,
+                height: 82,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isPublished
+                        ? const Color(0xFF22C55E).withValues(alpha: 0.45)
+                        : AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10.5),
                   child: imageUrl == null
-                      ? const Icon(Icons.image_outlined, color: AppColors.foggy)
+                      ? Container(
+                          color: AppColors.surfaceSubtle,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            color: AppColors.foggy,
+                          ),
+                        )
                       : Image.network(
                           imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.broken_image_outlined,
-                            color: AppColors.foggy,
+                          errorBuilder: (_, _, _) => Container(
+                            color: AppColors.surfaceSubtle,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: AppColors.foggy,
+                            ),
                           ),
                         ),
                 ),
@@ -580,7 +602,11 @@ class _AdminListingCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -600,7 +626,11 @@ class _AdminListingCard extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -835,13 +865,8 @@ class _AdminOverviewTab extends StatelessWidget {
     return (stats[key] as num?)?.toDouble() ?? 0;
   }
 
-  String _fc(String key) {
-    return _fmtNum(_num(key));
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final analytics = _computeBookingAnalytics(bookings);
 
     final revByCurrency = <String, double>{};
@@ -866,207 +891,336 @@ class _AdminOverviewTab extends StatelessWidget {
     final hostEarnings = _num('total_host_earnings');
     final platformEarnings = _num('total_platform_earnings');
     final pawaPayFees = _num('total_pawapay_fees');
+    final guestFee = _num('total_guest_fee');
+    final hostFee = _num('total_host_fee');
 
     final topRegion = analytics.regionBreakdown.isEmpty
         ? null
         : analytics.regionBreakdown.first;
 
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final metricColumns = screenWidth >= 900 ? 4 : 2;
-    final metricGap = 10.0;
-    final metricCardWidth =
-        (screenWidth - 32 - (metricGap * (metricColumns - 1))) / metricColumns;
+    // Revenue bar proportions
+    final barTotal = platformEarnings + pawaPayFees + hostEarnings;
+
+    final recentBookings = bookings.take(4).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Dark hero banner ─────────────────────────────────────────
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF2E2E2E)
-                    : const Color(0xFFDDE5FF),
-              ),
-              gradient: LinearGradient(
+              borderRadius: BorderRadius.circular(22),
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: isDark
-                    ? const [Color(0xFF303535), Color(0xFF3A3F3F)]
-                    : const [Color(0xFFF7F9FF), Color(0xFFEEF3FF)],
+                colors: [Color(0xFF0F172A), Color(0xFF1E3A5F)],
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.rausch,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Revenue Ledger',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.black,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$totalBookings bookings',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.foggy,
-                      ),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  'RWF ${_fmtNum(netRevenue)}',
-                  style: const TextStyle(
-                    fontSize: 34,
-                    height: 0.95,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                    color: AppColors.black,
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Decorative circle
+                Positioned(
+                  right: -28,
+                  top: -28,
+                  child: Container(
+                    width: 130,
+                    height: 130,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.04),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Net received after payment fees',
-                  style: TextStyle(fontSize: 12, color: AppColors.hof),
+                Positioned(
+                  right: 28,
+                  bottom: -18,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.rausch.withValues(alpha: 0.12),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _heroMetric(
-                        label: 'Platform',
-                        value: 'RWF ${_fmtNum(platformEarnings)}',
-                        valueColor: const Color(0xFF059669),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Revenue Ledger',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.rausch.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$totalBookings bookings',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _heroMetric(
-                        label: 'PawaPay',
-                        value: 'RWF ${_fmtNum(pawaPayFees)}',
-                        valueColor: AppColors.rausch,
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Net Revenue',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF94A3B8),
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _heroMetric(
-                        label: 'Host payout',
-                        value: 'RWF ${_fmtNum(hostEarnings)}',
+                      const SizedBox(height: 4),
+                      Text(
+                        'RWF ${_fmtNum(netRevenue)}',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          height: 0.95,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'Gross RWF ${_fmtNum(totalRevenue)} · after PawaPay & platform fees',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Revenue proportion strip
+                      if (barTotal > 0) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: SizedBox(
+                            height: 5,
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  flex: (platformEarnings / barTotal * 1000)
+                                      .round(),
+                                  child: Container(
+                                      color: const Color(0xFF22C55E)),
+                                ),
+                                Flexible(
+                                  flex: (pawaPayFees / barTotal * 1000).round(),
+                                  child: Container(
+                                      color: AppColors.rausch),
+                                ),
+                                Flexible(
+                                  flex: (hostEarnings / barTotal * 1000)
+                                      .round(),
+                                  child: Container(
+                                      color: const Color(0xFF60A5FA)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _darkHeroPill(
+                              dot: const Color(0xFF22C55E),
+                              label: 'Platform',
+                              value: 'RWF ${_fmtNum(platformEarnings)}',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _darkHeroPill(
+                              dot: AppColors.rausch,
+                              label: 'PawaPay',
+                              value: 'RWF ${_fmtNum(pawaPayFees)}',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _darkHeroPill(
+                              dot: const Color(0xFF60A5FA),
+                              label: 'Host payout',
+                              value: 'RWF ${_fmtNum(hostEarnings)}',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: metricGap,
-            runSpacing: metricGap,
-            children: [
-              SizedBox(
-                width: metricCardWidth,
-                child: _quickMetricCard(
-                  icon: Icons.people_alt_outlined,
-                  label: 'Users',
-                  value: '$totalUsers',
-                  accent: const Color(0xFF2563EB),
-                ),
-              ),
-              SizedBox(
-                width: metricCardWidth,
-                child: _quickMetricCard(
-                  icon: Icons.luggage_outlined,
-                  label: 'Pending Bookings',
-                  value: '$pendingBookings',
-                  caption: '$totalBookings total',
-                  accent: const Color(0xFF0EA5E9),
-                ),
-              ),
-              SizedBox(
-                width: metricCardWidth,
-                child: _quickMetricCard(
-                  icon: Icons.home_outlined,
-                  label: 'Live Properties',
-                  value: '$publishedProperties',
-                  caption: '$totalProperties total',
-                  accent: const Color(0xFF7C3AED),
-                ),
-              ),
-              SizedBox(
-                width: metricCardWidth,
-                child: _quickMetricCard(
-                  icon: Icons.pending_actions_outlined,
-                  label: 'Pending Hosts',
-                  value: '$pendingHosts',
-                  accent: AppColors.rausch,
-                ),
-              ),
-            ],
+
+          const SizedBox(height: 16),
+
+          // ── 2×2 stat grid ─────────────────────────────────────────────
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardW = (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  SizedBox(
+                    width: cardW,
+                    child: _statCard(
+                      icon: Icons.people_alt_rounded,
+                      label: 'Total Users',
+                      value: '$totalUsers',
+                      accent: const Color(0xFF2563EB),
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardW,
+                    child: _statCard(
+                      icon: Icons.luggage_rounded,
+                      label: 'Pending Bookings',
+                      value: '$pendingBookings',
+                      caption: '$totalBookings total',
+                      accent: const Color(0xFF0EA5E9),
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardW,
+                    child: _statCard(
+                      icon: Icons.home_rounded,
+                      label: 'Live Properties',
+                      value: '$publishedProperties',
+                      caption: '$totalProperties total',
+                      accent: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardW,
+                    child: _statCard(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'Pending Hosts',
+                      value: '$pendingHosts',
+                      accent: AppColors.rausch,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          _overviewSection(
+
+          const SizedBox(height: 16),
+
+          // ── Revenue Structure ─────────────────────────────────────────
+          _modernSection(
             title: 'Revenue Structure',
-            subtitle: 'Simple split between gross, fees, and net received',
+            subtitle: 'Full breakdown from gross to net',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ledgerRow(
+                _revenueRow(
                   label: 'Gross Revenue',
                   value: 'RWF ${_fmtNum(totalRevenue)}',
-                  emphasize: true,
+                  accentColor: const Color(0xFF0F172A),
+                  isBold: true,
                 ),
-                _ledgerRow(
+                const SizedBox(height: 2),
+                _revenueRow(
                   label: 'Guest Fee',
-                  value: 'RWF ${_fc('total_guest_fee')}',
-                  valueColor: const Color(0xFF059669),
+                  value: 'RWF ${_fmtNum(guestFee)}',
+                  accentColor: const Color(0xFF059669),
+                  badge: _pill('fee', const Color(0xFF059669)),
                 ),
-                _ledgerRow(
+                _revenueRow(
                   label: 'Host Fee',
-                  value: 'RWF ${_fc('total_host_fee')}',
-                  valueColor: const Color(0xFF059669),
+                  value: 'RWF ${_fmtNum(hostFee)}',
+                  accentColor: const Color(0xFF059669),
+                  badge: _pill('fee', const Color(0xFF059669)),
                 ),
-                _ledgerRow(
+                _revenueRow(
                   label: 'Platform Earnings',
-                  value: 'RWF ${_fc('total_platform_earnings')}',
-                  valueColor: const Color(0xFF0284C7),
+                  value: 'RWF ${_fmtNum(platformEarnings)}',
+                  accentColor: const Color(0xFF0284C7),
+                  badge: _pill('earn', const Color(0xFF0284C7)),
                 ),
-                _ledgerRow(
-                  label: 'PawaPay Fees (3.1%)',
-                  value: 'RWF ${_fc('total_pawapay_fees')}',
-                  valueColor: AppColors.rausch,
+                _revenueRow(
+                  label: 'PawaPay (3.1%)',
+                  value: 'RWF ${_fmtNum(pawaPayFees)}',
+                  accentColor: AppColors.rausch,
+                  badge: _pill('cost', AppColors.rausch),
                 ),
-                const Divider(height: 18),
-                _ledgerRow(
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  height: 1,
+                  color: AppColors.border,
+                ),
+                _revenueRow(
                   label: 'Net Received',
-                  value: 'RWF ${_fc('net_revenue')}',
-                  emphasize: true,
+                  value: 'RWF ${_fmtNum(netRevenue)}',
+                  accentColor: const Color(0xFF0F172A),
+                  isBold: true,
                 ),
               ],
             ),
           ),
+
+          // ── Currency Split ─────────────────────────────────────────────
           if (revByCurrency.isNotEmpty)
-            _overviewSection(
+            _modernSection(
               title: 'Currency Split',
               child: Wrap(
                 spacing: 8,
@@ -1074,67 +1228,80 @@ class _AdminOverviewTab extends StatelessWidget {
                 children: revByCurrency.entries.map((e) {
                   return Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
+                      horizontal: 14,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceSubtle,
-                      borderRadius: BorderRadius.circular(999),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: Text(
-                      '${e.key} ${_fmtNum(e.value)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.black,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          e.key,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.foggy,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _fmtNum(e.value),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.black,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
               ),
             ),
-          _overviewSection(
+
+          // ── Regional Demand ────────────────────────────────────────────
+          _modernSection(
             title: 'Regional Demand',
             subtitle: topRegion == null
-                ? 'No booking region data yet'
-                : 'Top market: ${topRegion.region} (${topRegion.share.toStringAsFixed(1)}%)',
+                ? 'No region data yet'
+                : 'Top: ${topRegion.region} · ${topRegion.share.toStringAsFixed(1)}% share',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chipWidth = (constraints.maxWidth - 16) / 3;
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        SizedBox(
-                          width: chipWidth,
-                          child: _statChip(
-                            label: 'Total',
-                            value: '${analytics.total}',
-                          ),
-                        ),
-                        SizedBox(
-                          width: chipWidth,
-                          child: _statChip(
-                            label: 'Confirmed',
-                            value: '${analytics.confirmedOrCompleted}',
-                          ),
-                        ),
-                        SizedBox(
-                          width: chipWidth,
-                          child: _statChip(
-                            label: 'Paid',
-                            value: '${analytics.paid}',
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      child: _miniStatTile(
+                        label: 'Total',
+                        value: '${analytics.total}',
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _miniStatTile(
+                        label: 'Confirmed',
+                        value: '${analytics.confirmedOrCompleted}',
+                        color: const Color(0xFF059669),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _miniStatTile(
+                        label: 'Paid',
+                        value: '${analytics.paid}',
+                        color: const Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 _RegionDistributionBars(
                   regions: analytics.regionBreakdown,
                   maxItems: 5,
@@ -1142,43 +1309,191 @@ class _AdminOverviewTab extends StatelessWidget {
               ],
             ),
           ),
+
+          // ── Recent Activity ────────────────────────────────────────────
+          if (recentBookings.isNotEmpty)
+            _modernSection(
+              title: 'Recent Activity',
+              subtitle: 'Latest bookings across all listings',
+              child: Column(
+                children: recentBookings.asMap().entries.map((e) {
+                  final i = e.key;
+                  final b = e.value;
+                  final guestName =
+                      b['guest_name'] as String? ?? 'Guest';
+                  final listingTitle =
+                      b['listing_title'] as String? ?? 'Listing';
+                  final status = (b['status'] as String? ?? 'pending')
+                      .toLowerCase();
+                  final amount =
+                      (b['total_amount'] as num?)?.toDouble() ?? 0;
+
+                  Color statusColor;
+                  Color statusBg;
+                  switch (status) {
+                    case 'confirmed':
+                    case 'completed':
+                      statusColor = const Color(0xFF059669);
+                      statusBg = const Color(0xFFDCFCE7);
+                      break;
+                    case 'cancelled':
+                      statusColor = AppColors.rausch;
+                      statusBg = const Color(0xFFFFE4E6);
+                      break;
+                    default:
+                      statusColor = const Color(0xFFD97706);
+                      statusBg = const Color(0xFFFEF3C7);
+                  }
+
+                  return Column(
+                    children: [
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          color: AppColors.border.withValues(alpha: 0.6),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A).withValues(
+                                  alpha: 0.06,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  guestName.isNotEmpty
+                                      ? guestName[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    guestName,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.black,
+                                    ),
+                                  ),
+                                  Text(
+                                    listingTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.foggy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'RWF ${_fmtNum(amount)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusBg,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    status,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _heroMetric({
+  Widget _darkHeroPill({
+    required Color dot,
     required String label,
     required String value,
-    Color? valueColor,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppColors.foggy,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: dot,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: valueColor ?? AppColors.black,
+              color: Colors.white,
             ),
           ),
         ],
@@ -1186,7 +1501,7 @@ class _AdminOverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _quickMetricCard({
+  Widget _statCard({
     required IconData icon,
     required String label,
     required String value,
@@ -1194,68 +1509,86 @@ class _AdminOverviewTab extends StatelessWidget {
     String? caption,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 15, color: accent),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: accent),
+              ),
+              if (caption != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    caption,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: accent,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 26,
               height: 1,
               fontWeight: FontWeight.w900,
               color: AppColors.black,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.hof,
             ),
           ),
-          if (caption != null)
-            Text(
-              caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: AppColors.foggy),
-            ),
         ],
       ),
     );
   }
 
-  Widget _overviewSection({
+  Widget _modernSection({
     required String title,
     String? subtitle,
     required Widget child,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -1276,39 +1609,61 @@ class _AdminOverviewTab extends StatelessWidget {
               style: const TextStyle(fontSize: 11, color: AppColors.foggy),
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           child,
         ],
       ),
     );
   }
 
-  Widget _ledgerRow({
+  Widget _revenueRow({
     required String label,
     required String value,
-    bool emphasize = false,
-    Color? valueColor,
+    required Color accentColor,
+    bool isBold = false,
+    Widget? badge,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: emphasize ? 13 : 12,
-                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
-                color: emphasize ? AppColors.black : AppColors.hof,
-              ),
+          Container(
+            width: 3,
+            height: 20,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: isBold ? 0.9 : 0.45),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: isBold ? 13 : 12,
+                      fontWeight:
+                          isBold ? FontWeight.w700 : FontWeight.w500,
+                      color: isBold ? AppColors.black : AppColors.hof,
+                    ),
+                  ),
+                ),
+                if (badge != null) ...[
+                  const SizedBox(width: 6),
+                  badge,
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: emphasize ? 14 : 12,
+              fontSize: isBold ? 14 : 12,
               fontWeight: FontWeight.w800,
-              color: valueColor ?? AppColors.black,
+              color: isBold ? AppColors.black : accentColor,
             ),
           ),
         ],
@@ -1316,38 +1671,55 @@ class _AdminOverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _statChip({
+  Widget _pill(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStatTile({
     required String label,
     required String value,
-    Color? valueColor,
+    required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppColors.foggy,
-              fontWeight: FontWeight.w600,
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: color,
+              height: 1,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: valueColor ?? AppColors.black,
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.hof,
             ),
           ),
         ],
@@ -1481,22 +1853,46 @@ class _AdminAdsTabState extends State<_AdminAdsTab> {
         else ...[
           _sectionTitle('Active Banners'),
           ...widget.banners.map(
-            (b) => _SectionCard(
+            (b) => Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: b['is_active'] == true
+                      ? const Color(0xFF22C55E).withValues(alpha: 0.45)
+                      : AppColors.border,
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Expanded(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: b['is_active'] == true
+                              ? const Color(0xFFE8F5E9)
+                              : AppColors.surfaceSubtle,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                         child: Text(
-                          b['message']?.toString() ?? '',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.black,
+                          b['is_active'] == true ? '● Live' : '○ Paused',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: b['is_active'] == true
+                                ? const Color(0xFF2E7D32)
+                                : AppColors.foggy,
                           ),
                         ),
                       ),
+                      const Spacer(),
                       Switch.adaptive(
                         value: b['is_active'] == true,
                         activeThumbColor: AppColors.rausch,
@@ -1512,6 +1908,15 @@ class _AdminAdsTabState extends State<_AdminAdsTab> {
                         },
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    b['message']?.toString() ?? '',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.black,
+                    ),
                   ),
                   if ((b['cta_label'] ?? '').toString().isNotEmpty)
                     Text(
@@ -2271,10 +2676,14 @@ class _AdminBookingCalcTab extends StatelessWidget {
       children: [
         Container(
           margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF000000),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+            ),
           ),
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3027,10 +3436,11 @@ class _AdminSupportTabState extends State<_AdminSupportTab> {
                               ),
                             ),
                           const SizedBox(height: 6),
-                          if (status != 'closed')
+                          if (status != 'closed') ...[                   
+                            const SizedBox(height: 4),
                             Align(
                               alignment: Alignment.centerRight,
-                              child: TextButton(
+                              child: OutlinedButton.icon(
                                 onPressed: () async {
                                   await widget.api.updateSupportTicketStatus(
                                     id: t['id'].toString(),
@@ -3038,22 +3448,33 @@ class _AdminSupportTabState extends State<_AdminSupportTab> {
                                   );
                                   widget.onRefresh();
                                 },
-                                style: TextButton.styleFrom(
+                                icon: const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 14,
+                                ),
+                                label: const Text('Close ticket'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.rausch,
+                                  side: const BorderSide(
+                                    color: AppColors.rausch,
+                                    width: 1,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                    horizontal: 12,
+                                    vertical: 5,
                                   ),
                                   minimumSize: Size.zero,
-                                ),
-                                child: const Text(
-                                  'Close ticket',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.rausch,
+                                  textStyle: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                     );

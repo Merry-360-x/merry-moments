@@ -1139,7 +1139,7 @@ class _CreateStorySheetState extends State<_CreateStorySheet> {
                               child: Image.network(
                                 _imageCtrl.text.trim(),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _emptyImagePlaceholder(isDark),
+                                errorBuilder: (_, _, _) => _emptyImagePlaceholder(isDark),
                               ),
                             )
                           else
