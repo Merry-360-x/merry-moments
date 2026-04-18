@@ -537,7 +537,7 @@ class _HostDashboardScreenState extends State<HostDashboardScreen>
                   methods: _payoutMethods,
                   onRefresh: _load,
                 ),
-                _CalendarTab(api: _api, properties: _properties),
+                _CalendarTab(api: _api, properties: _properties, bookings: _bookings),
               ],
             ),
     );
@@ -4007,9 +4007,14 @@ class _ManualReviewsContentState extends State<_ManualReviewsContent> {
 
 // ===================== CALENDAR =====================
 class _CalendarTab extends StatefulWidget {
-  const _CalendarTab({required this.api, required this.properties});
+  const _CalendarTab({
+    required this.api,
+    required this.properties,
+    required this.bookings,
+  });
   final AppDatabase api;
   final List<Map<String, dynamic>> properties;
+  final List<Map<String, dynamic>> bookings;
 
   @override
   State<_CalendarTab> createState() => _CalendarTabState();
@@ -4020,6 +4025,24 @@ class _CalendarTabState extends State<_CalendarTab> {
   bool _loadingEx = false;
   final Set<DateTime> _blockedDays = {};
   DateTime _focusedDay = DateTime.now();
+
+  // Availability / Custom Pricing toggle
+  int _calendarMode = 0; // 0 = availability, 1 = custom pricing
+
+  // Custom pricing
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
+  bool _loadingPrices = false;
+  List<Map<String, dynamic>> _customPrices = [];
+  final _priceCtrl = TextEditingController();
+  final _reasonCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _priceCtrl.dispose();
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadExceptions(String propertyId) async {
     setState(() {
@@ -4043,6 +4066,39 @@ class _CalendarTabState extends State<_CalendarTab> {
     });
   }
 
+  Future<void> _loadCustomPrices(String propertyId) async {
+    setState(() => _loadingPrices = true);
+    final data = await widget.api.fetchPropertyCustomPrices(
+        propertyId: propertyId);
+    setState(() {
+      _customPrices = data;
+      _loadingPrices = false;
+    });
+  }
+
+  void _selectProperty(String pid) {
+    setState(() {
+      _selectedPropertyId = pid;
+      _rangeStart = null;
+      _rangeEnd = null;
+    });
+    _loadExceptions(pid);
+    _loadCustomPrices(pid);
+  }
+
+  /// Booked ranges for the selected property
+  List<Map<String, dynamic>> get _bookedRanges {
+    if (_selectedPropertyId == null) return [];
+    return widget.bookings
+        .where((b) =>
+            b['property_id'] == _selectedPropertyId &&
+            b['booking_type'] == 'property' &&
+            (b['status'] == 'confirmed' ||
+                b['status'] == 'pending' ||
+                b['status'] == 'checked_in'))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.properties.isEmpty) {
@@ -4056,11 +4112,13 @@ class _CalendarTabState extends State<_CalendarTab> {
       (p) => p['id'] == _selectedPropertyId,
       orElse: () => <String, dynamic>{},
     );
+    final currency =
+        (selectedProperty['currency'] ?? 'RWF').toString();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Property selector ─────────────────────────────────────────
+        // ── Property selector ─────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
           child: Column(
@@ -4089,10 +4147,7 @@ class _CalendarTabState extends State<_CalendarTab> {
                     final imgUrl = resolveListingImageUrl(p);
                     return GestureDetector(
                       onTap: () {
-                        if (pid != null) {
-                          setState(() => _selectedPropertyId = pid);
-                          _loadExceptions(pid);
-                        }
+                        if (pid != null) _selectProperty(pid);
                       },
                       child: Container(
                         width: 200,
@@ -4135,17 +4190,21 @@ class _CalendarTabState extends State<_CalendarTab> {
                                       height: 40,
                                       color: const Color(0xFFF1F5F9),
                                       child: const Icon(Icons.home_rounded,
-                                          size: 18, color: Color(0xFFCBD5E1)),
+                                          size: 18,
+                                          color: Color(0xFFCBD5E1)),
                                     ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    (p['title'] ?? 'Property').toString(),
+                                    (p['title'] ?? 'Property')
+                                        .toString(),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -4156,7 +4215,9 @@ class _CalendarTabState extends State<_CalendarTab> {
                                           : AppColors.black,
                                     ),
                                   ),
-                                  if ((p['location'] ?? '').toString().isNotEmpty)
+                                  if ((p['location'] ?? '')
+                                      .toString()
+                                      .isNotEmpty)
                                     Text(
                                       (p['location'] ?? '').toString(),
                                       maxLines: 1,
@@ -4183,36 +4244,33 @@ class _CalendarTabState extends State<_CalendarTab> {
           ),
         ),
 
-        // ── Blocked-days belt ─────────────────────────────────────────
-        if (_selectedPropertyId != null && !_loadingEx && _blockedDays.isNotEmpty)
+        const SizedBox(height: 12),
+
+        // ── Availability / Custom Pricing toggle ───────────────
+        if (_selectedPropertyId != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.rausch.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: AppColors.rausch.withValues(alpha: 0.2)),
+                color: const Color(0xFFF2F2F2),
+                borderRadius: BorderRadius.circular(12),
               ),
+              padding: const EdgeInsets.all(4),
               child: Row(
                 children: [
-                  const Icon(Icons.block_rounded,
-                      size: 14, color: AppColors.rausch),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${_blockedDays.length} day${_blockedDays.length == 1 ? '' : 's'} blocked',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.rausch,
-                    ),
+                  _CalToggle(
+                    label: 'Availability',
+                    icon: Icons.block_rounded,
+                    selected: _calendarMode == 0,
+                    onTap: () =>
+                        setState(() => _calendarMode = 0),
                   ),
-                  const Spacer(),
-                  Text(
-                    'Tap day to unblock',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.foggy),
+                  _CalToggle(
+                    label: 'Custom Pricing',
+                    icon: Icons.sell_rounded,
+                    selected: _calendarMode == 1,
+                    onTap: () =>
+                        setState(() => _calendarMode = 1),
                   ),
                 ],
               ),
@@ -4221,7 +4279,6 @@ class _CalendarTabState extends State<_CalendarTab> {
 
         const SizedBox(height: 10),
 
-        // ── Calendar ──────────────────────────────────────────────────
         if (_selectedPropertyId == null)
           Expanded(
             child: Center(
@@ -4253,205 +4310,719 @@ class _CalendarTabState extends State<_CalendarTab> {
           )
         else if (_loadingEx)
           const Expanded(
-            child: Center(child: CircularProgressIndicator(color: _kRed)),
+            child: Center(
+                child: CircularProgressIndicator(color: _kRed)),
           )
         else
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Property name header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_month_rounded,
-                              size: 15, color: AppColors.rausch),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              (selectedProperty['title'] ?? 'Property')
-                                  .toString(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: TableCalendar(
-                        firstDay: DateTime.now()
-                            .subtract(const Duration(days: 30)),
-                        lastDay:
-                            DateTime.now().add(const Duration(days: 365)),
-                        focusedDay: _focusedDay,
-                        onPageChanged: (fd) =>
-                            setState(() => _focusedDay = fd),
-                        headerStyle: const HeaderStyle(
-                          formatButtonVisible: false,
-                          titleCentered: true,
-                          titleTextStyle: TextStyle(
-                            fontSize: 14,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Section header ───────────────────────────
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(2, 0, 2, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _calendarMode == 0
+                              ? 'Block Dates'
+                              : 'Set Custom Price',
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
+                            fontSize: 15,
                             color: AppColors.black,
                           ),
-                          leftChevronIcon: Icon(
-                              Icons.chevron_left_rounded,
-                              size: 20,
-                              color: AppColors.black),
-                          rightChevronIcon: Icon(
-                              Icons.chevron_right_rounded,
-                              size: 20,
-                              color: AppColors.black),
                         ),
-                        daysOfWeekStyle: const DaysOfWeekStyle(
-                          weekdayStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.foggy),
-                          weekendStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.foggy),
+                        const SizedBox(height: 2),
+                        Text(
+                          _calendarMode == 0
+                              ? 'Tap dates to make them unavailable for booking'
+                              : 'Override the default nightly rate for a date range',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.foggy),
                         ),
-                        calendarStyle: const CalendarStyle(
-                          defaultTextStyle:
-                              TextStyle(fontSize: 13, color: AppColors.black),
-                          weekendTextStyle:
-                              TextStyle(fontSize: 13, color: AppColors.black),
-                          outsideDaysVisible: false,
-                          todayDecoration: BoxDecoration(
-                            color: Color(0xFFFF385C),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        calendarBuilders: CalendarBuilders(
-                          defaultBuilder: (ctx, day, _) {
-                            final norm =
-                                DateTime(day.year, day.month, day.day);
-                            final blocked = _blockedDays.contains(norm);
-                            return Container(
-                              margin: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: blocked
-                                    ? _kRed.withValues(alpha: 0.12)
-                                    : null,
-                                borderRadius: BorderRadius.circular(8),
-                                border: blocked
-                                    ? Border.all(
-                                        color: _kRed.withValues(alpha: 0.3))
-                                    : null,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${day.day}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: blocked
-                                      ? FontWeight.w700
-                                      : FontWeight.w400,
-                                  color: blocked ? _kRed : AppColors.black,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        onDaySelected: (selectedDay, focusedDay) async {
-                          setState(() => _focusedDay = focusedDay);
-                          final norm = DateTime(
-                            selectedDay.year,
-                            selectedDay.month,
-                            selectedDay.day,
-                          );
-                          final dateStr =
-                              DateFormat('yyyy-MM-dd').format(norm);
-                          if (_blockedDays.contains(norm)) {
-                            await widget.api.deleteAvailabilityException(
-                              propertyId: _selectedPropertyId!,
-                              date: dateStr,
-                            );
-                            setState(() => _blockedDays.remove(norm));
-                          } else {
-                            await widget.api.setAvailabilityException(
-                              propertyId: _selectedPropertyId!,
-                              date: dateStr,
-                              available: false,
-                            );
-                            setState(() => _blockedDays.add(norm));
-                          }
-                        },
-                      ),
+                      ],
                     ),
-                    // Legend
-                    Padding(
-                      padding:
-                          const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: _kRed.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: _kRed.withValues(alpha: 0.3)),
+                  ),
+
+                  // ── Calendar card ────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        TableCalendar(
+                          firstDay: DateTime.now()
+                              .subtract(const Duration(days: 30)),
+                          lastDay: DateTime.now()
+                              .add(const Duration(days: 365)),
+                          focusedDay: _focusedDay,
+                          onPageChanged: (fd) =>
+                              setState(() => _focusedDay = fd),
+                          headerStyle: const HeaderStyle(
+                            formatButtonVisible: false,
+                            titleCentered: true,
+                            titleTextStyle: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.black,
                             ),
+                            leftChevronIcon: Icon(
+                                Icons.chevron_left_rounded,
+                                size: 20,
+                                color: AppColors.black),
+                            rightChevronIcon: Icon(
+                                Icons.chevron_right_rounded,
+                                size: 20,
+                                color: AppColors.black),
                           ),
-                          const SizedBox(width: 6),
-                          const Text('Blocked',
-                              style: TextStyle(
-                                  fontSize: 11, color: AppColors.foggy)),
-                          const SizedBox(width: 16),
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: const BoxDecoration(
-                              color: AppColors.rausch,
+                          daysOfWeekStyle: const DaysOfWeekStyle(
+                            weekdayStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.foggy),
+                            weekendStyle: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.foggy),
+                          ),
+                          calendarStyle: CalendarStyle(
+                            defaultTextStyle: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.black),
+                            weekendTextStyle: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.black),
+                            outsideDaysVisible: false,
+                            todayDecoration: BoxDecoration(
+                              color: _calendarMode == 0
+                                  ? const Color(0xFFFF385C)
+                                  : const Color(0xFFFF385C),
                               shape: BoxShape.circle,
                             ),
                           ),
+                          calendarBuilders: CalendarBuilders(
+                            defaultBuilder: (ctx, day, _) {
+                              final norm = DateTime(
+                                  day.year, day.month, day.day);
+                              if (_calendarMode == 0) {
+                                // Availability mode
+                                final blocked =
+                                    _blockedDays.contains(norm);
+                                return Container(
+                                  margin: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: blocked
+                                        ? _kRed.withValues(alpha: 0.12)
+                                        : null,
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                    border: blocked
+                                        ? Border.all(
+                                            color: _kRed
+                                                .withValues(alpha: 0.3))
+                                        : null,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: blocked
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                      color: blocked
+                                          ? _kRed
+                                          : AppColors.black,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Pricing mode — highlight selected range
+                                final inRange = _rangeStart != null &&
+                                    _rangeEnd != null &&
+                                    !norm.isBefore(_rangeStart!) &&
+                                    !norm.isAfter(_rangeEnd!);
+                                final isEdge = norm == _rangeStart ||
+                                    norm == _rangeEnd;
+                                return Container(
+                                  margin: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: isEdge
+                                        ? _kRed
+                                        : inRange
+                                            ? _kRed.withValues(alpha: 0.12)
+                                            : null,
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isEdge
+                                          ? AppColors.white
+                                          : AppColors.black,
+                                      fontWeight: isEdge
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          onDaySelected: (selectedDay, focusedDay) async {
+                            setState(() => _focusedDay = focusedDay);
+                            final norm = DateTime(
+                              selectedDay.year,
+                              selectedDay.month,
+                              selectedDay.day,
+                            );
+                            if (_calendarMode == 0) {
+                              // Toggle blocked day
+                              final dateStr = DateFormat('yyyy-MM-dd')
+                                  .format(norm);
+                              if (_blockedDays.contains(norm)) {
+                                await widget.api
+                                    .deleteAvailabilityException(
+                                  propertyId: _selectedPropertyId!,
+                                  date: dateStr,
+                                );
+                                setState(
+                                    () => _blockedDays.remove(norm));
+                              } else {
+                                await widget.api
+                                    .setAvailabilityException(
+                                  propertyId: _selectedPropertyId!,
+                                  date: dateStr,
+                                  available: false,
+                                );
+                                setState(() => _blockedDays.add(norm));
+                              }
+                            } else {
+                              // Range pick for custom price
+                              setState(() {
+                                if (_rangeStart == null ||
+                                    (_rangeStart != null &&
+                                        _rangeEnd != null)) {
+                                  _rangeStart = norm;
+                                  _rangeEnd = null;
+                                } else {
+                                  if (norm.isBefore(_rangeStart!)) {
+                                    _rangeEnd = _rangeStart;
+                                    _rangeStart = norm;
+                                  } else {
+                                    _rangeEnd = norm;
+                                  }
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        // Legend (availability only)
+                        if (_calendarMode == 0)
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: _kRed.withValues(alpha: 0.12),
+                                    borderRadius:
+                                        BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: _kRed
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text('Blocked',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.foggy)),
+                                const SizedBox(width: 16),
+                                Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.rausch,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text('Today',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.foggy)),
+                                const Spacer(),
+                                const Icon(Icons.touch_app_rounded,
+                                    size: 13, color: AppColors.foggy),
+                                const SizedBox(width: 4),
+                                const Text('Tap to toggle',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.foggy)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  if (_calendarMode == 0) ...[
+                    // ── Unavailable Dates ────────────────────────
+                    const Text(
+                      'Unavailable Dates',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: AppColors.black),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_bookedRanges.isEmpty && _blockedDays.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 18, horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8F8F8),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: AppColors.border),
+                        ),
+                        child: const Text(
+                          'No unavailable dates for this property.',
+                          style: TextStyle(
+                              color: AppColors.foggy, fontSize: 13),
+                        ),
+                      )
+                    else ...[
+                      ..._bookedRanges.map((b) {
+                        final checkIn =
+                            b['check_in'] as String? ??
+                                b['start_date'] as String? ??
+                                '';
+                        final checkOut =
+                            b['check_out'] as String? ??
+                                b['end_date'] as String? ??
+                                '';
+                        final status =
+                            (b['status'] as String? ?? 'booked')
+                                .toLowerCase();
+                        String fmtDate(String d) {
+                          try {
+                            return DateFormat('MMM d, yyyy')
+                                .format(DateTime.parse(d));
+                          } catch (_) {
+                            return d;
+                          }
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.fromLTRB(
+                              14, 10, 12, 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF5F5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: AppColors.rausch
+                                    .withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${fmtDate(checkIn)} – ${fmtDate(checkOut)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      padding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 7,
+                                              vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.rausch
+                                            .withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        status[0].toUpperCase() +
+                                            status.substring(1),
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.rausch,
+                                            fontWeight:
+                                                FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ] else ...[
+                    // ── Custom pricing form ──────────────────────
+                    if (_rangeStart != null) ...[
+                      // Selected range display
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded,
+                              size: 14, color: AppColors.foggy),
                           const SizedBox(width: 6),
-                          const Text('Today',
-                              style: TextStyle(
-                                  fontSize: 11, color: AppColors.foggy)),
-                          const Spacer(),
-                          const Icon(Icons.touch_app_rounded,
-                              size: 13, color: AppColors.foggy),
-                          const SizedBox(width: 4),
-                          const Text('Tap to toggle',
-                              style: TextStyle(
-                                  fontSize: 11, color: AppColors.foggy)),
+                          Text(
+                            _rangeEnd != null
+                                ? '${DateFormat('d MMM yyyy').format(_rangeStart!)} – ${DateFormat('d MMM yyyy').format(_rangeEnd!)}'
+                                : DateFormat('d MMM yyyy')
+                                    .format(_rangeStart!),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: AppColors.black,
+                            ),
+                          ),
                         ],
                       ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _priceCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText:
+                              'Custom price per night ($currency)',
+                          border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: AppColors.rausch, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFFAFAFA),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _reasonCtrl,
+                        decoration: InputDecoration(
+                          labelText:
+                              'Reason (e.g. Holiday season, Special event)',
+                          border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: AppColors.rausch, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFFAFAFA),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.rausch,
+                                foregroundColor: AppColors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        vertical: 13),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(10)),
+                              ),
+                              onPressed: _rangeEnd == null
+                                  ? null
+                                  : () async {
+                                      final price = double.tryParse(
+                                          _priceCtrl.text.trim());
+                                      if (price == null) return;
+                                      await widget.api
+                                          .addPropertyCustomPrice(
+                                        propertyId:
+                                            _selectedPropertyId!,
+                                        startDate: DateFormat(
+                                                'yyyy-MM-dd')
+                                            .format(_rangeStart!),
+                                        endDate: DateFormat(
+                                                'yyyy-MM-dd')
+                                            .format(_rangeEnd!),
+                                        customPricePerNight: price,
+                                        reason: _reasonCtrl.text
+                                                .trim()
+                                                .isEmpty
+                                            ? null
+                                            : _reasonCtrl.text
+                                                .trim(),
+                                      );
+                                      _priceCtrl.clear();
+                                      _reasonCtrl.clear();
+                                      setState(() {
+                                        _rangeStart = null;
+                                        _rangeEnd = null;
+                                      });
+                                      await _loadCustomPrices(
+                                          _selectedPropertyId!);
+                                    },
+                              child: const Text('Set Custom Price',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      vertical: 13,
+                                      horizontal: 20),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => setState(() {
+                              _rangeStart = null;
+                              _rangeEnd = null;
+                              _priceCtrl.clear();
+                              _reasonCtrl.clear();
+                            }),
+                            child: const Text('Cancel'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Custom Pricing Rules ─────────────────────
+                    const Text(
+                      'Custom Pricing Rules',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: AppColors.black),
                     ),
+                    const SizedBox(height: 10),
+                    if (_loadingPrices)
+                      const Center(
+                          child: CircularProgressIndicator(
+                              color: _kRed))
+                    else if (_customPrices.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 18, horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8F8F8),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: AppColors.border),
+                        ),
+                        child: const Text(
+                          'No custom pricing rules yet. Tap a date range above to add one.',
+                          style: TextStyle(
+                              color: AppColors.foggy, fontSize: 13),
+                        ),
+                      )
+                    else
+                      ..._customPrices.map((cp) {
+                        final cpCurrency =
+                            (cp['currency'] ?? currency).toString();
+                        final price =
+                            (cp['custom_price_per_night'] as num?) ??
+                                0;
+                        final reason =
+                            cp['reason'] as String? ?? '';
+                        String fmtDate(String d) {
+                          try {
+                            return DateFormat('MMM d, yyyy')
+                                .format(DateTime.parse(d));
+                          } catch (_) {
+                            return d;
+                          }
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.fromLTRB(
+                              14, 10, 12, 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FFF4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: const Color(0xFF22C55E)
+                                    .withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        horizontal: 9, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius:
+                                      BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: const Color(
+                                          0xFF22C55E)),
+                                ),
+                                child: Text(
+                                  '$cpCurrency ${price.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${fmtDate(cp['start_date'] ?? '')} – ${fmtDate(cp['end_date'] ?? '')}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    if (reason.isNotEmpty)
+                                      Text(reason,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.foggy)),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () async {
+                                  await widget.api
+                                      .removePropertyCustomPrice(
+                                          id: cp['id'].toString());
+                                  await _loadCustomPrices(
+                                      _selectedPropertyId!);
+                                },
+                                child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: AppColors.foggy),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                   ],
-                ),
+                ],
               ),
             ),
           ),
-        const SizedBox(height: 14),
       ],
     );
   }
+}
+
+class _CalToggle extends StatelessWidget {
+  const _CalToggle({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon,
+                    size: 13,
+                    color: selected
+                        ? AppColors.rausch
+                        : AppColors.foggy),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                    color: selected
+                        ? AppColors.rausch
+                        : AppColors.foggy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 // ===================== DISCOUNTS =====================
@@ -4470,85 +5041,241 @@ class _DiscountsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: const Color(0xFFF7F7F7),
       body: items.isEmpty
-          ? const _EmptyState(
-              label: 'No discount codes yet',
-              icon: Icons.local_offer_outlined,
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.rausch.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_offer_rounded,
+                        size: 36, color: AppColors.rausch),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('No discount codes yet',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: AppColors.black)),
+                  const SizedBox(height: 6),
+                  const Text('Tap + to create your first promo code',
+                      style:
+                          TextStyle(fontSize: 13, color: AppColors.foggy)),
+                ],
+              ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               itemCount: items.length,
               itemBuilder: (ctx, i) {
                 final d = items[i];
                 final isActive = d['is_active'] == true;
-                final type = d['discount_type'] as String? ?? 'percentage';
+                final type =
+                    d['discount_type'] as String? ?? 'percentage';
                 final value = (d['discount_value'] as num?) ?? 0;
-                final uses = (d['current_uses'] as num?)?.toInt() ?? 0;
-                final maxUses = (d['max_uses'] as num?)?.toInt();
+                final uses =
+                    (d['current_uses'] as num?)?.toInt() ?? 0;
+                final maxUses =
+                    (d['max_uses'] as num?)?.toInt();
+                final desc = d['description'] as String?;
+                final expiryStr = d['valid_until'] as String?;
+                final expiry = expiryStr != null
+                    ? DateTime.tryParse(expiryStr)
+                    : null;
+                final isExpired =
+                    expiry != null && expiry.isBefore(DateTime.now());
+                final currency =
+                    d['currency'] as String? ?? 'RWF';
+                final appliesTo =
+                    d['applies_to'] as String? ?? 'all';
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? AppColors.rausch.withValues(alpha: 0.08)
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        d['code'] as String? ?? '',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: isActive ? AppColors.rausch : AppColors.foggy,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header row ────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
+                        child: Row(
+                          children: [
+                            // Code badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isActive && !isExpired
+                                    ? AppColors.rausch
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                d['code'] as String? ?? '',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  letterSpacing: 1.2,
+                                  color: isActive && !isExpired
+                                      ? AppColors.white
+                                      : AppColors.foggy,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Discount value
+                            Text(
+                              type == 'percentage'
+                                  ? '${value.toStringAsFixed(0)}% off'
+                                  : '${currency} ${value.toStringAsFixed(0)} off',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 17,
+                                color: isActive && !isExpired
+                                    ? AppColors.black
+                                    : AppColors.foggy,
+                              ),
+                            ),
+                            const Spacer(),
+                            // Toggle
+                            Transform.scale(
+                              scale: 0.82,
+                              child: Switch(
+                                value: isActive,
+                                activeColor: const Color(0xFF008489),
+                                onChanged: isExpired
+                                    ? null
+                                    : (v) async {
+                                        await api.toggleDiscount(
+                                            id: d['id'], active: v);
+                                        onRefresh();
+                                      },
+                              ),
+                            ),
+                            // Delete
+                            GestureDetector(
+                              onTap: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: ctx,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text('Delete code?'),
+                                    content: Text(
+                                        'Remove "${d['code']}" permanently?'),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: const Text('Cancel')),
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: const Text('Delete',
+                                              style: TextStyle(
+                                                  color: AppColors.rausch))),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true) {
+                                  await api.deleteDiscount(id: d['id']);
+                                  onRefresh();
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Icon(Icons.delete_outline_rounded,
+                                    size: 20,
+                                    color: Colors.grey.shade400),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    title: Text(
-                      type == 'percentage'
-                          ? '${value.toStringAsFixed(0)}% off'
-                          : '\$${value.toStringAsFixed(2)} off',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.black,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Used $uses${maxUses != null ? " / $maxUses" : ""} times',
-                      style: const TextStyle(color: AppColors.foggy),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: isActive,
-                          activeThumbColor: const Color(0xFF008489),
-                          onChanged: (v) async {
-                            await api.toggleDiscount(id: d['id'], active: v);
-                            onRefresh();
-                          },
+                      // ── Description ───────────────────────────────
+                      if (desc != null && desc.isNotEmpty)
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                          child: Text(desc,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.foggy)),
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: AppColors.rausch,
+                      // ── Tags row ──────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Wrap(
+                          spacing: 6,
+                          children: [
+                            _DiscountChip(
+                              icon: Icons.category_outlined,
+                              label: appliesTo[0].toUpperCase() +
+                                  appliesTo.substring(1),
+                            ),
+                            if (maxUses != null)
+                              _DiscountChip(
+                                icon: Icons.people_outline,
+                                label: '$uses / $maxUses uses',
+                              )
+                            else
+                              _DiscountChip(
+                                icon: Icons.all_inclusive,
+                                label:
+                                    '$uses use${uses != 1 ? "s" : ""}',
+                              ),
+                            if (expiry != null)
+                              _DiscountChip(
+                                icon: Icons.event_outlined,
+                                label: isExpired
+                                    ? 'Expired'
+                                    : 'Expires ${DateFormat("d MMM").format(expiry)}',
+                                color: isExpired
+                                    ? AppColors.rausch
+                                    : null,
+                              ),
+                          ],
+                        ),
+                      ),
+                      // ── Uses progress bar ─────────────────────────
+                      if (maxUses != null && maxUses > 0)
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: (uses / maxUses).clamp(0.0, 1.0),
+                                  backgroundColor:
+                                      Colors.grey.shade100,
+                                  color: uses >= maxUses
+                                      ? Colors.grey
+                                      : AppColors.rausch,
+                                  minHeight: 5,
+                                ),
+                              ),
+                            ],
                           ),
-                          onPressed: () async {
-                            await api.deleteDiscount(id: d['id']);
-                            onRefresh();
-                          },
-                        ),
-                      ],
-                    ),
+                        )
+                      else
+                        const SizedBox(height: 14),
+                    ],
                   ),
                 );
               },
@@ -4556,12 +5283,46 @@ class _DiscountsTab extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.rausch,
         foregroundColor: AppColors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Code'),
-        onPressed: () => _showDiscountSheet(context, api, userId, onRefresh),
+        elevation: 3,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New Code',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        onPressed: () =>
+            _showDiscountSheet(context, api, userId, onRefresh),
       ),
     );
   }
+}
+
+class _DiscountChip extends StatelessWidget {
+  const _DiscountChip(
+      {required this.icon, required this.label, this.color});
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: (color ?? AppColors.foggy).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 11, color: color ?? AppColors.foggy),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: color ?? AppColors.foggy,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
 }
 
 void _showDiscountSheet(
@@ -4574,7 +5335,6 @@ void _showDiscountSheet(
   final descCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
   final maxUsesCtrl = TextEditingController();
-  final minAmountCtrl = TextEditingController(text: '0');
   String discountType = 'percentage';
   String currency = 'RWF';
   String appliesTo = 'all';
@@ -4583,181 +5343,465 @@ void _showDiscountSheet(
   showModalBottomSheet(
     context: ctx,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+    backgroundColor: Colors.transparent,
     builder: (sheetCtx) => StatefulBuilder(
-      builder: (sCtx, setSt) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Create Discount Code',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-              ),
-              const SizedBox(height: 16),
-              _Field(
-                ctrl: codeCtrl,
-                label: 'Code (e.g. SAVE20)',
-                capitalization: TextCapitalization.characters,
-              ),
-              _Field(ctrl: descCtrl, label: 'Description'),
-              Row(
+      builder: (sCtx, setSt) {
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.white,
+              borderRadius:
+                  BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      key: ValueKey('dt_$discountType'),
-                      initialValue: discountType,
-                      decoration: _inputDecoration('Discount Type'),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'percentage',
-                          child: Text('Percentage (%)'),
+                  // Handle
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        DropdownMenuItem(
-                          value: 'fixed',
-                          child: Text('Fixed Amount'),
-                        ),
-                      ],
-                      onChanged: (v) =>
-                          setSt(() => discountType = v ?? discountType),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color:
+                              AppColors.rausch.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.local_offer_rounded,
+                            color: AppColors.rausch, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('New Discount Code',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 17,
+                                  color: AppColors.black)),
+                          Text('Offer promos to your guests',
+                              style: TextStyle(
+                                  fontSize: 12, color: AppColors.foggy)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+
+                  // ── Code field ─────────────────────────────
+                  TextField(
+                    controller: codeCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: 'Promo Code',
+                      hintText: 'e.g. SAVE20',
+                      prefixIcon: const Icon(Icons.tag_rounded,
+                          size: 18, color: AppColors.foggy),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: AppColors.rausch, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Description ────────────────────────────
+                  TextField(
+                    controller: descCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Description (optional)',
+                      prefixIcon: const Icon(Icons.notes_rounded,
+                          size: 18, color: AppColors.foggy),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: AppColors.rausch, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Discount type toggle ────────────────────
+                  const Text('Discount Type',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.foggy)),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        _TypeToggle(
+                          label: '% Percentage',
+                          selected: discountType == 'percentage',
+                          onTap: () =>
+                              setSt(() => discountType = 'percentage'),
+                        ),
+                        _TypeToggle(
+                          label: '# Fixed Amount',
+                          selected: discountType == 'fixed',
+                          onTap: () =>
+                              setSt(() => discountType = 'fixed'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Value + Currency row ────────────────────
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: valueCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: discountType == 'percentage'
+                                ? 'Discount %'
+                                : 'Amount',
+                            prefixIcon: Icon(
+                              discountType == 'percentage'
+                                  ? Icons.percent_rounded
+                                  : Icons.attach_money_rounded,
+                              size: 18,
+                              color: AppColors.foggy,
+                            ),
+                            border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(12)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: AppColors.rausch, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFFAFAFA),
+                          ),
+                        ),
+                      ),
+                      if (discountType == 'fixed') ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            key: ValueKey('dc_$currency'),
+                            value: currency,
+                            decoration: InputDecoration(
+                              labelText: 'Currency',
+                              border: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(12)),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: AppColors.rausch,
+                                    width: 2),
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFFAFAFA),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 14),
+                            ),
+                            items: _kCurrencies
+                                .map((c) => DropdownMenuItem(
+                                    value: c, child: Text(c)))
+                                .toList(),
+                            onChanged: (v) =>
+                                setSt(() => currency = v ?? currency),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Max uses + Applies to row ───────────────
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: maxUsesCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Max Uses',
+                            hintText: '∞ unlimited',
+                            prefixIcon: const Icon(
+                                Icons.people_outline_rounded,
+                                size: 18,
+                                color: AppColors.foggy),
+                            border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(12)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: AppColors.rausch, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFFAFAFA),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey('at_$appliesTo'),
+                          value: appliesTo,
+                          decoration: InputDecoration(
+                            labelText: 'Applies To',
+                            border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(12)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: AppColors.rausch, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFFAFAFA),
+                            contentPadding:
+                                const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 14),
+                          ),
+                          items: _kDiscountAppliesTo
+                              .map((a) => DropdownMenuItem(
+                                    value: a,
+                                    child: Text(
+                                        a[0].toUpperCase() +
+                                            a.substring(1),
+                                        overflow:
+                                            TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (v) =>
+                              setSt(() => appliesTo = v ?? appliesTo),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Expiry date ─────────────────────────────
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: sheetCtx,
+                        initialDate: validUntil ??
+                            DateTime.now()
+                                .add(const Duration(days: 30)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now()
+                            .add(const Duration(days: 365 * 3)),
+                        builder: (ctx, child) => Theme(
+                          data: Theme.of(ctx).copyWith(
+                            colorScheme: const ColorScheme.light(
+                                primary: _kRed),
+                          ),
+                          child: child!,
+                        ),
+                      );
+                      if (picked != null) setSt(() => validUntil = picked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: validUntil != null
+                              ? AppColors.rausch.withValues(alpha: 0.4)
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.event_rounded,
+                              size: 18,
+                              color: validUntil != null
+                                  ? AppColors.rausch
+                                  : AppColors.foggy),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                const Text('Expiry Date',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.foggy)),
+                                Text(
+                                  validUntil != null
+                                      ? DateFormat('d MMM yyyy')
+                                          .format(validUntil!)
+                                      : 'No expiry — tap to set',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: validUntil != null
+                                        ? AppColors.black
+                                        : AppColors.foggy,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (validUntil != null)
+                            GestureDetector(
+                              onTap: () => setSt(() => validUntil = null),
+                              child: const Icon(Icons.close_rounded,
+                                  size: 18, color: AppColors.foggy),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Create button ───────────────────────────
                   SizedBox(
-                    width: 100,
-                    child: DropdownButtonFormField<String>(
-                      key: ValueKey('dc_$currency'),
-                      initialValue: currency,
-                      decoration: _inputDecoration('Currency'),
-                      items: _kCurrencies
-                          .map(
-                            (c) => DropdownMenuItem(value: c, child: Text(c)),
-                          )
-                          .toList(),
-                      onChanged: (v) => setSt(() => currency = v ?? currency),
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.rausch,
+                        foregroundColor: AppColors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () async {
+                        await api.createDiscount(
+                          userId: userId,
+                          code: codeCtrl.text.trim().toUpperCase(),
+                          discountType: discountType,
+                          discountValue:
+                              double.tryParse(valueCtrl.text.trim()) ??
+                                  0,
+                          maxUses:
+                              int.tryParse(maxUsesCtrl.text.trim()),
+                          description:
+                              descCtrl.text.trim().isNotEmpty
+                                  ? descCtrl.text.trim()
+                                  : null,
+                          currency: currency,
+                          minimumAmount: 0,
+                          validUntil: validUntil != null
+                              ? DateFormat('yyyy-MM-dd')
+                                  .format(validUntil!)
+                              : null,
+                          appliesTo: appliesTo,
+                        );
+                        if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                        onRefresh();
+                      },
+                      child: const Text('Create Code',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 15)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _Field(
-                ctrl: valueCtrl,
-                label: 'Value',
-                inputType: TextInputType.number,
-              ),
-              _Field(
-                ctrl: maxUsesCtrl,
-                label: 'Max Uses (blank = unlimited)',
-                inputType: TextInputType.number,
-              ),
-              _Field(
-                ctrl: minAmountCtrl,
-                label: 'Minimum Booking Amount',
-                inputType: TextInputType.number,
-              ),
-              DropdownButtonFormField<String>(
-                key: ValueKey('at_$appliesTo'),
-                initialValue: appliesTo,
-                decoration: _inputDecoration('Applies To'),
-                items: _kDiscountAppliesTo
-                    .map(
-                      (a) => DropdownMenuItem(
-                        value: a,
-                        child: Text(a[0].toUpperCase() + a.substring(1)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setSt(() => appliesTo = v ?? appliesTo),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Expiry Date (optional)',
-                  style: TextStyle(fontSize: 14),
-                ),
-                subtitle: Text(
-                  validUntil != null
-                      ? DateFormat('dd MMM yyyy').format(validUntil!)
-                      : 'No expiry',
-                  style: TextStyle(
-                    color: validUntil != null ? _kRed : AppColors.foggy,
-                    fontSize: 13,
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.calendar_today_outlined, size: 20),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: sheetCtx,
-                          initialDate:
-                              validUntil ??
-                              DateTime.now().add(const Duration(days: 30)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365 * 3),
-                          ),
-                          builder: (ctx, child) => Theme(
-                            data: Theme.of(ctx).copyWith(
-                              colorScheme: const ColorScheme.light(
-                                primary: _kRed,
-                              ),
-                            ),
-                            child: child!,
-                          ),
-                        );
-                        if (picked != null) setSt(() => validUntil = picked);
-                      },
-                    ),
-                    if (validUntil != null)
-                      IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () => setSt(() => validUntil = null),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SaveButton(
-                label: 'Create Code',
-                onPressed: () async {
-                  await api.createDiscount(
-                    userId: userId,
-                    code: codeCtrl.text.trim(),
-                    discountType: discountType,
-                    discountValue: double.tryParse(valueCtrl.text.trim()) ?? 0,
-                    maxUses: int.tryParse(maxUsesCtrl.text.trim()),
-                    description: descCtrl.text.trim().isNotEmpty
-                        ? descCtrl.text.trim()
-                        : null,
-                    currency: currency,
-                    minimumAmount:
-                        double.tryParse(minAmountCtrl.text.trim()) ?? 0,
-                    validUntil: validUntil != null
-                        ? DateFormat('yyyy-MM-dd').format(validUntil!)
-                        : null,
-                    appliesTo: appliesTo,
-                  );
-                  if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-                  onRefresh();
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     ),
   );
+}
+
+class _TypeToggle extends StatelessWidget {
+  const _TypeToggle(
+      {required this.label,
+      required this.selected,
+      required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color:
+                            Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected
+                    ? FontWeight.w700
+                    : FontWeight.w400,
+                color: selected ? AppColors.rausch : AppColors.foggy,
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 // ===================== FINANCIAL =====================
@@ -6224,13 +7268,11 @@ class _Field extends StatelessWidget {
     required this.label,
     this.inputType = TextInputType.text,
     this.maxLines = 1,
-    this.capitalization = TextCapitalization.sentences,
   });
   final TextEditingController ctrl;
   final String label;
   final TextInputType inputType;
   final int maxLines;
-  final TextCapitalization capitalization;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -6239,7 +7281,7 @@ class _Field extends StatelessWidget {
       controller: ctrl,
       keyboardType: inputType,
       maxLines: maxLines,
-      textCapitalization: capitalization,
+      textCapitalization: TextCapitalization.sentences,
       decoration: _inputDecoration(label),
     ),
   );
