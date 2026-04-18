@@ -444,6 +444,39 @@ class AppDatabase {
     return (data['paymentStatus'] ?? data['status'] ?? 'pending').toString();
   }
 
+  /// Initiate PawaPay mobile money deposit via serverless function.
+  /// Call after creating a booking to send a payment push to the payer's phone.
+  Future<Map<String, dynamic>> initiatePawaPayDeposit({
+    required String bookingId,
+    required double amount,
+    required String currency,
+    required String phoneNumber,
+    String? payerName,
+    String? payerEmail,
+    required String provider,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pawapay-create-payment');
+    final body = <String, dynamic>{
+      'checkoutId': bookingId,
+      'amount': amount,
+      'currency': currency,
+      'phoneNumber': phoneNumber,
+      'payerName': payerName?.isNotEmpty == true ? payerName : 'Guest',
+      if (payerEmail != null && payerEmail.isNotEmpty) 'payerEmail': payerEmail,
+      'provider': provider,
+      'description': 'Merry360x Booking',
+    };
+    final resp = await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Payment initiation failed (${resp.statusCode}): ${resp.body}');
+    }
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   // ── Listing detail (full fetch) ──
 
   Future<Map<String, dynamic>?> fetchListingById({
@@ -515,10 +548,12 @@ class AppDatabase {
     String? guestPhone,
   }) async {
     final isGuest = userId.trim().isEmpty;
+    // Normalize booking_type: 'tour_package' → 'tour' to satisfy the DB check constraint.
+    final bookingType = itemType == 'tour_package' ? 'tour' : itemType;
     final row = <String, dynamic>{
       if (!isGuest) 'guest_id': userId,
       'is_guest_booking': isGuest,
-      'booking_type': itemType,
+      'booking_type': bookingType,
       // guest_name = actual guest's name (for guests) or listing title (for members).
       'guest_name': isGuest ? (guestName ?? title) : title,
       if (isGuest && guestEmail != null && guestEmail.isNotEmpty) 'guest_email': guestEmail,

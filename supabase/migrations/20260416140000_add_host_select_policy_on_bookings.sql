@@ -23,7 +23,7 @@ USING (
       EXISTS (
         SELECT 1 FROM tours
         WHERE tours.id = bookings.tour_id
-          AND (tours.host_id = auth.uid() OR tours.created_by = auth.uid() OR tours.guide_id = auth.uid())
+          AND tours.created_by = auth.uid()
       )
       OR EXISTS (
         SELECT 1 FROM tour_packages

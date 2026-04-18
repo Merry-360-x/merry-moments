@@ -498,6 +498,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     HapticFeedback.mediumImpact();
     setState(() => _submitting = true);
     try {
+      // For guest users, persist form details into the session so the auth
+      // guard in SessionController.createBooking() passes.
+      if (!widget.session.isAuthenticated) {
+        final name = _nameCtrl.text.trim();
+        if (name.isEmpty) {
+          _showSnack(_l.enterFullName);
+          setState(() => _submitting = false);
+          return;
+        }
+        widget.session.setGuestInfo(
+          name: name,
+          email: _emailCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+        );
+      }
+
       if (_payTab == 0) {
         // ── Mobile Money (PawaPay) ──
         if (_selectedMethod == null) {
@@ -527,6 +543,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
         if (_appliedDiscount != null && _discountAmount > 0) {
           AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+        }
+        // Initiate the PawaPay deposit — sends the MoMo push/USSD prompt to the user.
+        if (id != null) {
+          try {
+            await AppDatabase().initiatePawaPayDeposit(
+              bookingId: id,
+              amount: _total,
+              currency: _currency,
+              phoneNumber: phone,
+              payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
+              payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+              provider: _selectedMethod!.id,
+            );
+          } catch (e) {
+            // Log and swallow so the success screen still shows.
+            debugPrint('PawaPay initiation error: $e');
+          }
         }
         _paymentMethod = 'mobile_money';
         setState(() { _bookingId = id; _step = 2; });

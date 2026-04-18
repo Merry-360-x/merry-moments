@@ -545,13 +545,19 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
   void _bookNow() {
     HapticFeedback.mediumImpact();
+    if (_checkIn == null) {
+      _showSnack(_l.selectDates, isError: true);
+      return;
+    }
+    // For same-day bookings (tours, etc.) auto-set check-out to check-in.
+    final checkOut = _checkOut ?? _checkIn!.add(const Duration(days: 1));
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => CheckoutScreen(
           item: item,
           checkIn: _checkIn,
-          checkOut: _checkOut,
+          checkOut: checkOut,
           guests: _guests,
           session: widget.session,
         ),
