@@ -317,17 +317,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showNewChatSheet,
-        backgroundColor: AppColors.rausch,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.edit_outlined),
-        label: const Text(
-          'New message',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        elevation: 3,
-      ),
+
     );
   }
 
@@ -1075,14 +1065,11 @@ class _Avatar extends StatelessWidget {
         color: const Color(0xFFFFEFF0),
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Center(
-        child: Text(
-          initials.isEmpty ? 'H' : initials,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: AppColors.rausch,
-            fontSize: 13,
-          ),
+      child: const Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppColors.rausch,
+          size: 24,
         ),
       ),
     );

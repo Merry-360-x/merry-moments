@@ -20,7 +20,62 @@ import { Progress } from "@/components/ui/progress";
 import { isVideoUrl } from "@/lib/media";
 import { getDraftWizardStep } from "@/lib/draft-session";
 
+type MediaPreview = {
+  src: string;
+  kind: "image" | "video";
+};
+
 const isVideoPreviewSrc = (src: string) => /^data:video\//i.test(src) || isVideoUrl(src);
+
+const toRemoteMediaPreview = (url: string): MediaPreview => ({
+  src: url,
+  kind: isVideoPreviewSrc(url) ? "video" : "image",
+});
+
+const toLocalMediaPreview = (file: File): MediaPreview => ({
+  src: URL.createObjectURL(file),
+  kind: file.type.startsWith("video/") ? "video" : "image",
+});
+
+const revokePreview = (preview?: MediaPreview) => {
+  if (preview?.src?.startsWith("blob:")) {
+    URL.revokeObjectURL(preview.src);
+  }
+};
+
+function MediaPreviewTile({ preview, alt }: { preview: MediaPreview; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (preview.kind === "video") {
+    return (
+      <video
+        src={preview.src}
+        className="w-full h-full object-cover rounded-lg"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="w-full h-full rounded-lg bg-muted flex flex-col items-center justify-center text-center px-2">
+        <Camera className="w-6 h-6 text-muted-foreground mb-2" />
+        <span className="text-xs text-muted-foreground">Preview unavailable</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={preview.src}
+      alt={alt}
+      className="w-full h-full object-cover rounded-lg"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 // Car types
 const carTypes = [
@@ -162,9 +217,9 @@ export default function CreateTransport() {
 
   // Images
   const [exteriorImages, setExteriorImages] = useState<File[]>([]);
-  const [exteriorPreviews, setExteriorPreviews] = useState<string[]>([]);
+  const [exteriorPreviews, setExteriorPreviews] = useState<MediaPreview[]>([]);
   const [interiorImages, setInteriorImages] = useState<File[]>([]);
-  const [interiorPreviews, setInteriorPreviews] = useState<string[]>([]);
+  const [interiorPreviews, setInteriorPreviews] = useState<MediaPreview[]>([]);
   const [existingExteriorUrls, setExistingExteriorUrls] = useState<string[]>([]);
   const [existingInteriorUrls, setExistingInteriorUrls] = useState<string[]>([]);
   
@@ -264,8 +319,8 @@ export default function CreateTransport() {
 
       setExistingExteriorUrls(exterior);
       setExistingInteriorUrls(interior);
-      setExteriorPreviews(exterior);
-      setInteriorPreviews(interior);
+      setExteriorPreviews(exterior.map(toRemoteMediaPreview));
+      setInteriorPreviews(interior.map(toRemoteMediaPreview));
 
       setExistingInsuranceUrl((data as any).insurance_document_url || "");
       setExistingRegistrationUrl((data as any).registration_document_url || "");
@@ -412,14 +467,11 @@ export default function CreateTransport() {
   // Handle exterior images
   const handleExteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setExteriorImages((prev) => [...prev, ...files]);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setExteriorPreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setExteriorPreviews((prev) => [...prev, ...files.map(toLocalMediaPreview)]);
+    e.currentTarget.value = "";
   };
 
   const removeExteriorImage = (index: number) => {
@@ -429,20 +481,22 @@ export default function CreateTransport() {
       const newFileIndex = index - existingExteriorUrls.length;
       setExteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
     }
-    setExteriorPreviews((prev) => prev.filter((_, i) => i !== index));
+    setExteriorPreviews((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      revokePreview(removed);
+      return next;
+    });
   };
 
   // Handle interior images
   const handleInteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setInteriorImages((prev) => [...prev, ...files]);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setInteriorPreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setInteriorPreviews((prev) => [...prev, ...files.map(toLocalMediaPreview)]);
+    e.currentTarget.value = "";
   };
 
   const removeInteriorImage = (index: number) => {
@@ -452,7 +506,12 @@ export default function CreateTransport() {
       const newFileIndex = index - existingInteriorUrls.length;
       setInteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
     }
-    setInteriorPreviews((prev) => prev.filter((_, i) => i !== index));
+    setInteriorPreviews((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      revokePreview(removed);
+      return next;
+    });
   };
 
   // Toggle feature
@@ -1052,22 +1111,8 @@ export default function CreateTransport() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {exteriorPreviews.map((preview, index) => (
-                  <div key={index} className="relative aspect-square">
-                    {isVideoPreviewSrc(preview) ? (
-                      <video
-                        src={preview}
-                        className="w-full h-full object-cover rounded-lg"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={preview}
-                        alt={`Exterior ${index + 1}`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    )}
+                  <div key={`${preview.src}-${index}`} className="relative aspect-square">
+                    <MediaPreviewTile preview={preview} alt={`Exterior ${index + 1}`} />
                     <button
                       type="button"
                       onClick={() => removeExteriorImage(index)}
@@ -1104,22 +1149,8 @@ export default function CreateTransport() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {interiorPreviews.map((preview, index) => (
-                  <div key={index} className="relative aspect-square">
-                    {isVideoPreviewSrc(preview) ? (
-                      <video
-                        src={preview}
-                        className="w-full h-full object-cover rounded-lg"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={preview}
-                        alt={`Interior ${index + 1}`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    )}
+                  <div key={`${preview.src}-${index}`} className="relative aspect-square">
+                    <MediaPreviewTile preview={preview} alt={`Interior ${index + 1}`} />
                     <button
                       type="button"
                       onClick={() => removeInteriorImage(index)}

@@ -14,6 +14,7 @@ import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
 import 'stories_screen.dart';
+import 'notifications_screen.dart';
 import 'tours_screen.dart';
 import 'transport_screen.dart';
 
@@ -332,8 +333,18 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
 
     final payload = session.payload;
     final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
-    final stories = payload?.stories ?? const <Map<String, dynamic>>[];
-    final hasStoriesStrip = stories.isNotEmpty;
+    final allStories = payload?.stories ?? const <Map<String, dynamic>>[];
+    Map<String, dynamic>? myStory;
+    final stories = <Map<String, dynamic>>[];
+    for (final story in allStories) {
+      final storyUserId = (story['user_id'] ?? '').toString();
+      if (session.isAuthenticated && storyUserId == session.userId) {
+        myStory ??= story;
+      } else {
+        stories.add(story);
+      }
+    }
+    final hasStoriesStrip = session.isAuthenticated || myStory != null || stories.isNotEmpty;
 
     _precacheListingImages(context, all);
 
@@ -434,7 +445,12 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                   SizedBox(width: isTablet ? 10 : 8),
                   GestureDetector(
                     onTap: () {
-                      // TODO: Navigate to notifications
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => NotificationsScreen(session: session),
+                        ),
+                      );
                     },
                     child: Container(
                       width: isTablet ? 48 : 40,
@@ -482,15 +498,26 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                           final profile = session.payload?.profile ?? const <String, dynamic>{};
                           final myAvatar = (profile['avatar_url'] ?? profile['photo_url'] ?? profile['image'] ?? '')
                               .toString();
+                          final myStoryId = (myStory?['id'] ?? '').toString();
+                          final myPreview = ((myStory?['media_url'] ?? myStory?['image_url']) ?? myAvatar).toString();
                           return _StoryItem(
                             isTablet: isTablet,
                             text: l.yourStoryLabel,
-                            imageUrl: myAvatar,
+                            imageUrl: myPreview,
                             showAddBadge: true,
                             onTap: () {
-                              Navigator.push(
+                              showStoriesPopup(
                                 context,
-                                MaterialPageRoute(builder: (_) => StoriesScreen(session: session)),
+                                session: session,
+                                initialStoryId: myStoryId.isEmpty ? null : myStoryId,
+                                openMyStoryOnStart: myStoryId.isEmpty,
+                              );
+                            },
+                            onAddTap: () {
+                              showStoriesPopup(
+                                context,
+                                session: session,
+                                openComposerOnStart: true,
                               );
                             },
                           );
@@ -507,14 +534,10 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                           imageUrl: (story['media_url'] ?? story['avatar_url'] ?? '').toString(),
                           onTap: () {
                             final storyId = (story['id'] ?? '').toString();
-                            Navigator.push(
+                            showStoriesPopup(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => StoriesScreen(
-                                  session: session,
-                                  initialStoryId: storyId.isEmpty ? null : storyId,
-                                ),
-                              ),
+                              session: session,
+                              initialStoryId: storyId.isEmpty ? null : storyId,
                             );
                           },
                         );
@@ -783,6 +806,7 @@ class _StoryItem extends StatelessWidget {
     required this.imageUrl,
     required this.onTap,
     this.showAddBadge = false,
+    this.onAddTap,
   });
 
   final bool isTablet;
@@ -790,6 +814,7 @@ class _StoryItem extends StatelessWidget {
   final String imageUrl;
   final VoidCallback onTap;
   final bool showAddBadge;
+  final VoidCallback? onAddTap;
 
   @override
   Widget build(BuildContext context) {
@@ -828,15 +853,18 @@ class _StoryItem extends StatelessWidget {
                   Positioned(
                     right: -2,
                     bottom: -2,
-                    child: Container(
-                      width: isTablet ? 22 : 20,
-                      height: isTablet ? 22 : 20,
-                      decoration: BoxDecoration(
-                        color: AppColors.rausch,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.surface, width: 2),
+                    child: GestureDetector(
+                      onTap: onAddTap ?? onTap,
+                      child: Container(
+                        width: isTablet ? 22 : 20,
+                        height: isTablet ? 22 : 20,
+                        decoration: BoxDecoration(
+                          color: AppColors.rausch,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.surface, width: 2),
+                        ),
+                        child: const Icon(Icons.add, size: 12, color: Colors.white),
                       ),
-                      child: const Icon(Icons.add, size: 12, color: Colors.white),
                     ),
                   ),
               ],

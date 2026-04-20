@@ -694,14 +694,17 @@ class _ProfileStoriesEntry extends StatelessWidget {
                 avatarUrl: avatarUrl,
                 showAdd: true,
                 onTap: () {
-                  Navigator.push(
+                  showStoriesPopup(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => StoriesScreen(
-                        session: session,
-                        openComposerOnStart: true,
-                      ),
-                    ),
+                    session: session,
+                    openMyStoryOnStart: true,
+                  );
+                },
+                onAddTap: () {
+                  showStoriesPopup(
+                    context,
+                    session: session,
+                    openComposerOnStart: true,
                   );
                 },
               ),
@@ -712,9 +715,9 @@ class _ProfileStoriesEntry extends StatelessWidget {
                 avatarUrl: '',
                 showAdd: false,
                 onTap: () {
-                  Navigator.push(
+                  showStoriesPopup(
                     context,
-                    MaterialPageRoute(builder: (_) => StoriesScreen(session: session)),
+                    session: session,
                   );
                 },
               ),
@@ -733,6 +736,7 @@ class _StoryShortcutCircle extends StatelessWidget {
     required this.avatarUrl,
     required this.showAdd,
     required this.onTap,
+    this.onAddTap,
   });
 
   final String label;
@@ -740,6 +744,7 @@ class _StoryShortcutCircle extends StatelessWidget {
   final String avatarUrl;
   final bool showAdd;
   final VoidCallback onTap;
+  final VoidCallback? onAddTap;
 
   @override
   Widget build(BuildContext context) {
@@ -775,15 +780,18 @@ class _StoryShortcutCircle extends StatelessWidget {
                 Positioned(
                   bottom: -2,
                   right: -2,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.rausch,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.surface, width: 2),
+                  child: GestureDetector(
+                    onTap: onAddTap ?? onTap,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: AppColors.rausch,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.surface, width: 2),
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 12),
                     ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 12),
                   ),
                 ),
             ],

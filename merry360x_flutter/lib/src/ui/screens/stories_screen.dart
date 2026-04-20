@@ -39,17 +39,54 @@ String _displayNameFromProfile(dynamic profile, {String fallback = 'Traveler'}) 
   return fallback;
 }
 
+Future<void> showStoriesPopup(
+  BuildContext context, {
+  required SessionController session,
+  String? initialStoryId,
+  bool openComposerOnStart = false,
+  bool openMyStoryOnStart = false,
+}) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Stories',
+    barrierColor: Colors.black.withValues(alpha: 0.68),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) => StoriesScreen(
+      session: session,
+      initialStoryId: initialStoryId,
+      openComposerOnStart: openComposerOnStart,
+      openMyStoryOnStart: openMyStoryOnStart,
+      showAsPopup: true,
+    ),
+    transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 class StoriesScreen extends StatefulWidget {
   const StoriesScreen({
     super.key,
     required this.session,
     this.initialStoryId,
     this.openComposerOnStart = false,
+    this.openMyStoryOnStart = false,
+    this.showAsPopup = false,
   });
 
   final SessionController session;
   final String? initialStoryId;
   final bool openComposerOnStart;
+  final bool openMyStoryOnStart;
+  final bool showAsPopup;
 
   @override
   State<StoriesScreen> createState() => _StoriesScreenState();
@@ -239,10 +276,15 @@ class _StoriesScreenState extends State<StoriesScreen> {
 
   void _maybeOpenInitialViewer() {
     if (_initialViewerOpened) return;
-    final storyId = (widget.initialStoryId ?? '').trim();
-    if (storyId.isEmpty) return;
 
-    final index = _stories.indexWhere((story) => (story['id'] ?? '').toString() == storyId);
+    var index = -1;
+    final storyId = (widget.initialStoryId ?? '').trim();
+    if (storyId.isNotEmpty) {
+      index = _stories.indexWhere((story) => (story['id'] ?? '').toString() == storyId);
+    } else if (widget.openMyStoryOnStart && widget.session.userId.isNotEmpty) {
+      index = _stories.indexWhere((story) => (story['user_id'] ?? '').toString() == widget.session.userId);
+    }
+
     if (index < 0) return;
 
     _initialViewerOpened = true;
@@ -366,6 +408,71 @@ class _StoriesScreenState extends State<StoriesScreen> {
     );
   }
 
+  bool _isMyStory(Map<String, dynamic> story) {
+    final storyUserId = (story['user_id'] ?? '').toString();
+    return widget.session.userId.isNotEmpty && storyUserId == widget.session.userId;
+  }
+
+  void _openStoryInsights(Map<String, dynamic> story) {
+    final storyId = (story['id'] ?? '').toString();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _StoryInsightsScreen(
+          story: story,
+          likeCount: _likeCounts[storyId] ?? 0,
+          commentCount: (_commentsByStory[storyId] ?? const []).length,
+          onDelete: () => _deleteStory(story),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteStory(Map<String, dynamic> story) async {
+    if (!_isMyStory(story)) return;
+
+    final storyId = (story['id'] ?? '').toString();
+    if (storyId.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove story?'),
+        content: const Text('This will permanently remove your story from the feed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _api.deleteStory(storyId: storyId, userId: widget.session.userId);
+      if (!mounted) return;
+
+      setState(() {
+        _stories.removeWhere((row) => (row['id'] ?? '').toString() == storyId);
+        _likeCounts.remove(storyId);
+        _likedByMe.remove(storyId);
+        _commentsByStory.remove(storyId);
+      });
+
+      AppSnackBar.success(context, 'Story removed successfully');
+    } catch (_) {
+      if (!mounted) return;
+      AppSnackBar.error(context, 'Could not remove story. Please try again.');
+    }
+  }
+
   void _showCreateStorySheet() {
     if (!widget.session.isAuthenticated) {
       AppSnackBar.error(context, 'Sign in to share your story.');
@@ -388,7 +495,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
   Widget build(BuildContext context) {
     final canAdd = widget.session.isAuthenticated;
 
-    return Scaffold(
+    final content = Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
@@ -424,10 +531,25 @@ class _StoriesScreenState extends State<StoriesScreen> {
               onPressed: _showCreateStorySheet,
               backgroundColor: AppColors.rausch,
               icon: const Icon(Icons.add),
-              label: const Text('Your Story'),
+              label: const Text('Add story'),
             )
           : null,
       body: _body(),
+    );
+
+    if (!widget.showAsPopup) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: content,
+          ),
+        ),
+      ),
     );
   }
 
@@ -464,15 +586,19 @@ class _StoriesScreenState extends State<StoriesScreen> {
         final likes = _likeCounts[storyId] ?? 0;
         final isLiked = _likedByMe[storyId] ?? false;
         final comments = (_commentsByStory[storyId] ?? const []).length;
+        final isMine = _isMyStory(story);
 
         return _StoryCard(
           story: story,
           likeCount: likes,
           isLiked: isLiked,
           commentCount: comments,
+          isMine: isMine,
           onTap: () => _openViewer(i),
           onToggleLike: () => _toggleLike(storyId),
           onOpenComments: () => _openCommentsSheet(story),
+          onOpenInsights: isMine ? () => _openStoryInsights(story) : null,
+          onDelete: isMine ? () => _deleteStory(story) : null,
         );
       },
     );
@@ -694,18 +820,24 @@ class _StoryCard extends StatelessWidget {
     required this.likeCount,
     required this.isLiked,
     required this.commentCount,
+    required this.isMine,
     required this.onTap,
     required this.onToggleLike,
     required this.onOpenComments,
+    this.onOpenInsights,
+    this.onDelete,
   });
 
   final Map<String, dynamic> story;
   final int likeCount;
   final bool isLiked;
   final int commentCount;
+  final bool isMine;
   final VoidCallback onTap;
   final VoidCallback onToggleLike;
   final VoidCallback onOpenComments;
+  final VoidCallback? onOpenInsights;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -753,6 +885,26 @@ class _StoryCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (isMine)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'Your story',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       left: 10,
                       right: 10,
@@ -807,12 +959,194 @@ class _StoryCard extends StatelessWidget {
                       icon: const Icon(Icons.chat_bubble_outline),
                     ),
                     Text('$commentCount', style: const TextStyle(color: Color(0xFFBBC3D4), fontSize: 12)),
+                    const Spacer(),
+                    if (isMine) ...[
+                      IconButton(
+                        onPressed: onOpenInsights,
+                        iconSize: 18,
+                        visualDensity: VisualDensity.compact,
+                        color: const Color(0xFFBBC3D4),
+                        tooltip: 'Insights',
+                        icon: const Icon(Icons.insights_outlined),
+                      ),
+                      IconButton(
+                        onPressed: onDelete,
+                        iconSize: 18,
+                        visualDensity: VisualDensity.compact,
+                        color: const Color(0xFFFF6B88),
+                        tooltip: 'Remove story',
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StoryInsightsScreen extends StatelessWidget {
+  const _StoryInsightsScreen({
+    required this.story,
+    required this.likeCount,
+    required this.commentCount,
+    required this.onDelete,
+  });
+
+  final Map<String, dynamic> story;
+  final int likeCount;
+  final int commentCount;
+  final Future<void> Function() onDelete;
+
+  String _formatPostedAt() {
+    final raw = (story['created_at'] ?? '').toString();
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return 'Unknown';
+    final month = dt.month.toString().padLeft(2, '0');
+    final day = dt.day.toString().padLeft(2, '0');
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day/$month/${dt.year} • $hour:$minute';
+  }
+
+  String _expiryLabel() {
+    final raw = (story['created_at'] ?? '').toString();
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return 'Active';
+    final remaining = dt.add(const Duration(hours: 24)).difference(DateTime.now());
+    if (remaining.isNegative) return 'Expired';
+    if (remaining.inHours >= 1) return '${remaining.inHours}h left';
+    return '${remaining.inMinutes.clamp(0, 59)}m left';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (story['title'] ?? 'Story').toString();
+    final body = (story['body'] ?? '').toString();
+    final location = (story['location'] ?? '').toString();
+    final mediaUrl = ((story['media_url'] ?? story['image_url']) ?? '').toString();
+    final isVideo = _isVideoMediaUrl(mediaUrl) || (story['media_type'] ?? '').toString() == 'video';
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: const StageSafeLeadingButton(color: AppColors.black),
+        title: const Text(
+          'Story insights',
+          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              height: 220,
+              color: const Color(0xFF141825),
+              child: mediaUrl.isNotEmpty && !isVideo
+                  ? Image.network(
+                      mediaUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.image_outlined, color: Colors.white54, size: 40),
+                      ),
+                    )
+                  : Center(
+                      child: Icon(
+                        isVideo ? Icons.play_circle_outline : Icons.auto_stories_outlined,
+                        size: 44,
+                        color: Colors.white54,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          if (body.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(body, style: const TextStyle(color: AppColors.foggy, height: 1.4)),
+          ],
+          if (location.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16, color: AppColors.foggy),
+                const SizedBox(width: 6),
+                Expanded(child: Text(location, style: const TextStyle(color: AppColors.foggy))),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _InsightStatCard(icon: Icons.favorite_outline, label: 'Likes', value: '$likeCount')),
+              const SizedBox(width: 10),
+              Expanded(child: _InsightStatCard(icon: Icons.chat_bubble_outline, label: 'Comments', value: '$commentCount')),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _InsightStatCard(icon: Icons.schedule_outlined, label: 'Status', value: _expiryLabel())),
+              const SizedBox(width: 10),
+              Expanded(child: _InsightStatCard(icon: Icons.calendar_today_outlined, label: 'Posted', value: _formatPostedAt())),
+            ],
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () async {
+              await onDelete();
+              if (context.mounted) Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.rausch,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Remove story'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightStatCard extends StatelessWidget {
+  const _InsightStatCard({required this.icon, required this.label, required this.value});
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEAEAEA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.foggy),
+          const SizedBox(height: 10),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        ],
       ),
     );
   }

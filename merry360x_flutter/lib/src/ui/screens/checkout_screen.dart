@@ -142,6 +142,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _bookingId;
   String? _paymentMethod; // 'mobile_money', 'card', 'bank_transfer'
 
+  // Editable dates — start from widget values; null means user must pick.
+  DateTime? _checkIn;
+  DateTime? _checkOut;
+
   // Promo code
   final _promoCtrl = TextEditingController();
   bool _applyingPromo = false;
@@ -164,6 +168,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (guestInfo?['phone'] != null && guestInfo!['phone']!.isNotEmpty) {
       _phoneCtrl.text = guestInfo['phone']!;
     }
+    // Seed dates from widget (may be null when coming from trip cart).
+    _checkIn = widget.checkIn;
+    _checkOut = widget.checkOut;
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
     _phoneCtrl.clear();
@@ -351,8 +358,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   int get _nights {
-    if (widget.checkIn == null || widget.checkOut == null) return 1;
-    return widget.checkOut!.difference(widget.checkIn!).inDays.clamp(1, 999);
+    if (_checkIn == null || _checkOut == null) return 1;
+    return _checkOut!.difference(_checkIn!).inDays.clamp(1, 999);
+  }
+
+  Future<void> _pickDate({required bool isCheckIn}) async {
+    final now = DateTime.now();
+    final minDate = isCheckIn ? now : (_checkIn ?? now).add(const Duration(days: 1));
+    final initialDate = isCheckIn
+        ? (_checkIn ?? now)
+        : (_checkOut ?? minDate);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(minDate) ? minDate : initialDate,
+      firstDate: minDate,
+      lastDate: now.add(const Duration(days: 730)),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isCheckIn) {
+        _checkIn = picked;
+        // If check-out is now on or before new check-in, clear it.
+        if (_checkOut != null && !_checkOut!.isAfter(picked)) {
+          _checkOut = null;
+        }
+      } else {
+        _checkOut = picked;
+      }
+    });
   }
 
   double get _subtotal {
@@ -530,8 +563,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
         final id = await widget.session.createBooking(
           item: item,
-          checkIn: widget.checkIn?.toIso8601String().split('T').first,
-          checkOut: widget.checkOut?.toIso8601String().split('T').first,
+          checkIn: _checkIn?.toIso8601String().split('T').first,
+          checkOut: _checkOut?.toIso8601String().split('T').first,
           guests: widget.guests,
           totalAmount: _total,
           currency: _currency,
@@ -623,8 +656,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── Bank Transfer ──
         final id = await widget.session.createBooking(
           item: item,
-          checkIn: widget.checkIn?.toIso8601String().split('T').first,
-          checkOut: widget.checkOut?.toIso8601String().split('T').first,
+          checkIn: _checkIn?.toIso8601String().split('T').first,
+          checkOut: _checkOut?.toIso8601String().split('T').first,
           guests: widget.guests,
           totalAmount: _total,
           currency: _currency,
@@ -771,6 +804,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _showSnack(_l.enterFullName);
       return;
     }
+    if (_checkIn == null) {
+      _showSnack('Please select a check-in date');
+      return;
+    }
+    if (itemType == 'property' && _checkOut == null) {
+      _showSnack('Please select a check-out date');
+      return;
+    }
     HapticFeedback.selectionClick();
     setState(() => _step = 1);
   }
@@ -876,20 +917,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 18),
 
         // ── Trip dates ──
-        if (widget.checkIn != null && widget.checkOut != null) ...[
-          _SectionTitle(label: _l.yourTrip),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: _l.checkIn, value: _fmtDate(widget.checkIn!))),
+        _SectionTitle(label: _l.yourTrip),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _pickDate(isCheckIn: true),
+                child: _InfoTile(
+                  icon: Icons.calendar_today_outlined,
+                  label: _l.checkIn,
+                  value: _checkIn != null ? _fmtDate(_checkIn!) : 'Select date',
+                  highlight: _checkIn == null,
+                ),
+              ),
+            ),
+            if (itemType != 'tour' && itemType != 'tour_package') ...[             
               const SizedBox(width: 10),
-              Expanded(child: _InfoTile(icon: Icons.calendar_today_outlined, label: _l.checkOut, value: _fmtDate(widget.checkOut!))),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _pickDate(isCheckIn: false),
+                  child: _InfoTile(
+                    icon: Icons.calendar_today_outlined,
+                    label: _l.checkOut,
+                    value: _checkOut != null ? _fmtDate(_checkOut!) : 'Select date',
+                    highlight: _checkOut == null,
+                  ),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _InfoTile(icon: Icons.people_outline, label: _l.guests, value: '${widget.guests} guest${widget.guests > 1 ? 's' : ''}'),
-          const SizedBox(height: 18),
-        ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        _InfoTile(icon: Icons.people_outline, label: _l.guests, value: '${widget.guests} guest${widget.guests > 1 ? 's' : ''}'),
+        const SizedBox(height: 18),
 
         // ── Price breakdown ──
         _SectionTitle(label: _l.priceBreakdown),
@@ -1455,20 +1516,22 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _InfoTile extends StatelessWidget {
-  const _InfoTile({required this.icon, required this.label, required this.value});
+  const _InfoTile({required this.icon, required this.label, required this.value, this.highlight = false});
 
   final IconData icon;
   final String label;
   final String value;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = highlight ? AppColors.rausch.withValues(alpha: 0.6) : AppColors.border;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(color: AppColors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
@@ -1485,14 +1548,24 @@ class _InfoTile extends StatelessWidget {
             child: Icon(icon, size: 18, color: AppColors.rausch),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: highlight ? AppColors.rausch : AppColors.black,
+                  ),
+                ),
+              ],
+            ),
           ),
+          if (highlight) const Icon(Icons.edit_calendar_outlined, size: 16, color: AppColors.rausch),
         ],
       ),
     );

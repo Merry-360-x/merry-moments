@@ -267,6 +267,7 @@ const Transport = () => {
           exterior_images, interior_images,
           insurance_document_url, registration_document_url, roadworthiness_certificate_url
         `)
+        .eq("service_type", "car_rental")
         .or("is_published.eq.true,is_published.is.null")
         .order("created_at", { ascending: false });
       const vt = searchParams.get("vehicle");

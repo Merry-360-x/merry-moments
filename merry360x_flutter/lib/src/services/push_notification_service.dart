@@ -170,6 +170,13 @@ class PushNotificationService {
 
       await _initLocalNotifications();
 
+      // Request permission at launch so the OS prompt appears on first open.
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
       // Foreground messages — show a local notification on Android
       // (iOS is handled natively via setForegroundNotificationPresentationOptions)
       _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
@@ -205,6 +212,13 @@ class PushNotificationService {
       _firebaseReady = true;
       _initialized = true;
       debugPrint('[PushNotificationService] Firebase messaging initialized');
+
+      // If no user is signed in yet, save the token as a guest row so the
+      // device can receive broadcasts before authentication.
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser == null) {
+        unawaited(syncAnonymous());
+      }
     } catch (error) {
       _firebaseReady = false;
       _initialized = true;
@@ -243,7 +257,7 @@ class PushNotificationService {
           'is_active': true,
           'last_seen_at': DateTime.now().toUtc().toIso8601String(),
         },
-        onConflict: 'user_id,token',
+        onConflict: 'token',
       );
     } catch (error) {
       if (_isApnsNotReadyError(error)) {
@@ -256,6 +270,40 @@ class PushNotificationService {
         return;
       }
       debugPrint('[PushNotificationService] Token sync failed: $error');
+    }
+  }
+
+  /// Saves the FCM token for a guest (unauthenticated) device.
+  /// When the guest later signs in, [syncForUser] upserts over this row
+  /// using the token as the conflict key, attaching the user_id.
+  Future<void> syncAnonymous() async {
+    await initialize();
+    if (!_firebaseReady) return;
+
+    try {
+      final token = await _resolveFcmToken();
+      if (token == null || token.trim().isEmpty) {
+        debugPrint('[PushNotificationService] No FCM token yet for guest');
+        return;
+      }
+
+      _cachedToken = token;
+
+      await Supabase.instance.client.from('mobile_push_tokens').upsert(
+        {
+          'user_id': null,
+          'token': token,
+          'platform': _platformLabel,
+          'is_active': true,
+          'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: 'token',
+      );
+    } catch (error) {
+      if (_isApnsNotReadyError(error)) {
+        return;
+      }
+      debugPrint('[PushNotificationService] Guest token sync failed: $error');
     }
   }
 

@@ -851,6 +851,13 @@ class AppDatabase {
     return result['id']?.toString();
   }
 
+  Future<void> deleteStory({
+    required String storyId,
+    required String userId,
+  }) async {
+    await _sb.from('stories').delete().eq('id', storyId).eq('user_id', userId);
+  }
+
   Future<List<Map<String, dynamic>>> fetchStoryLikes({
     required List<String> storyIds,
   }) async {
