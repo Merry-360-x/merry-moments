@@ -87,20 +87,17 @@ function MediaPreviewTile({ preview, alt }: { preview: MediaPreview; alt: string
   );
 }
 
-// Car types
+// Car types — must match the car_type DB enum exactly
 const carTypes = [
   "SUV",
   "Sedan",
   "Hatchback",
   "Coupe",
-  "Convertible",
+  "Wagon",
   "Van",
   "Minibus",
-  "Bus",
-  "Pickup Truck",
-  "Luxury Car",
-  "Sports Car",
-  "Crossover",
+  "Truck",
+  "Luxury",
 ];
 
 // Transmission types
