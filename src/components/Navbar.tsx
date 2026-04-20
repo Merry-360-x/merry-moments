@@ -429,11 +429,11 @@ const Navbar = () => {
             {/* Become host / Host dashboard (primary) */}
             <Button
               size="sm"
-              className="h-9 gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-3 shrink-0"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 px-2.5 text-xs shrink-0"
               onClick={() => navigate(isHost ? "/host-dashboard" : "/become-host")}
               type="button"
             >
-              <LayoutDashboard className="w-4 h-4" />
+              <LayoutDashboard className="w-3.5 h-3.5" />
               <span className="hidden xl:inline">
                 {isHost ? t("actions.hostDashboard") : t("actions.becomeHost")}
               </span>
@@ -445,11 +445,11 @@ const Navbar = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="relative h-9 gap-2 px-3 shrink-0"
+                className="relative h-8 gap-1.5 px-2.5 text-xs shrink-0"
                 onClick={() => navigate("/admin?tab=overview")}
                 type="button"
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-3.5 h-3.5" />
                 <span className="hidden xl:inline">{t("actions.adminDashboard")}</span>
                 <span className="xl:hidden">Admin</span>
                 {openTicketsCount > 0 && (
@@ -476,7 +476,7 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-9 items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-full border border-border text-sm shrink-0"
+                  className="flex h-8 items-center gap-1 px-2 xl:px-2.5 py-1 rounded-full border border-border text-xs shrink-0"
                   aria-label={t("labels.currency")}
                 >
                   <span className="hidden xl:inline">
@@ -485,7 +485,7 @@ const Navbar = () => {
                   <span className="xl:hidden">
                     {getCurrencySymbol(currency)}
                   </span>
-                  <ChevronDown className="w-3 h-3 xl:w-4 xl:h-4" />
+                  <ChevronDown className="w-3 h-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 max-h-80 overflow-y-auto">
