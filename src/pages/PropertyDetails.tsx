@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, BadgeCheck, Ban, BedDouble, CalendarIcon, ChevronLeft, ChevronRight, DoorOpen, Heart, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Ban, BedDouble, CalendarIcon, Car, ChevronLeft, ChevronRight, DoorOpen, Heart, Plane, Star, User } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -1328,7 +1328,6 @@ export default function PropertyDetails() {
         .from("transport_vehicles")
         .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url, service_type")
         .eq("is_published", true)
-        .neq("service_type", "airport_transfer")
         .order("created_at", { ascending: false })
         .limit(40);
 
@@ -1355,7 +1354,6 @@ export default function PropertyDetails() {
           .from("transport_vehicles")
           .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url, service_type")
           .eq("is_published", true)
-          .neq("service_type", "airport_transfer")
           .order("created_at", { ascending: false })
           .limit(40);
 
@@ -1705,20 +1703,53 @@ export default function PropertyDetails() {
                         </div>
                       ) : null}
 
-                      {relatedTransportVehicles.length > 0 ? (
+                      {/* Airport Pickup & Transfer */}
+                      {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").length > 0 ? (
                         <div>
-                          <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
+                          <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                            <Plane className="w-4 h-4 text-primary" /> Airport Pickup &amp; Transfer
+                          </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {relatedTransportVehicles.slice(0, 4).map((v) => (
+                            {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").slice(0, 4).map((v) => (
                               <Link key={v.id} to="/transport" className="block">
                                 <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
                                   {v.image_url ? (
-                                    <img
-                                      src={v.image_url}
-                                      alt={v.title}
-                                      className="h-36 w-full object-cover"
-                                      loading="lazy"
-                                    />
+                                    <img src={v.image_url} alt={v.title} className="h-36 w-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="h-36 w-full bg-muted" />
+                                  )}
+                                  <div className="p-3">
+                                    <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">
+                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                                    </div>
+                                    <div className="mt-2 text-xs font-medium text-primary">Route-based pricing</div>
+                                    <div className="mt-2">
+                                      <Button variant="outline" className="w-full" onClick={(e) => e.stopPropagation()}>
+                                        View Routes
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Car Rental */}
+                      {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                            <Car className="w-4 h-4 text-primary" /> {transportRecommendationPhrase}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").slice(0, 4).map((v) => (
+                              <Link key={v.id} to="/transport" className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
+                                  {v.image_url ? (
+                                    <img src={v.image_url} alt={v.title} className="h-36 w-full object-cover" loading="lazy" />
                                   ) : (
                                     <div className="h-36 w-full bg-muted" />
                                   )}
@@ -2612,20 +2643,51 @@ export default function PropertyDetails() {
                         </div>
                       ) : null}
 
-                      {relatedTransportVehicles.length > 0 ? (
+                      {/* Airport Pickup & Transfer */}
+                      {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").length > 0 ? (
                         <div>
-                          <div className="text-sm font-semibold text-foreground mb-3">{transportRecommendationPhrase}</div>
+                          <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                            <Plane className="w-4 h-4 text-primary" /> Airport Pickup &amp; Transfer
+                          </div>
                           <div className="grid grid-cols-1 gap-4">
-                            {relatedTransportVehicles.slice(0, 4).map((v) => (
+                            {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").slice(0, 4).map((v) => (
                               <Link key={v.id} to="/transport" className="block">
                                 <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
                                   {v.image_url ? (
-                                    <img
-                                      src={v.image_url}
-                                      alt={v.title}
-                                      className="h-24 w-24 object-cover flex-shrink-0"
-                                      loading="lazy"
-                                    />
+                                    <img src={v.image_url} alt={v.title} className="h-24 w-24 object-cover flex-shrink-0" loading="lazy" />
+                                  ) : (
+                                    <div className="h-24 w-24 bg-muted flex-shrink-0" />
+                                  )}
+                                  <div className="p-3 flex-1 min-w-0">
+                                    <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-1">
+                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
+                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                                    </div>
+                                    <div className="mt-1 text-xs font-medium text-primary">Route-based pricing</div>
+                                    <Button variant="outline" size="sm" className="mt-2 h-8 text-xs" onClick={(e) => e.stopPropagation()}>
+                                      View Routes
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Car Rental */}
+                      {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").length > 0 ? (
+                        <div>
+                          <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                            <Car className="w-4 h-4 text-primary" /> {transportRecommendationPhrase}
+                          </div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").slice(0, 4).map((v) => (
+                              <Link key={v.id} to="/transport" className="block">
+                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
+                                  {v.image_url ? (
+                                    <img src={v.image_url} alt={v.title} className="h-24 w-24 object-cover flex-shrink-0" loading="lazy" />
                                   ) : (
                                     <div className="h-24 w-24 bg-muted flex-shrink-0" />
                                   )}
