@@ -2463,6 +2463,7 @@ export default function PropertyDetails() {
                             • You save {displayMoney(Number(stayDiscount.amount), String(data.currency ?? "RWF"))}
                           </span>
                         ) : null}
+                        <span className="mt-1 block text-xs text-muted-foreground/70">+ 10% service fee at checkout</span>
                       </>
                     ) : (
                       <>Select valid dates to see total.</>

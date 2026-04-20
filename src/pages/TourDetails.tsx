@@ -638,6 +638,7 @@ export default function TourDetails() {
                   {displayMoney(Number(effectiveTourPrice ?? 0), String(normalizedCurrency ?? "RWF"))}
                 </div>
                 <div className="text-sm text-muted-foreground">{getTourPriceSuffix(pricingModel)}</div>
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">No guest booking fee</div>
                 {isTimeBasedPricing && selectedDurationTier && (
                   <div className="text-xs text-muted-foreground mt-1">
                     {t("tourDetails.forSelectedDuration", "for selected duration")}: {selectedDurationTier.duration_value} {selectedDurationTier.duration_value === 1 ? selectedDurationTier.duration_unit : `${selectedDurationTier.duration_unit}s`}

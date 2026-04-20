@@ -161,6 +161,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
           <div className="flex items-baseline gap-1 md:gap-1">
             <span className="text-base md:text-lg font-bold text-foreground">{displayPrice}</span>
             <span className="text-xs md:text-sm text-muted-foreground">{getTourPriceSuffix(props.pricingModel ?? "per_person")}</span>
+            <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">No booking fee</span>
             {props.pricingDurationValue && props.pricingDurationUnit ? (
               <span className="ml-auto text-xs md:text-xs text-muted-foreground">
                 {props.pricingDurationValue} {props.pricingDurationValue === 1 ? props.pricingDurationUnit : `${props.pricingDurationUnit}s`}

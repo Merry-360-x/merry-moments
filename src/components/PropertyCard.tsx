@@ -281,8 +281,7 @@ const PropertyCard = ({
             <span className="text-xs md:text-sm text-muted-foreground">
               {pricePeriod === "month" ? t("common.perMonth", "per month") : t("common.perNight")}
             </span>
-          </div>
-          {pricePerPerson && pricePerPerson > 0 ? (
+          </div>          <p className="text-[10px] text-muted-foreground/70">+ 10% service fee</p>          {pricePerPerson && pricePerPerson > 0 ? (
             <div className="hidden md:flex items-baseline gap-1">
               <span className="text-sm font-semibold text-foreground">
                 {displayMoney(pricePerPerson, originalCurrency || "RWF")}
