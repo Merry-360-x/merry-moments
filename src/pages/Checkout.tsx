@@ -2116,6 +2116,7 @@ export default function CheckoutNew() {
           special_requests: formData.notes || null,
           discount_code: appliedDiscount?.code || null,
           discount_amount: discount,
+          discount_currency: displayCurrency,
           payment_type: paymentType,
           total_participants: hasGroupBooking ? tourParticipants : 1,
           group_total: hasGroupBooking ? total : null,

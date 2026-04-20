@@ -3653,10 +3653,11 @@ For support, contact: support@merry360x.com
         const pawapay = calculatePawaPayProcessing(financials.guestTotal);
 
         const discountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+        const discountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || paidCurrency).toUpperCase();
 
         totals.totalAmountBooked += toRwfAmount(financials.guestTotal, paidCurrency);
-        totals.totalDiscountApplied += toRwfAmount(discountRaw, paidCurrency);
-        totals.totalAmountAfterPlatformFees += toRwfAmount(financials.guestTotal + discountRaw, paidCurrency);
+        totals.totalDiscountApplied += toRwfAmount(discountRaw, discountCurrency);
+        totals.totalAmountAfterPlatformFees += toRwfAmount(financials.guestTotal, paidCurrency) + toRwfAmount(discountRaw, discountCurrency);
         totals.totalAmountAfterServiceFees += toRwfAmount(financials.hostNetEarnings, paidCurrency);
         totals.platformGuestFees += toRwfAmount(financials.guestFee, paidCurrency);
         totals.hostFees += toRwfAmount(financials.hostFee, paidCurrency);
@@ -3987,8 +3988,10 @@ For support, contact: support@merry360x.com
         const financials = calculateBookingFinancialsFromDiscountedListing(listingAfterDiscountRaw, serviceType);
 
         const checkoutDiscountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
+        const checkoutDiscountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || discountCurrency).toUpperCase();
         const computedDiscountRaw = matchedItem ? itemDiscount : checkoutDiscountRaw;
-        const discountAppliedRwf = toRwfAmount(computedDiscountRaw, discountCurrency);
+        const computedDiscountCurrency = matchedItem ? discountCurrency : checkoutDiscountCurrency;
+        const discountAppliedRwf = toRwfAmount(computedDiscountRaw, computedDiscountCurrency);
 
         const guestTotalRwf = toRwfAmount(financials.guestTotal, listingAfterDiscountCurrency);
         const platformGuestFeeRwf = toRwfAmount(financials.guestFee, listingAfterDiscountCurrency);
