@@ -98,7 +98,14 @@ function calculateHostEarnings(totalPrice, bookingType) {
     return Math.round(baseAmount - providerFee);
   }
   
-  // Transport: no platform fees currently
+  // Transport: 5% guest fee added, 7% provider fee deducted from base
+  if (type === "transport" || type === "transport_vehicle") {
+    const baseAmount = total / 1.05;
+    const providerFee = baseAmount * 0.07;
+    return Math.round(baseAmount - providerFee);
+  }
+
+  // Unknown type: return full amount as fallback
   return Math.round(total);
 }
 

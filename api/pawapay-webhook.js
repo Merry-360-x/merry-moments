@@ -370,7 +370,8 @@ function getFeePercentsForItem(itemType) {
   if (serviceType === "tour") {
     return { guestFeePercent: 0, hostFeePercent: 10 };
   }
-  return { guestFeePercent: 0, hostFeePercent: 0 };
+  // Transport: 5% guest fee, 7% host/driver fee
+  return { guestFeePercent: 5, hostFeePercent: 7 };
 }
 
 /**
@@ -381,7 +382,7 @@ function getFeePercentsForItem(itemType) {
  * 
  * Accommodation: host gets base * 0.97 (3% fee from base only)
  * Tour: host gets base * 0.90 (10% provider fee from base)
- * Transport: host gets full amount (no fees)
+ * Transport: host gets base * 0.93 (7% provider fee from base, after 5% guest fee removed)
  */
 function computeHostReceivesAmount(item, booking) {
   const itemHostEarnings = Number(item?.host_earnings_amount);
