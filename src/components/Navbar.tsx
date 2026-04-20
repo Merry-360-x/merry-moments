@@ -460,18 +460,20 @@ const Navbar = () => {
               </Button>
             ) : null}
 
-            <button
-              className="h-9 w-9 rounded-full hover:bg-muted transition-colors shrink-0"
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 shrink-0"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               aria-label={t("labels.theme")}
               type="button"
             >
               {resolvedTheme === "dark" ? (
-                <Sun className="w-5 h-5 text-muted-foreground" />
+                <Sun className="w-4 h-4" />
               ) : (
-                <Moon className="w-5 h-5 text-muted-foreground" />
+                <Moon className="w-4 h-4" />
               )}
-            </button>
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -546,9 +548,9 @@ const Navbar = () => {
             </Link>
 
             <Link to="/favorites">
-              <button className="h-9 w-9 rounded-full hover:bg-muted transition-colors shrink-0">
-                <Heart className="w-5 h-5 text-muted-foreground" />
-              </button>
+              <Button variant="outline" size="sm" className="h-9 w-9 p-0 shrink-0">
+                <Heart className="w-4 h-4" />
+              </Button>
             </Link>
 
             {user ? (
