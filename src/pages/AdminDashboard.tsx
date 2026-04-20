@@ -4245,7 +4245,7 @@ For support, contact: support@merry360x.com
                   <Card className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <Percent className="w-4 h-4" />
-                  <span className="text-sm">Base Before Discount</span>
+                  <span className="text-sm">Gross Bookings (Pre-Discount)</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
                   </Card>
@@ -4646,7 +4646,7 @@ For support, contact: support@merry360x.com
                 </p>
                 <div className="rounded border bg-muted/20 p-2 space-y-1">
                   <p className="font-medium text-foreground">Worked example (10% discount + 3.1% PawaPay)</p>
-                  <p>Base before discount = 100,000 RWF</p>
+                  <p>Gross bookings (pre-discount) = 100,000 RWF</p>
                   <p>Discount (10%) = 10,000 RWF</p>
                   <p>Discounted base = 90,000 RWF</p>
                   <p>Guest fee (10%) = 9,000 RWF</p>
@@ -6782,7 +6782,7 @@ For support, contact: support@merry360x.com
 
               <div className="mb-4 rounded-md border p-3 bg-muted/20 space-y-2">
                 <p className="text-sm font-medium">How this table is calculated</p>
-                <p className="text-xs text-muted-foreground">`Base After Discount = Base Before Discount - Discount`</p>
+                <p className="text-xs text-muted-foreground">`Base After Discount = Gross Bookings (Pre-Discount) - Discount`</p>
                 <p className="text-xs text-muted-foreground">`Guest Fee = Base After Discount x Guest Fee %`</p>
                 <p className="text-xs text-muted-foreground">`Guest Paid = Base After Discount + Guest Fee`</p>
                 <p className="text-xs text-muted-foreground">`PawaPay Fee = Guest Paid x PawaPay %`</p>
@@ -6882,7 +6882,7 @@ For support, contact: support@merry360x.com
                       <TableHead className="w-[120px]">Type</TableHead>
                       <TableHead className="w-[140px]">Status</TableHead>
                       <TableHead className="w-[160px] text-right">Guest Paid</TableHead>
-                      <TableHead className="w-[170px] text-right">Base Before Discount</TableHead>
+                      <TableHead className="w-[170px] text-right">Gross Bookings (Pre-Discount)</TableHead>
                       <TableHead className="w-[160px] text-right">Discount Applied</TableHead>
                       <TableHead className="w-[170px] text-right">Base After Discount</TableHead>
                       <TableHead className="w-[160px] text-right">Guest Fee</TableHead>
