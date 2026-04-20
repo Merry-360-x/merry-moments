@@ -3653,7 +3653,7 @@ For support, contact: support@merry360x.com
         const pawapay = calculatePawaPayProcessing(financials.guestTotal);
 
         const discountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
-        const discountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || paidCurrency).toUpperCase();
+        const discountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || "RWF").toUpperCase();
 
         totals.totalAmountBooked += toRwfAmount(financials.guestTotal, paidCurrency);
         totals.totalDiscountApplied += toRwfAmount(discountRaw, discountCurrency);
@@ -3988,7 +3988,7 @@ For support, contact: support@merry360x.com
         const financials = calculateBookingFinancialsFromDiscountedListing(listingAfterDiscountRaw, serviceType);
 
         const checkoutDiscountRaw = Math.max(0, Number(booking.checkout_requests?.metadata?.discount_amount || 0));
-        const checkoutDiscountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || discountCurrency).toUpperCase();
+        const checkoutDiscountCurrency = String(booking.checkout_requests?.metadata?.discount_currency || "RWF").toUpperCase();
         const computedDiscountRaw = matchedItem ? itemDiscount : checkoutDiscountRaw;
         const computedDiscountCurrency = matchedItem ? discountCurrency : checkoutDiscountCurrency;
         const discountAppliedRwf = toRwfAmount(computedDiscountRaw, computedDiscountCurrency);
