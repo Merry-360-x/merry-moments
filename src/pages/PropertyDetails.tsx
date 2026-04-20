@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFavorites } from "@/hooks/useFavorites";
-import { ArrowLeft, BadgeCheck, Ban, BedDouble, CalendarIcon, Car, ChevronLeft, ChevronRight, DoorOpen, Heart, Plane, Star, User } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Ban, BedDouble, CalendarIcon, Car, ChevronLeft, ChevronRight, DoorOpen, Heart, MapPin, Plane, Star, User, Users } from "lucide-react";
 import { amenityByValue } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
 import { formatMoney } from "@/lib/money";
@@ -1704,32 +1704,45 @@ export default function PropertyDetails() {
                       ) : null}
 
                       {/* Airport Pickup & Transfer */}
+                      {/* Airport Pickup & Transfer */}
                       {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").length > 0 ? (
                         <div>
                           <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                             <Plane className="w-4 h-4 text-primary" /> Airport Pickup &amp; Transfer
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").slice(0, 4).map((v) => (
-                              <Link key={v.id} to="/transport" className="block">
-                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
-                                  {v.image_url ? (
-                                    <img src={v.image_url} alt={v.title} className="h-36 w-full object-cover" loading="lazy" />
-                                  ) : (
-                                    <div className="h-36 w-full bg-muted" />
-                                  )}
+                              <Link key={v.id} to="/transport" className="group block">
+                                <div className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
+                                  <div className="relative h-40 overflow-hidden">
+                                    {v.image_url ? (
+                                      <img src={v.image_url} alt={v.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    ) : (
+                                      <div className="h-full w-full bg-muted flex items-center justify-center">
+                                        <Plane className="w-10 h-10 text-muted-foreground/40" />
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                    <div className="absolute bottom-2 left-2 flex gap-1.5 flex-wrap">
+                                      {v.vehicle_type && (
+                                        <span className="text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white px-2 py-0.5 rounded-full border border-white/30">{v.vehicle_type}</span>
+                                      )}
+                                      {v.seats && (
+                                        <span className="text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white px-2 py-0.5 rounded-full border border-white/30 flex items-center gap-1"><Users className="w-2.5 h-2.5" />{v.seats}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                   <div className="p-3">
-                                    <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
-                                    <div className="text-xs text-muted-foreground line-clamp-1">
-                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                                    <div className="font-semibold text-foreground text-sm line-clamp-1">{v.title}</div>
+                                    {v.provider_name && (
+                                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.provider_name}</div>
+                                    )}
+                                    <div className="mt-2 flex items-center gap-1 text-xs text-primary font-medium">
+                                      <MapPin className="w-3 h-3" /> Route-based pricing
                                     </div>
-                                    <div className="mt-2 text-xs font-medium text-primary">Route-based pricing</div>
-                                    <div className="mt-2">
-                                      <Button variant="outline" className="w-full" onClick={(e) => e.stopPropagation()}>
-                                        View Routes
-                                      </Button>
-                                    </div>
+                                    <Button size="sm" className="mt-2.5 w-full h-8 text-xs rounded-lg">
+                                      View Routes
+                                    </Button>
                                   </div>
                                 </div>
                               </Link>
@@ -1744,39 +1757,51 @@ export default function PropertyDetails() {
                           <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                             <Car className="w-4 h-4 text-primary" /> {transportRecommendationPhrase}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").slice(0, 4).map((v) => (
-                              <Link key={v.id} to="/transport" className="block">
-                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition">
-                                  {v.image_url ? (
-                                    <img src={v.image_url} alt={v.title} className="h-36 w-full object-cover" loading="lazy" />
-                                  ) : (
-                                    <div className="h-36 w-full bg-muted" />
-                                  )}
+                              <Link key={v.id} to="/transport" className="group block">
+                                <div className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
+                                  <div className="relative h-40 overflow-hidden">
+                                    {v.image_url ? (
+                                      <img src={v.image_url} alt={v.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    ) : (
+                                      <div className="h-full w-full bg-muted flex items-center justify-center">
+                                        <Car className="w-10 h-10 text-muted-foreground/40" />
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                    <div className="absolute bottom-2 left-2 flex gap-1.5 flex-wrap">
+                                      {v.vehicle_type && (
+                                        <span className="text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white px-2 py-0.5 rounded-full border border-white/30">{v.vehicle_type}</span>
+                                      )}
+                                      {v.seats && (
+                                        <span className="text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white px-2 py-0.5 rounded-full border border-white/30 flex items-center gap-1"><Users className="w-2.5 h-2.5" />{v.seats}</span>
+                                      )}
+                                    </div>
+                                    <div className="absolute top-2 right-2">
+                                      <span className="text-xs font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full shadow">
+                                        {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                        <span className="font-normal opacity-80">/day</span>
+                                      </span>
+                                    </div>
+                                  </div>
                                   <div className="p-3">
-                                    <div className="font-medium text-foreground line-clamp-1">{v.title}</div>
-                                    <div className="text-xs text-muted-foreground line-clamp-1">
-                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
-                                    </div>
-                                    <div className="mt-2 text-sm font-semibold text-primary">
-                                      {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                      <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
-                                    </div>
-                                    <div className="mt-3">
-                                      <Button
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setAddedAddOn(true);
-                                          void addToCart("transport_vehicle", v.id, 1);
-                                        }}
-                                      >
-                                        {t("common.addToTripCart")}
-                                      </Button>
-                                    </div>
+                                    <div className="font-semibold text-foreground text-sm line-clamp-1">{v.title}</div>
+                                    {v.provider_name && (
+                                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.provider_name}</div>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      className="mt-2.5 w-full h-8 text-xs rounded-lg"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setAddedAddOn(true);
+                                        void addToCart("transport_vehicle", v.id, 1);
+                                      }}
+                                    >
+                                      {t("common.addToTripCart")}
+                                    </Button>
                                   </div>
                                 </div>
                               </Link>
@@ -2644,28 +2669,39 @@ export default function PropertyDetails() {
                       ) : null}
 
                       {/* Airport Pickup & Transfer */}
+                      {/* Airport Pickup & Transfer */}
                       {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").length > 0 ? (
                         <div>
                           <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                             <Plane className="w-4 h-4 text-primary" /> Airport Pickup &amp; Transfer
                           </div>
-                          <div className="grid grid-cols-1 gap-4">
+                          <div className="grid grid-cols-1 gap-3">
                             {relatedTransportVehicles.filter(v => v.service_type === "airport_transfer").slice(0, 4).map((v) => (
-                              <Link key={v.id} to="/transport" className="block">
-                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
-                                  {v.image_url ? (
-                                    <img src={v.image_url} alt={v.title} className="h-24 w-24 object-cover flex-shrink-0" loading="lazy" />
-                                  ) : (
-                                    <div className="h-24 w-24 bg-muted flex-shrink-0" />
-                                  )}
-                                  <div className="p-3 flex-1 min-w-0">
-                                    <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
-                                    <div className="text-xs text-muted-foreground line-clamp-1">
-                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
+                              <Link key={v.id} to="/transport" className="group block">
+                                <div className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-md transition-all duration-200 flex">
+                                  <div className="relative w-24 flex-shrink-0 overflow-hidden">
+                                    {v.image_url ? (
+                                      <img src={v.image_url} alt={v.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    ) : (
+                                      <div className="h-full w-full bg-muted flex items-center justify-center">
+                                        <Plane className="w-6 h-6 text-muted-foreground/40" />
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/20" />
+                                  </div>
+                                  <div className="p-3 flex-1 min-w-0 flex flex-col justify-between">
+                                    <div>
+                                      <div className="font-semibold text-foreground text-sm line-clamp-1">{v.title}</div>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {v.provider_name && <span className="text-[10px] text-muted-foreground">{v.provider_name}</span>}
+                                        {v.vehicle_type && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{v.vehicle_type}</span>}
+                                        {v.seats && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Users className="w-2.5 h-2.5" />{v.seats}</span>}
+                                      </div>
+                                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-primary font-medium">
+                                        <MapPin className="w-3 h-3" /> Route-based pricing
+                                      </div>
                                     </div>
-                                    <div className="mt-1 text-xs font-medium text-primary">Route-based pricing</div>
-                                    <Button variant="outline" size="sm" className="mt-2 h-8 text-xs" onClick={(e) => e.stopPropagation()}>
+                                    <Button size="sm" className="mt-2 h-7 text-xs rounded-lg w-full">
                                       View Routes
                                     </Button>
                                   </div>
@@ -2682,29 +2718,36 @@ export default function PropertyDetails() {
                           <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                             <Car className="w-4 h-4 text-primary" /> {transportRecommendationPhrase}
                           </div>
-                          <div className="grid grid-cols-1 gap-4">
+                          <div className="grid grid-cols-1 gap-3">
                             {relatedTransportVehicles.filter(v => v.service_type !== "airport_transfer").slice(0, 4).map((v) => (
-                              <Link key={v.id} to="/transport" className="block">
-                                <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition flex">
-                                  {v.image_url ? (
-                                    <img src={v.image_url} alt={v.title} className="h-24 w-24 object-cover flex-shrink-0" loading="lazy" />
-                                  ) : (
-                                    <div className="h-24 w-24 bg-muted flex-shrink-0" />
-                                  )}
-                                  <div className="p-3 flex-1 min-w-0">
-                                    <div className="font-medium text-foreground text-sm line-clamp-1">{v.title}</div>
-                                    <div className="text-xs text-muted-foreground line-clamp-1">
-                                      {v.provider_name ?? ""} {v.vehicle_type ? `· ${v.vehicle_type}` : ""}{" "}
-                                      {v.seats ? `· ${v.seats} ${t("common.seats")}` : ""}
-                                    </div>
-                                    <div className="mt-1 text-sm font-semibold text-primary">
-                                      {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
-                                      <span className="text-xs text-muted-foreground"> {t("common.perDay")}</span>
+                              <Link key={v.id} to="/transport" className="group block">
+                                <div className="rounded-2xl border border-border bg-card overflow-hidden hover:shadow-md transition-all duration-200 flex">
+                                  <div className="relative w-24 flex-shrink-0 overflow-hidden">
+                                    {v.image_url ? (
+                                      <img src={v.image_url} alt={v.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    ) : (
+                                      <div className="h-full w-full bg-muted flex items-center justify-center">
+                                        <Car className="w-6 h-6 text-muted-foreground/40" />
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/20" />
+                                  </div>
+                                  <div className="p-3 flex-1 min-w-0 flex flex-col justify-between">
+                                    <div>
+                                      <div className="font-semibold text-foreground text-sm line-clamp-1">{v.title}</div>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {v.provider_name && <span className="text-[10px] text-muted-foreground">{v.provider_name}</span>}
+                                        {v.vehicle_type && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{v.vehicle_type}</span>}
+                                        {v.seats && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Users className="w-2.5 h-2.5" />{v.seats}</span>}
+                                      </div>
+                                      <div className="mt-1.5 text-sm font-bold text-primary leading-none">
+                                        {displayMoney(Number(v.price_per_day ?? 0), String(v.currency ?? "RWF"))}
+                                        <span className="text-[10px] font-normal text-muted-foreground ml-0.5">/day</span>
+                                      </div>
                                     </div>
                                     <Button
-                                      variant="outline"
                                       size="sm"
-                                      className="mt-2 h-8 text-xs"
+                                      className="mt-2 h-7 text-xs rounded-lg w-full"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
