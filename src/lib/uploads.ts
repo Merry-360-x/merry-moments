@@ -26,26 +26,6 @@ export async function uploadFile(
   opts: { folder: string; onProgress?: (percent: number) => void }
 ): Promise<{ url: string }> {
   try {
-    // PDFs and documents should go directly to Supabase Storage
-    // Cloudinary unsigned presets typically don't support "raw" resource type
-    const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf');
-    const isDocument = file.type.includes('document') || file.type.includes('sheet') || file.type.includes('presentation');
-    
-    if (isPDF || isDocument) {
-      console.log(`[uploads] Uploading ${file.name} to Supabase Storage (documents/PDFs not supported in unsigned Cloudinary)`);
-      const safeName = sanitizeFilename(file.name);
-      const path = `${opts.folder}/${randomId()}-${safeName}`.replaceAll("//", "/");
-      const { error } = await supabase.storage.from("uploads").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (error) throw error;
-
-      const { data } = supabase.storage.from("uploads").getPublicUrl(path);
-      if (!data?.publicUrl) throw new Error("Could not get public URL for uploaded file.");
-      return { url: data.publicUrl };
-    }
-    
     // Only compress images, skip SVGs
     let fileToUpload = file;
     try {

@@ -356,7 +356,8 @@ const Transport = () => {
           vehicle:transport_vehicles(
             id, title, provider_name, vehicle_type, seats,
             image_url, media, car_brand, car_model, car_year,
-            transmission, fuel_type, key_features, exterior_images
+            transmission, fuel_type, key_features, exterior_images,
+            is_published
           )
         `);
       if (error) throw error;
@@ -423,7 +424,7 @@ const Transport = () => {
     for (const pricing of airportPricing) {
       const vehicleRow = pricing.vehicle as TransportVehicleRow | null;
       const route = airportRouteById.get(pricing.route_id);
-      if (!vehicleRow || !route) continue;
+      if (!vehicleRow || !route || (vehicleRow as any).is_published === false) continue;
 
       const current = grouped.get(vehicleRow.id);
       if (!current) {
