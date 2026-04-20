@@ -1326,8 +1326,9 @@ export default function PropertyDetails() {
 
       let transportQuery = supabase
         .from("transport_vehicles")
-        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url")
+        .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url, service_type")
         .eq("is_published", true)
+        .neq("service_type", "airport_transfer")
         .order("created_at", { ascending: false })
         .limit(40);
 
@@ -1346,13 +1347,15 @@ export default function PropertyDetails() {
         price_per_day: number;
         currency: string | null;
         image_url: string | null;
+        service_type: string | null;
       }>;
 
       if (vehicles.length === 0) {
         const { data: fallbackRows, error: fallbackError } = await supabase
           .from("transport_vehicles")
-          .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url")
+          .select("id, title, provider_name, vehicle_type, seats, price_per_day, currency, image_url, service_type")
           .eq("is_published", true)
+          .neq("service_type", "airport_transfer")
           .order("created_at", { ascending: false })
           .limit(40);
 
@@ -1366,6 +1369,7 @@ export default function PropertyDetails() {
             price_per_day: number;
             currency: string | null;
             image_url: string | null;
+            service_type: string | null;
           }>;
         }
       }
