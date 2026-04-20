@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -23,6 +23,7 @@ import { getDraftWizardStep } from "@/lib/draft-session";
 type MediaPreview = {
   src: string;
   kind: "image" | "video";
+  uploading?: boolean;
 };
 
 const isVideoPreviewSrc = (src: string) => /^data:video\//i.test(src) || isVideoUrl(src);
@@ -45,6 +46,15 @@ const revokePreview = (preview?: MediaPreview) => {
 
 function MediaPreviewTile({ preview, alt }: { preview: MediaPreview; alt: string }) {
   const [failed, setFailed] = useState(false);
+
+  if (preview.uploading) {
+    return (
+      <div className="w-full h-full rounded-lg bg-muted flex flex-col items-center justify-center text-center px-2">
+        <Loader2 className="w-6 h-6 text-primary animate-spin mb-2" />
+        <span className="text-xs text-muted-foreground">Uploading…</span>
+      </div>
+    );
+  }
 
   if (preview.kind === "video") {
     return (
@@ -215,19 +225,25 @@ export default function CreateTransport() {
     key_features: [] as string[],
   });
 
-  // Images
-  const [exteriorImages, setExteriorImages] = useState<File[]>([]);
+  // Images — File[] replaced by eager-upload flow; URLs land directly in existingExteriorUrls/existingInteriorUrls
   const [exteriorPreviews, setExteriorPreviews] = useState<MediaPreview[]>([]);
-  const [interiorImages, setInteriorImages] = useState<File[]>([]);
   const [interiorPreviews, setInteriorPreviews] = useState<MediaPreview[]>([]);
   const [existingExteriorUrls, setExistingExteriorUrls] = useState<string[]>([]);
   const [existingInteriorUrls, setExistingInteriorUrls] = useState<string[]>([]);
-  
-  // Documents
+  // Tracks blob URLs removed while upload is in flight so we can discard the result
+  const removedBlobUrls = useRef(new Set<string>());
+  // Count of in-flight uploads (images + docs)
+  const [pendingUploads, setPendingUploads] = useState(0);
+
+  // Documents — kept as File | null for filename display; uploaded eagerly
   const [insuranceDoc, setInsuranceDoc] = useState<File | null>(null);
   const [registrationDoc, setRegistrationDoc] = useState<File | null>(null);
   const [roadworthinessDoc, setRoadworthinessDoc] = useState<File | null>(null);
   const [ownerIdDoc, setOwnerIdDoc] = useState<File | null>(null);
+  const [insuranceUploading, setInsuranceUploading] = useState(false);
+  const [registrationUploading, setRegistrationUploading] = useState(false);
+  const [roadworthinessUploading, setRoadworthinessUploading] = useState(false);
+  const [ownerIdUploading, setOwnerIdUploading] = useState(false);
   const [existingInsuranceUrl, setExistingInsuranceUrl] = useState<string>("");
   const [existingRegistrationUrl, setExistingRegistrationUrl] = useState<string>("");
   const [existingRoadworthinessUrl, setExistingRoadworthinessUrl] = useState<string>("");
@@ -464,54 +480,124 @@ export default function CreateTransport() {
     localStorage.removeItem(getStorageKey());
   };
 
-  // Handle exterior images
+  // Handle exterior images — upload immediately on selection
   const handleExteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
-    setExteriorImages((prev) => [...prev, ...files]);
-    setExteriorPreviews((prev) => [...prev, ...files.map(toLocalMediaPreview)]);
     e.currentTarget.value = "";
+
+    for (const file of files) {
+      const preview = toLocalMediaPreview(file);
+      setExteriorPreviews((prev) => [...prev, { ...preview, uploading: true }]);
+      setPendingUploads((n) => n + 1);
+
+      uploadFile(file, { folder: "transport/exterior" })
+        .then((result) => {
+          if (removedBlobUrls.current.has(preview.src)) {
+            removedBlobUrls.current.delete(preview.src);
+            revokePreview(preview);
+            return;
+          }
+          setExistingExteriorUrls((prev) => [...prev, result.url]);
+          setExteriorPreviews((prev) =>
+            prev.map((p) => (p.src === preview.src ? { src: result.url, kind: preview.kind } : p))
+          );
+          revokePreview(preview);
+        })
+        .catch(() => {
+          setExteriorPreviews((prev) => prev.filter((p) => p.src !== preview.src));
+          revokePreview(preview);
+          toast({ title: "Upload failed", description: "An exterior image failed to upload. Please try again.", variant: "destructive" });
+        })
+        .finally(() => setPendingUploads((n) => n - 1));
+    }
   };
 
   const removeExteriorImage = (index: number) => {
-    if (index < existingExteriorUrls.length) {
-      setExistingExteriorUrls((prev) => prev.filter((_, i) => i !== index));
-    } else {
-      const newFileIndex = index - existingExteriorUrls.length;
-      setExteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
-    }
     setExteriorPreviews((prev) => {
-      const next = [...prev];
-      const [removed] = next.splice(index, 1);
-      revokePreview(removed);
-      return next;
+      const preview = prev[index];
+      if (preview) {
+        if (preview.uploading || preview.src.startsWith("blob:")) {
+          removedBlobUrls.current.add(preview.src);
+        } else {
+          setExistingExteriorUrls((urls) => urls.filter((u) => u !== preview.src));
+        }
+        revokePreview(preview);
+      }
+      return prev.filter((_, i) => i !== index);
     });
   };
 
-  // Handle interior images
+  // Handle interior images — upload immediately on selection
   const handleInteriorImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
-    setInteriorImages((prev) => [...prev, ...files]);
-    setInteriorPreviews((prev) => [...prev, ...files.map(toLocalMediaPreview)]);
     e.currentTarget.value = "";
+
+    for (const file of files) {
+      const preview = toLocalMediaPreview(file);
+      setInteriorPreviews((prev) => [...prev, { ...preview, uploading: true }]);
+      setPendingUploads((n) => n + 1);
+
+      uploadFile(file, { folder: "transport/interior" })
+        .then((result) => {
+          if (removedBlobUrls.current.has(preview.src)) {
+            removedBlobUrls.current.delete(preview.src);
+            revokePreview(preview);
+            return;
+          }
+          setExistingInteriorUrls((prev) => [...prev, result.url]);
+          setInteriorPreviews((prev) =>
+            prev.map((p) => (p.src === preview.src ? { src: result.url, kind: preview.kind } : p))
+          );
+          revokePreview(preview);
+        })
+        .catch(() => {
+          setInteriorPreviews((prev) => prev.filter((p) => p.src !== preview.src));
+          revokePreview(preview);
+          toast({ title: "Upload failed", description: "An interior image failed to upload. Please try again.", variant: "destructive" });
+        })
+        .finally(() => setPendingUploads((n) => n - 1));
+    }
   };
 
   const removeInteriorImage = (index: number) => {
-    if (index < existingInteriorUrls.length) {
-      setExistingInteriorUrls((prev) => prev.filter((_, i) => i !== index));
-    } else {
-      const newFileIndex = index - existingInteriorUrls.length;
-      setInteriorImages((prev) => prev.filter((_, i) => i !== newFileIndex));
-    }
     setInteriorPreviews((prev) => {
-      const next = [...prev];
-      const [removed] = next.splice(index, 1);
-      revokePreview(removed);
-      return next;
+      const preview = prev[index];
+      if (preview) {
+        if (preview.uploading || preview.src.startsWith("blob:")) {
+          removedBlobUrls.current.add(preview.src);
+        } else {
+          setExistingInteriorUrls((urls) => urls.filter((u) => u !== preview.src));
+        }
+        revokePreview(preview);
+      }
+      return prev.filter((_, i) => i !== index);
     });
+  };
+
+  // Document upload helpers — upload immediately on selection
+  const handleDocUpload = (
+    file: File,
+    setFile: (f: File | null) => void,
+    setUploading: (v: boolean) => void,
+    setUrl: (url: string) => void,
+    label: string
+  ) => {
+    setFile(file);
+    setUploading(true);
+    setPendingUploads((n) => n + 1);
+    uploadFile(file, { folder: "transport/docs" })
+      .then((result) => setUrl(result.url))
+      .catch(() => {
+        setFile(null);
+        setUrl("");
+        toast({ title: "Upload failed", description: `${label} failed to upload. Please try again.`, variant: "destructive" });
+      })
+      .finally(() => {
+        setUploading(false);
+        setPendingUploads((n) => n - 1);
+      });
   };
 
   // Toggle feature
@@ -555,7 +641,7 @@ export default function CreateTransport() {
       return;
     }
 
-    if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
+    if (existingExteriorUrls.length === 0) {
       toast({
         title: "Missing Images",
         description: "Please upload at least one exterior photo or video of your vehicle.",
@@ -567,71 +653,12 @@ export default function CreateTransport() {
     setUploading(true);
 
     try {
-      // Upload exterior images
-      const uploadedExteriorUrls: string[] = [];
-      for (const image of exteriorImages) {
-        try {
-          const result = await uploadFile(image, { folder: "transport/exterior" });
-          uploadedExteriorUrls.push(result.url);
-        } catch (err) {
-          console.error("Exterior image upload failed:", err);
-        }
-      }
-      const exteriorUrls = [...existingExteriorUrls, ...uploadedExteriorUrls];
-
-      // Upload interior images
-      const uploadedInteriorUrls: string[] = [];
-      for (const image of interiorImages) {
-        try {
-          const result = await uploadFile(image, { folder: "transport/interior" });
-          uploadedInteriorUrls.push(result.url);
-        } catch (err) {
-          console.error("Interior image upload failed:", err);
-        }
-      }
-      const interiorUrls = [...existingInteriorUrls, ...uploadedInteriorUrls];
-
-      // Upload documents
-      let insuranceUrl: string | null = existingInsuranceUrl || null;
-      let registrationUrl: string | null = existingRegistrationUrl || null;
-      let roadworthinessUrl: string | null = existingRoadworthinessUrl || null;
-      let ownerIdUrl: string | null = existingOwnerIdUrl || null;
-
-      if (insuranceDoc) {
-        try {
-          const result = await uploadFile(insuranceDoc, { folder: "transport/docs" });
-          insuranceUrl = result.url;
-        } catch (err) {
-          console.error("Insurance doc upload failed:", err);
-        }
-      }
-
-      if (registrationDoc) {
-        try {
-          const result = await uploadFile(registrationDoc, { folder: "transport/docs" });
-          registrationUrl = result.url;
-        } catch (err) {
-          console.error("Registration doc upload failed:", err);
-        }
-      }
-
-      if (roadworthinessDoc) {
-        try {
-          const result = await uploadFile(roadworthinessDoc, { folder: "transport/docs" });
-          roadworthinessUrl = result.url;
-        } catch (err) {
-          console.error("Roadworthiness doc upload failed:", err);
-        }
-      }
-
-      if (ownerIdDoc) {
-        try {
-          const result = await uploadFile(ownerIdDoc, { folder: "transport/docs" });
-          ownerIdUrl = result.url;
-        } catch (err) {
-          console.error("Owner ID doc upload failed:", err);
-        }
-      }
+      const exteriorUrls = existingExteriorUrls;
+      const interiorUrls = existingInteriorUrls;
+      const insuranceUrl = existingInsuranceUrl || null;
+      const registrationUrl = existingRegistrationUrl || null;
+      const roadworthinessUrl = existingRoadworthinessUrl || null;
+      const ownerIdUrl = existingOwnerIdUrl || null;
 
       // Generate title if not provided
       const title = formData.title || `${formData.car_brand} ${formData.car_model} ${formData.car_year}`;
@@ -698,11 +725,12 @@ export default function CreateTransport() {
 
       clearDraft();
       navigate("/host-dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create car listing:", error);
+      const msg = error?.message || error?.details || JSON.stringify(error);
       toast({
         title: "Error",
-        description: isEditMode ? "Failed to update listing. Please try again." : "Failed to create listing. Please try again.",
+        description: isEditMode ? `Failed to update listing: ${msg}` : `Failed to create listing: ${msg}`,
         variant: "destructive",
       });
     } finally {
@@ -722,14 +750,16 @@ export default function CreateTransport() {
     if (!formData.drive_train) missing.push("Drive train");
     if (!(formData.daily_price > 0)) missing.push("Daily price");
 
-    if (exteriorImages.length === 0 && existingExteriorUrls.length === 0) {
+    if (existingExteriorUrls.length === 0 && exteriorPreviews.some((p) => p.uploading)) {
+      missing.push("Exterior photos still uploading…");
+    } else if (existingExteriorUrls.length === 0) {
       missing.push("At least one exterior photo or video");
     }
 
-    if (!insuranceDoc && !existingInsuranceUrl) missing.push("Insurance document");
-    if (!registrationDoc && !existingRegistrationUrl) missing.push("Registration document");
-    if (!roadworthinessDoc && !existingRoadworthinessUrl) missing.push("Roadworthiness certificate");
-    if (!ownerIdDoc && !existingOwnerIdUrl) missing.push("Owner identification");
+    if (!existingInsuranceUrl && !insuranceUploading) missing.push("Insurance document");
+    if (!existingRegistrationUrl && !registrationUploading) missing.push("Registration document");
+    if (!existingRoadworthinessUrl && !roadworthinessUploading) missing.push("Roadworthiness certificate");
+    if (!existingOwnerIdUrl && !ownerIdUploading) missing.push("Owner identification");
 
     return missing;
   })();
@@ -1194,7 +1224,12 @@ export default function CreateTransport() {
                 <div className="space-y-2">
                   <Label>Insurance Document</Label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4">
-                    {insuranceDoc ? (
+                    {insuranceUploading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-muted-foreground">Uploading…</span>
+                      </div>
+                    ) : insuranceDoc ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <FileText className="w-5 h-5 text-primary" />
@@ -1216,7 +1251,10 @@ export default function CreateTransport() {
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => setInsuranceDoc(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleDocUpload(f, setInsuranceDoc, setInsuranceUploading, setExistingInsuranceUrl, "Insurance document");
+                          }}
                           className="hidden"
                         />
                       </label>
@@ -1228,7 +1266,12 @@ export default function CreateTransport() {
                 <div className="space-y-2">
                   <Label>Registration Document</Label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4">
-                    {registrationDoc ? (
+                    {registrationUploading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-muted-foreground">Uploading…</span>
+                      </div>
+                    ) : registrationDoc ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <FileText className="w-5 h-5 text-primary" />
@@ -1250,7 +1293,10 @@ export default function CreateTransport() {
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => setRegistrationDoc(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleDocUpload(f, setRegistrationDoc, setRegistrationUploading, setExistingRegistrationUrl, "Registration document");
+                          }}
                           className="hidden"
                         />
                       </label>
@@ -1262,7 +1308,12 @@ export default function CreateTransport() {
                 <div className="space-y-2">
                   <Label>Roadworthiness Certificate</Label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4">
-                    {roadworthinessDoc ? (
+                    {roadworthinessUploading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-muted-foreground">Uploading…</span>
+                      </div>
+                    ) : roadworthinessDoc ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <FileText className="w-5 h-5 text-primary" />
@@ -1284,7 +1335,10 @@ export default function CreateTransport() {
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => setRoadworthinessDoc(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleDocUpload(f, setRoadworthinessDoc, setRoadworthinessUploading, setExistingRoadworthinessUrl, "Roadworthiness certificate");
+                          }}
                           className="hidden"
                         />
                       </label>
@@ -1296,7 +1350,12 @@ export default function CreateTransport() {
                 <div className="space-y-2">
                   <Label>Owner/Business ID</Label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4">
-                    {ownerIdDoc ? (
+                    {ownerIdUploading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-muted-foreground">Uploading…</span>
+                      </div>
+                    ) : ownerIdDoc ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <FileText className="w-5 h-5 text-primary" />
@@ -1318,7 +1377,10 @@ export default function CreateTransport() {
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => setOwnerIdDoc(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleDocUpload(f, setOwnerIdDoc, setOwnerIdUploading, setExistingOwnerIdUrl, "Owner identification");
+                          }}
                           className="hidden"
                         />
                       </label>
@@ -1376,8 +1438,8 @@ export default function CreateTransport() {
               >
                 Discard Draft
               </Button>
-              <Button type="submit" disabled={uploading || !canCreateListing} className="flex-1 md:flex-none">
-                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Listing...</> : "List My Car"}
+              <Button type="submit" disabled={uploading || !canCreateListing || pendingUploads > 0} className="flex-1 md:flex-none">
+                {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Listing…</> : pendingUploads > 0 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading ({pendingUploads})…</> : "List My Car"}
               </Button>
             </div>
           </div>
