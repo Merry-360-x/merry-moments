@@ -410,12 +410,13 @@ export default function TripCart() {
     let baseSubtotalAmount = 0;
     let stayDiscountAmount = 0;
     let feesAmount = 0;
-    const itemSnapshots: Array<{ discountedAfterStay: number; isAccommodation: boolean }> = [];
+    const itemSnapshots: Array<{ discountedAfterStay: number; isAccommodation: boolean; isTransport: boolean }> = [];
     const curr = preferredCurrency || "RWF";
 
     cartItems.forEach((item) => {
       // For properties, use nights from metadata; for other items use quantity
       const isProperty = item.item_type === 'property';
+      const isTransport = item.item_type === 'transport_vehicle' || item.item_type === 'airport_transfer_pricing' || item.item_type === 'transport_route' || item.item_type === 'transport_service';
       const nights = isProperty && item.metadata?.nights ? item.metadata.nights : 1;
       const multiplier = isProperty ? nights : item.quantity;
       const breakfastPerNight = isProperty && item.metadata?.breakfast_included
@@ -446,8 +447,8 @@ export default function TripCart() {
       itemSnapshots.push({
         discountedAfterStay: Math.max(0, convertedBase - itemDiscount),
         isAccommodation: isProperty,
+        isTransport,
       });
-      // Tours: no guest fee
     });
 
     // Calculate promo code discount (applied after stay discounts)
@@ -470,12 +471,13 @@ export default function TripCart() {
     }
 
     itemSnapshots.forEach((snapshot) => {
-      if (!snapshot.isAccommodation) return;
+      if (!snapshot.isAccommodation && !snapshot.isTransport) return;
+      const serviceType = snapshot.isAccommodation ? 'accommodation' : 'transport';
       const promoShare = subtotalAfterStay > 0
         ? (snapshot.discountedAfterStay / subtotalAfterStay) * promoDiscountAmount
         : 0;
       const discountedListingSubtotal = Math.max(0, snapshot.discountedAfterStay - promoShare);
-      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, 'accommodation');
+      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, serviceType);
       feesAmount += guestFee;
     });
 

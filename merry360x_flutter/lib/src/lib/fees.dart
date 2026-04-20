@@ -31,7 +31,7 @@ class PlatformFees {
       case 'tour':
         return 0;
       case 'transport':
-        return 0;
+        return 5;
       default:
         return 0;
     }
@@ -44,7 +44,7 @@ class PlatformFees {
       case 'tour':
         return 10;
       case 'transport':
-        return 0;
+        return 7;
       default:
         return 0;
     }

@@ -10,7 +10,8 @@
  * - Tour Provider: -10% deducted from what they receive (they get 90% of their listed price)
  * 
  * Transport:
- * - Currently no platform fees (can be added later)
+ * - Guest/Booker: +5% added on top of the driver/car company's price
+ * - Host (driver/car company): -7% deducted from what they receive
  */
 
 export const PLATFORM_FEES = {
@@ -26,10 +27,10 @@ export const PLATFORM_FEES = {
     providerFeePercent: 10, // Deducted from provider's earnings
   },
   
-  // Transport fees (can be configured)
+  // Transport fees
   transport: {
-    guestFeePercent: 0,
-    providerFeePercent: 0,
+    guestFeePercent: 5,    // Added to guest's total
+    providerFeePercent: 7, // Deducted from driver/car company's earnings
   },
 } as const;
 

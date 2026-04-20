@@ -1428,6 +1428,7 @@ export default function CheckoutNew() {
     const itemSnapshots: Array<{
       discountedAfterStay: number;
       isAccommodation: boolean;
+      isTransport: boolean;
     }> = [];
 
     cartItems.forEach((item) => {
@@ -1459,9 +1460,11 @@ export default function CheckoutNew() {
         }
       }
 
+      const isTransport = item.item_type === 'transport_vehicle' || item.item_type === 'airport_transfer_pricing' || item.item_type === 'transport_route' || item.item_type === 'transport_service';
         itemSnapshots.push({
           discountedAfterStay: Math.max(0, converted - stayDiscountForItem),
           isAccommodation: isProperty,
+          isTransport,
         });
     });
 
@@ -1485,13 +1488,14 @@ export default function CheckoutNew() {
 
     let feesAmount = 0;
     itemSnapshots.forEach((snapshot) => {
-      if (!snapshot.isAccommodation) return;
+      if (!snapshot.isAccommodation && !snapshot.isTransport) return;
+      const serviceType = snapshot.isAccommodation ? 'accommodation' : 'transport';
 
       const promoShare = afterStayDiscount > 0
         ? (snapshot.discountedAfterStay / afterStayDiscount) * discountAmount
         : 0;
       const discountedListingSubtotal = Math.max(0, snapshot.discountedAfterStay - promoShare);
-      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, 'accommodation');
+      const { guestFee } = calculateBookingFinancialsFromDiscountedListing(discountedListingSubtotal, serviceType);
       feesAmount += guestFee;
     });
 
