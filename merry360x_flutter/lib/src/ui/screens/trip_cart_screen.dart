@@ -169,6 +169,7 @@ class _TripCartScreenState extends State<TripCartScreen> {
                           item: first,
                           guests: int.tryParse('${first['quantity'] ?? 1}') ?? 1,
                           session: session,
+                          allCartItems: enriched,
                           initialDiscountCode: _discountCode,
                           initialDiscount: _discountData,
                         ),
@@ -351,6 +352,10 @@ class _TotalBarState extends State<_TotalBar> {
       case 'tour_package':
         return 'tour';
       case 'transport':
+      case 'transport_vehicle':
+      case 'airport_transfer_pricing':
+      case 'transport_route':
+      case 'transport_service':
         return 'transport';
       default:
         return 'accommodation';

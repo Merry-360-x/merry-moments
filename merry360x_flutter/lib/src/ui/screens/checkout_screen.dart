@@ -106,6 +106,7 @@ class CheckoutScreen extends StatefulWidget {
     this.checkOut,
     required this.guests,
     required this.session,
+    this.allCartItems,
     this.initialDiscountCode,
     this.initialDiscount,
   });
@@ -115,6 +116,9 @@ class CheckoutScreen extends StatefulWidget {
   final DateTime? checkOut;
   final int guests;
   final SessionController session;
+  /// When set, this is a multi-item cart checkout. All service fees and host
+  /// earnings are computed per-item using their respective service types.
+  final List<Map<String, dynamic>>? allCartItems;
   final String? initialDiscountCode;
   final Map<String, dynamic>? initialDiscount;
 
@@ -407,8 +411,92 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  double get _serviceFee => _financials.guestFee;
-  double get _total => _financials.guestTotal;
+  /// Returns the service type string for any item type.
+  String _serviceTypeFor(String t) {
+    switch (t) {
+      case 'tour':
+      case 'tour_package':
+        return 'tour';
+      case 'transport':
+      case 'transport_vehicle':
+      case 'airport_transfer_pricing':
+      case 'transport_route':
+      case 'transport_service':
+        return 'transport';
+      default:
+        return 'accommodation';
+    }
+  }
+
+  /// Per-item base price (before fees) for a cart item map.
+  double _baseForCartItem(Map<String, dynamic> ci) {
+    final t = (ci['item_type'] ?? 'property').toString();
+    final qty = int.tryParse('${ci['quantity'] ?? 1}') ?? 1;
+    double price;
+    switch (t) {
+      case 'tour':
+        price = double.tryParse('${ci['price_per_person'] ?? 0}') ?? 0;
+      case 'tour_package':
+        price = double.tryParse('${ci['price_per_adult'] ?? 0}') ?? 0;
+      case 'transport':
+      case 'transport_vehicle':
+      case 'airport_transfer_pricing':
+      case 'transport_route':
+      case 'transport_service':
+        price = double.tryParse('${ci['price_per_day'] ?? 0}') ?? 0;
+      default:
+        price = double.tryParse('${ci['price_per_night'] ?? 0}') ?? 0;
+    }
+    return (price * qty).clamp(0.0, double.infinity).toDouble();
+  }
+
+  /// Total guest-paid amount summed over all cart items, each with correct fee.
+  double get _cartTotal {
+    final items = widget.allCartItems;
+    if (items == null || items.isEmpty) return _financials.guestTotal;
+    double total = 0;
+    for (final ci in items) {
+      final base = (_baseForCartItem(ci) - _discountAmount / items.length)
+          .clamp(0.0, double.infinity);
+      final financials = calculateBookingFinancialsFromDiscountedListing(
+        discountedListingSubtotal: base,
+        serviceType: _serviceTypeFor((ci['item_type'] ?? 'property').toString()),
+      );
+      total += financials.guestTotal;
+    }
+    return total;
+  }
+
+  /// Total service fees summed over all cart items.
+  double get _cartServiceFee {
+    final items = widget.allCartItems;
+    if (items == null || items.isEmpty) return _financials.guestFee;
+    double fee = 0;
+    for (final ci in items) {
+      final base = (_baseForCartItem(ci) - _discountAmount / items.length)
+          .clamp(0.0, double.infinity);
+      final financials = calculateBookingFinancialsFromDiscountedListing(
+        discountedListingSubtotal: base,
+        serviceType: _serviceTypeFor((ci['item_type'] ?? 'property').toString()),
+      );
+      fee += financials.guestFee;
+    }
+    return fee;
+  }
+
+  /// Total base price (sum of listing subtotals before fees) for all cart items.
+  double get _cartBasePrice {
+    final items = widget.allCartItems;
+    if (items == null || items.isEmpty) return _subtotal;
+    double base = 0;
+    for (final ci in items) {
+      base += _baseForCartItem(ci);
+    }
+    return base;
+  }
+
+  double get _serviceFee => widget.allCartItems != null ? _cartServiceFee : _financials.guestFee;
+  double get _total => widget.allCartItems != null ? _cartTotal : _financials.guestTotal;
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
@@ -561,65 +649,152 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           setState(() => _submitting = false);
           return;
         }
-        final id = await widget.session.createBooking(
-          item: item,
-          checkIn: _checkIn?.toIso8601String().split('T').first,
-          checkOut: _checkOut?.toIso8601String().split('T').first,
-          guests: widget.guests,
-          totalAmount: _total,
-          currency: _currency,
-          paymentPhone: phone,
-          paymentProvider: _selectedMethod!.id,
-          specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-          discountCode: _appliedDiscount?['code']?.toString(),
-          discountAmount: _discountAmount > 0 ? _discountAmount : null,
-        );
-        if (_appliedDiscount != null && _discountAmount > 0) {
-          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
-        }
-        // Initiate the PawaPay deposit — sends the MoMo push/USSD prompt to the user.
-        if (id != null) {
-          try {
-            await AppDatabase().initiatePawaPayDeposit(
-              bookingId: id,
-              amount: _total,
-              currency: _currency,
-              phoneNumber: phone,
-              payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
-              payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
-              provider: _selectedMethod!.id,
-            );
-          } catch (e) {
-            // Log and swallow so the success screen still shows.
-            debugPrint('PawaPay initiation error: $e');
-          }
-        }
-        _paymentMethod = 'mobile_money';
-        setState(() { _bookingId = id; _step = 2; });
-      } else if (_payTab == 1) {
-        // ── Card (Flutterwave) ──
+
         final api = AppDatabase();
         final checkoutPhone = _normalizedMobileMoneyPhone(_phoneCtrl.text);
+        final allItems = widget.allCartItems;
+
+        // Build per-item list with correct financials for each service type.
+        final checkoutItems = (allItems != null && allItems.isNotEmpty)
+            ? allItems.map((ci) {
+                final t = (ci['item_type'] ?? 'property').toString();
+                final base = _baseForCartItem(ci);
+                final fin = calculateBookingFinancialsFromDiscountedListing(
+                  discountedListingSubtotal: (base - _discountAmount / allItems.length).clamp(0.0, double.infinity),
+                  serviceType: _serviceTypeFor(t),
+                );
+                return {
+                  'item_type': t,
+                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '').toString(),
+                  'title': (ci['title'] ?? ci['name'] ?? 'Listing').toString(),
+                  'quantity': int.tryParse('${ci['quantity'] ?? 1}') ?? 1,
+                  'amount': fin.discountedListingSubtotal,
+                  'calculated_price': fin.guestTotal,
+                  'host_earnings_amount': fin.hostNetEarnings,
+                  'platform_fee': fin.guestFee,
+                  'host_fee_amount': fin.hostFee,
+                  'guest_fee_percent': fin.guestFeePercent,
+                  'host_fee_percent': fin.hostFeePercent,
+                  'currency': (ci['currency'] ?? _currency).toString(),
+                };
+              }).toList()
+            : [
+                {
+                  'item_type': itemType,
+                  'reference_id': (item['id'] ?? '').toString(),
+                  'title': (item['title'] ?? item['name'] ?? 'Listing').toString(),
+                  'quantity': 1,
+                  'amount': _subtotal,
+                  'calculated_price': _total,
+                  'host_earnings_amount': _financials.hostNetEarnings,
+                  'platform_fee': _serviceFee,
+                  'host_fee_amount': _financials.hostFee,
+                  'guest_fee_percent': _financials.guestFeePercent,
+                  'host_fee_percent': _financials.hostFeePercent,
+                  'currency': _currency,
+                }
+              ];
+
+        // Always use checkout_request for PawaPay so the webhook can process it.
         final checkoutId = await api.createCheckoutRequest(
           userId: widget.session.userId,
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           phone: checkoutPhone.isEmpty ? null : checkoutPhone,
           totalAmount: _total,
-          basePriceAmount: _subtotal,
+          basePriceAmount: _cartBasePrice,
+          serviceFeeAmount: _serviceFee,
+          currency: _currency,
+          paymentMethod: 'mobile_money',
+          paymentProvider: _selectedMethod!.id,
+          items: checkoutItems,
+          specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          metadata: {
+            if (_appliedDiscount != null) 'discount_code': _appliedDiscount!['code'],
+            if (_discountAmount > 0) 'discount_amount': _discountAmount,
+            'booking_details': {
+              'check_in': _checkIn?.toIso8601String().split('T').first,
+              'check_out': _checkOut?.toIso8601String().split('T').first,
+              'guests': widget.guests,
+            },
+          },
+        );
+        if (_appliedDiscount != null && _discountAmount > 0) {
+          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+        }
+        try {
+          await api.initiatePawaPayDeposit(
+            bookingId: checkoutId,
+            amount: _total,
+            currency: _currency,
+            phoneNumber: phone,
+            payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
+            payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+            provider: _selectedMethod!.id,
+          );
+        } catch (e) {
+          debugPrint('PawaPay initiation error: $e');
+        }
+        _paymentMethod = 'mobile_money';
+        setState(() { _bookingId = checkoutId; _step = 2; });
+      } else if (_payTab == 1) {
+        // ── Card (Flutterwave) ──
+        final api = AppDatabase();
+        final checkoutPhone = _normalizedMobileMoneyPhone(_phoneCtrl.text);
+        final allItems = widget.allCartItems;
+
+        final checkoutItems = (allItems != null && allItems.isNotEmpty)
+            ? allItems.map((ci) {
+                final t = (ci['item_type'] ?? 'property').toString();
+                final base = _baseForCartItem(ci);
+                final fin = calculateBookingFinancialsFromDiscountedListing(
+                  discountedListingSubtotal: (base - _discountAmount / allItems.length).clamp(0.0, double.infinity),
+                  serviceType: _serviceTypeFor(t),
+                );
+                return {
+                  'item_type': t,
+                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '').toString(),
+                  'title': (ci['title'] ?? ci['name'] ?? 'Listing').toString(),
+                  'quantity': int.tryParse('${ci['quantity'] ?? 1}') ?? 1,
+                  'amount': fin.discountedListingSubtotal,
+                  'calculated_price': fin.guestTotal,
+                  'host_earnings_amount': fin.hostNetEarnings,
+                  'platform_fee': fin.guestFee,
+                  'host_fee_amount': fin.hostFee,
+                  'guest_fee_percent': fin.guestFeePercent,
+                  'host_fee_percent': fin.hostFeePercent,
+                  'currency': (ci['currency'] ?? _currency).toString(),
+                };
+              }).toList()
+            : [
+                {
+                  'item_type': itemType,
+                  'reference_id': (item['id'] ?? '').toString(),
+                  'title': (item['title'] ?? item['name'] ?? 'Listing').toString(),
+                  'quantity': 1,
+                  'amount': _subtotal,
+                  'calculated_price': _total,
+                  'host_earnings_amount': _financials.hostNetEarnings,
+                  'platform_fee': _serviceFee,
+                  'host_fee_amount': _financials.hostFee,
+                  'guest_fee_percent': _financials.guestFeePercent,
+                  'host_fee_percent': _financials.hostFeePercent,
+                  'currency': _currency,
+                }
+              ];
+
+        final checkoutId = await api.createCheckoutRequest(
+          userId: widget.session.userId,
+          name: _nameCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          phone: checkoutPhone.isEmpty ? null : checkoutPhone,
+          totalAmount: _total,
+          basePriceAmount: allItems != null ? _cartBasePrice : _subtotal,
           serviceFeeAmount: _serviceFee,
           currency: _currency,
           paymentMethod: 'card',
           paymentProvider: 'FLUTTERWAVE',
-          items: [
-            {
-              'item_type': itemType,
-              'reference_id': (item['id'] ?? '').toString(),
-              'title': (item['title'] ?? item['name'] ?? 'Listing').toString(),
-              'quantity': 1,
-              'amount': _subtotal,
-            }
-          ],
+          items: checkoutItems,
           specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
           metadata: {
             if (_appliedDiscount != null) 'discount_code': _appliedDiscount!['code'],

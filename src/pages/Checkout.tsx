@@ -2078,18 +2078,33 @@ export default function CheckoutNew() {
         }
       }
       
-      // Calculate host earnings from total guest-paid amount (already includes discount-first pricing)
-      const serviceType: 'accommodation' | 'tour' | 'transport' = 
-        cartItems.some(i => i.item_type === 'property') ? 'accommodation' 
-        : cartItems.some(i => i.item_type === 'tour' || i.item_type === 'tour_package') ? 'tour' 
-        : 'transport';
-      const guestFeePercent = PLATFORM_FEES[serviceType].guestFeePercent;
-      const hostFeePercent = serviceType === 'accommodation'
-        ? PLATFORM_FEES.accommodation.hostFeePercent
-        : PLATFORM_FEES[serviceType].providerFeePercent;
-      const discountedListingSubtotalRwf = roundToCurrency(amountInRwf / (1 + (guestFeePercent / 100)), 'RWF');
-      const hostFeeAmountRwf = roundToCurrency((discountedListingSubtotalRwf * hostFeePercent) / 100, 'RWF');
-      const hostEarningsAmountRwf = discountedListingSubtotalRwf - hostFeeAmountRwf;
+      // Calculate aggregate host earnings and base price by summing per-item values from cartItemsWithPrices.
+      // This correctly handles mixed carts (accommodation + transport + tour) with different fee rates.
+      const { aggBasePriceRwf, aggHostEarningsRwf } = (() => {
+        let totalBaseRwf = 0;
+        let totalHostEarningsRwf = 0;
+        for (const ci of cartItemsWithPrices) {
+          const guestTotal = Number(ci.calculated_price ?? 0);
+          const listingSubtotal = Number(ci.discounted_listing_subtotal ?? 0);
+          const hostEarnings = Number(ci.host_earnings_amount ?? 0);
+          // Convert from item currency to RWF
+          const itemCurrency = ci.calculated_price_currency || ci.currency || displayCurrency;
+          const baseInRwf = itemCurrency === 'RWF'
+            ? listingSubtotal
+            : (convertAmount(listingSubtotal, itemCurrency, 'RWF', usdRates) ?? (guestTotal > 0 ? amountInRwf * (listingSubtotal / guestTotal) : 0));
+          const earningsInRwf = itemCurrency === 'RWF'
+            ? hostEarnings
+            : (convertAmount(hostEarnings, itemCurrency, 'RWF', usdRates) ?? 0);
+          totalBaseRwf += baseInRwf;
+          totalHostEarningsRwf += earningsInRwf;
+        }
+        return {
+          aggBasePriceRwf: roundToCurrency(totalBaseRwf, 'RWF'),
+          aggHostEarningsRwf: roundToCurrency(totalHostEarningsRwf, 'RWF'),
+        };
+      })();
+      const discountedListingSubtotalRwf = aggBasePriceRwf;
+      const hostEarningsAmountRwf = aggHostEarningsRwf;
       
       // Create a single checkout request with all cart items in metadata
       const checkoutData: any = {
