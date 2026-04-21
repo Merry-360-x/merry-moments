@@ -2293,6 +2293,25 @@ export default function AdminDashboard() {
 
   // Note: Real-time updates are handled by the comprehensive subscription setup above
 
+  // Push token stats — used by the notification generator to show registered device count
+  const { data: pushTokenStats } = useQuery({
+    queryKey: ["admin-push-token-stats"],
+    queryFn: async () => {
+      const { count: totalCount, error: totalErr } = await (supabase as any)
+        .from("mobile_push_tokens")
+        .select("*", { count: "exact", head: true });
+      if (totalErr) return { total: 0, active: 0 };
+      const { count: activeCount } = await (supabase as any)
+        .from("mobile_push_tokens")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+      return { total: totalCount ?? 0, active: activeCount ?? 0 };
+    },
+    enabled: tab === "support",
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
+  });
+
   // Helper for status badge
   const StatusBadge = ({ status }: { status: string }) => (
     <Badge className={statusColors[status] ?? "bg-gray-100 text-gray-800"}>{status}</Badge>
@@ -2849,6 +2868,7 @@ export default function AdminDashboard() {
       const inAppInserted = Number(payload.inAppInserted || 0);
       const pushSent = Number(payload.push?.sent || 0);
       const pushFailed = Number(payload.push?.failed || 0);
+      const attemptedTokens = Number(payload.push?.attemptedTokens || 0);
       const skippedReason = String(payload.push?.skippedReason || "");
 
       const summaryParts = [
@@ -2856,6 +2876,9 @@ export default function AdminDashboard() {
         `In-app: ${inAppInserted}`,
         `Push sent: ${pushSent}`,
       ];
+      if (attemptedTokens > 0 || pushSent > 0 || pushFailed > 0) {
+        summaryParts.push(`Devices: ${attemptedTokens}`);
+      }
       if (pushFailed > 0) summaryParts.push(`Push failed: ${pushFailed}`);
       if (skippedReason) summaryParts.push(`Push: ${skippedReason.replace(/_/g, " ")}`);
 
@@ -7245,7 +7268,14 @@ For support, contact: support@merry360x.com
                       Send targeted in-app and mobile push announcements to users.
                     </p>
                   </div>
-                  <Badge variant="outline">Admin / Staff</Badge>
+                  <div className="flex items-center gap-2">
+                    {pushTokenStats !== undefined && (
+                      <Badge variant="outline" className="text-xs">
+                        {pushTokenStats.active} active device{pushTokenStats.active !== 1 ? "s" : ""} registered
+                      </Badge>
+                    )}
+                    <Badge variant="outline">Admin / Staff</Badge>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
