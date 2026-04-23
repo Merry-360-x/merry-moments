@@ -97,7 +97,6 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
             <span className="text-[10px] md:text-lg font-bold text-foreground">{displayPrice}</span>
             <span className="text-[8px] md:text-sm text-muted-foreground">/ day</span>
           </div>
-          <p className="text-[8px] md:text-[10px] text-muted-foreground/70 mt-0.5">+ 5% service fee</p>
         </div>
       </div>
     </Link>

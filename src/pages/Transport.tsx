@@ -681,7 +681,6 @@ const Transport = () => {
                             <div>
                               <p className="text-xs text-muted-foreground">Starting from</p>
                               <p className="font-bold text-primary">{displayMoney(minOption.price, minOption.currency)}</p>
-                              <p className="text-xs text-muted-foreground">+ 5% service fee</p>
                             </div>
                             <Badge variant="secondary">{options.length} routes</Badge>
                           </div>
@@ -958,7 +957,6 @@ const Transport = () => {
                               </span>
                               <span className="text-sm text-muted-foreground">{t("common.perDay")}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">+ 5% service fee</p>
                             {(v.weekly_price || v.monthly_price) && (
                               <div className="flex gap-3 text-xs text-muted-foreground">
                                 {v.weekly_price && (
