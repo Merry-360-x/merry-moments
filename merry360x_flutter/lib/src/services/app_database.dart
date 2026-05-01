@@ -384,7 +384,7 @@ class AppDatabase {
     Map<String, dynamic>? metadata,
   }) async {
     final row = <String, dynamic>{
-      'user_id': userId,
+      'user_id': userId.trim().isEmpty ? null : userId,
       'name': name,
       'email': email,
       'phone': ?phone,

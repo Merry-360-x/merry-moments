@@ -206,6 +206,8 @@ class PushNotificationService {
         final userId = Supabase.instance.client.auth.currentUser?.id;
         if (userId != null && userId.isNotEmpty) {
           unawaited(syncForUser(userId));
+        } else {
+          unawaited(syncAnonymous());
         }
       });
 
@@ -215,9 +217,26 @@ class PushNotificationService {
 
       // If no user is signed in yet, save the token as a guest row so the
       // device can receive broadcasts before authentication.
+      // If APNs is not ready (iOS), retry after a short delay.
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) {
-        unawaited(syncAnonymous());
+        final token = await _resolveFcmToken();
+        if (token != null && token.isNotEmpty) {
+          unawaited(syncAnonymous());
+        } else {
+          // APNs not ready yet — retry once after 5 seconds
+          Future<void>.delayed(const Duration(seconds: 5), () async {
+            final retryToken = await _resolveFcmToken();
+            if (retryToken != null && retryToken.isNotEmpty) {
+              final uid = Supabase.instance.client.auth.currentUser?.id;
+              if (uid != null && uid.isNotEmpty) {
+                unawaited(syncForUser(uid));
+              } else {
+                unawaited(syncAnonymous());
+              }
+            }
+          });
+        }
       }
     } catch (error) {
       _firebaseReady = false;

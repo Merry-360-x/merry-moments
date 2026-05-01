@@ -722,18 +722,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (_appliedDiscount != null && _discountAmount > 0) {
           AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
         }
-        try {
-          await api.initiatePawaPayDeposit(
-            bookingId: checkoutId,
-            amount: _total,
-            currency: _currency,
-            phoneNumber: phone,
-            payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
-            payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
-            provider: _selectedMethod!.id,
-          );
-        } catch (e) {
-          debugPrint('PawaPay initiation error: $e');
+        final pawaPayResult = await api.initiatePawaPayDeposit(
+          bookingId: checkoutId,
+          amount: _total,
+          currency: _currency,
+          phoneNumber: phone,
+          payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
+          payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+          provider: _selectedMethod!.id,
+        );
+        // Check if PawaPay immediately rejected the payment (insufficient funds, invalid number, etc.)
+        if (pawaPayResult['success'] == false) {
+          final msg = pawaPayResult['message']?.toString()
+              ?? pawaPayResult['error']?.toString()
+              ?? 'Payment failed. Please try again.';
+          _showSnack(msg);
+          setState(() => _submitting = false);
+          return;
         }
         _paymentMethod = 'mobile_money';
         setState(() { _bookingId = checkoutId; _step = 2; });

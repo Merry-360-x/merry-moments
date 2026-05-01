@@ -26,9 +26,16 @@ const TripAdvisorIcon = ({ className }: IconProps) => (
 );
 
 const TikTokIcon = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
-    <path d="M14.2 3v9.1a4.8 4.8 0 1 1-3.4-4.6v2.6a2.3 2.3 0 1 0 1 2V3h2.4c.4 1.8 1.7 3.2 3.5 3.7V9a6.8 6.8 0 0 1-3.5-1z" />
-  </svg>
+);
+
+const RedditIcon = ({ className }: IconProps) => (
+);
+
+const QuoraIcon = ({ className }: IconProps) => (
+);
+
+const PinterestIcon = ({ className }: IconProps) => (
+
 );
 
 const socialLinks = [
@@ -39,6 +46,9 @@ const socialLinks = [
   { label: "Instagram", href: "https://www.instagram.com/merry360.x?igsh=MXc5M3NwanltNjRheQ==", Icon: Instagram, colorClass: "text-[#E1306C]" },
   { label: "YouTube", href: "https://youtube.com/@merry360x?si=C9uORgD72wL1N59V", Icon: Youtube, colorClass: "text-[#FF0000]" },
   { label: "TikTok", href: "https://www.tiktok.com/@merry360x", Icon: TikTokIcon, colorClass: "text-[#111111] dark:text-white" },
+  { label: "Reddit", href: "https://www.reddit.com/user/merry360x/", Icon: RedditIcon, colorClass: "text-[#FF4500]" },
+  { label: "Quora", href: "https://www.quora.com/profile/Merry360X", Icon: QuoraIcon, colorClass: "text-[#B92B27]" },
+  { label: "Pinterest", href: "https://www.pinterest.com/merry360x/", Icon: PinterestIcon, colorClass: "text-[#BD081C]" },
 ];
 
 const updatesLinks = [
@@ -349,3 +359,4 @@ const Footer = () => {
 };
 
 export default Footer;
+
