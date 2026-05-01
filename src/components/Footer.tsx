@@ -26,19 +26,72 @@ const TripAdvisorIcon = ({ className }: IconProps) => (
 );
 
 const TikTokIcon = ({ className }: IconProps) => (
-  
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14 3v11.2a3.4 3.4 0 1 1-2-3.1V6.2c2 2.1 4.2 3.3 7 3.6V7.2c-2.7-.2-4.9-1.5-7-4.2Z" />
+    <circle cx="10.6" cy="17.6" r="1.8" fill="currentColor" stroke="none" />
+  </svg>
 );
 
 const RedditIcon = ({ className }: IconProps) => (
-  
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4.5 13.2c0-3.9 3.4-7.1 7.5-7.1s7.5 3.2 7.5 7.1-3.4 7.1-7.5 7.1-7.5-3.2-7.5-7.1Z" />
+    <circle cx="9.5" cy="13" r="1" fill="currentColor" stroke="none" />
+    <circle cx="14.5" cy="13" r="1" fill="currentColor" stroke="none" />
+    <path d="M9.2 16.2c.8.9 1.8 1.3 2.8 1.3s2-.4 2.8-1.3" />
+    <path d="M15.6 7.5l2.6-1" />
+    <circle cx="19.2" cy="6" r="1" />
+    <path d="M8.8 7.2l-.8-2.1 2.2-.6" />
+  </svg>
 );
 
 const QuoraIcon = ({ className }: IconProps) => (
-  
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="6" />
+    <path d="M15.8 15.8 19 19" />
+  </svg>
 );
 
 const PinterestIcon = ({ className }: IconProps) => (
-
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M9 20V6" />
+    <path d="M9 6h5a3.5 3.5 0 0 1 0 7H9" />
+  </svg>
 );
 
 const socialLinks = [
