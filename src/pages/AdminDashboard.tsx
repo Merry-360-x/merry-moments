@@ -570,6 +570,20 @@ const isBookedBookingStatus = (status: string | null | undefined) => {
 const isNotBookedBookingStatus = (status: string | null | undefined) =>
   String(status || "").toLowerCase() === "cancelled";
 
+const BookingStateBadge = ({ status }: { status: string | null }) => {
+  const normalized = String(status || "").toLowerCase();
+  if (isBookedBookingStatus(normalized)) {
+    return <Badge className="bg-emerald-100 text-emerald-800">Booked</Badge>;
+  }
+  if (isNotBookedBookingStatus(normalized)) {
+    return <Badge className="bg-slate-100 text-slate-800">Not booked</Badge>;
+  }
+  if (isPendingBookingStatus(normalized)) {
+    return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+  }
+  return <Badge variant="outline">{humanizeAdminLabel(normalized) || "Unknown"}</Badge>;
+};
+
 const getBookingPaymentStatus = (booking: BookingRow) =>
   String(booking.checkout_requests?.payment_status || booking.payment_status || "").toLowerCase();
 
@@ -4166,23 +4180,6 @@ For support, contact: support@merry360x.com
               )}
             </Button>
 
-            const BookingStateBadge = ({ status }: { status: string | null }) => {
-              const normalized = String(status || "").toLowerCase();
-
-              if (isBookedBookingStatus(normalized)) {
-                return <Badge className="bg-emerald-100 text-emerald-800">Booked</Badge>;
-              }
-
-              if (isNotBookedBookingStatus(normalized)) {
-                return <Badge className="bg-slate-100 text-slate-800">Not booked</Badge>;
-              }
-
-              if (isPendingBookingStatus(normalized)) {
-                return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-              }
-
-              return <Badge variant="outline">{humanizeAdminLabel(normalized) || "Unknown"}</Badge>;
-            };
             <Button
               variant="outline"
               size="sm"
