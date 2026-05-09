@@ -550,6 +550,29 @@ const Thumb = ({ src, alt }: { src: string | null | undefined; alt: string }) =>
 const isPendingBookingStatus = (status: string | null | undefined) =>
   status === "pending" || status === "pending_confirmation";
 
+type BookingFilterValue =
+  | "all"
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "booked"
+  | "not_booked"
+  | "pending_payment"
+  | "failed_payment"
+  | "refund_requested";
+
+const isBookedBookingStatus = (status: string | null | undefined) => {
+  const normalized = String(status || "").toLowerCase();
+  return normalized === "confirmed" || normalized === "completed";
+};
+
+const isNotBookedBookingStatus = (status: string | null | undefined) =>
+  String(status || "").toLowerCase() === "cancelled";
+
+const getBookingPaymentStatus = (booking: BookingRow) =>
+  String(booking.checkout_requests?.payment_status || booking.payment_status || "").toLowerCase();
+
 const AFRICAN_BOOKING_COUNTRY_BY_CODE: Record<string, string> = {
   "250": "Rwanda",
   "254": "Kenya",
@@ -649,7 +672,7 @@ export default function AdminDashboard() {
   const [userDataSearch, setUserDataSearch] = useState("");
   const [userDataFilter, setUserDataFilter] = useState<"all" | "collected" | "missing">("all");
   const [userDataScope, setUserDataScope] = useState<"all" | "users" | "hosts">("all");
-  const [bookingStatus, setBookingStatus] = useState<"all" | string>("all");
+  const [bookingStatus, setBookingStatus] = useState<BookingFilterValue>("all");
   const [bookingIdSearch, setBookingIdSearch] = useState("");
   const [ticketStatus, setTicketStatus] = useState<"all" | string>("all");
   const [respondingTicket, setRespondingTicket] = useState<SupportTicketRow | null>(null);
@@ -3523,9 +3546,25 @@ For support, contact: support@merry360x.com
 
     const filteredByStatus = bookingStatus === "all" || bookingStatus === "refund_requested"
       ? bookings
-      : bookingStatus === "pending"
-        ? bookings.filter((booking) => isPendingBookingStatus(booking.status))
-        : bookings.filter((booking) => String(booking.status || "").toLowerCase() === bookingStatus);
+      : bookings.filter((booking) => {
+          const normalizedStatus = String(booking.status || "").toLowerCase();
+          const paymentStatus = getBookingPaymentStatus(booking);
+
+          switch (bookingStatus) {
+            case "pending":
+              return isPendingBookingStatus(booking.status);
+            case "booked":
+              return isBookedBookingStatus(booking.status);
+            case "not_booked":
+              return isNotBookedBookingStatus(booking.status);
+            case "pending_payment":
+              return paymentStatus === "pending";
+            case "failed_payment":
+              return ["failed", "cancelled", "rejected", "expired"].includes(paymentStatus);
+            default:
+              return normalizedStatus === bookingStatus;
+          }
+        });
 
     const filteredByRefundRequest = bookingStatus === "refund_requested"
       ? filteredByStatus.filter((booking) => {
@@ -3626,6 +3665,22 @@ For support, contact: support@merry360x.com
 
   const bookingOrderCount = useMemo(
     () => new Set(bookings.map((booking) => booking.order_id).filter(Boolean)).size,
+    [bookings]
+  );
+  const pendingPaymentBookings = useMemo(
+    () => bookings.filter((booking) => getBookingPaymentStatus(booking) === "pending").length,
+    [bookings]
+  );
+  const failedPaymentBookings = useMemo(
+    () => bookings.filter((booking) => ["failed", "cancelled", "rejected", "expired"].includes(getBookingPaymentStatus(booking))).length,
+    [bookings]
+  );
+  const cancelledBookingsCount = useMemo(
+    () => bookings.filter((booking) => isNotBookedBookingStatus(booking.status)).length,
+    [bookings]
+  );
+  const bookedBookingsCount = useMemo(
+    () => bookings.filter((booking) => isBookedBookingStatus(booking.status)).length,
     [bookings]
   );
   const unpaidConfirmedBookings = useMemo(
@@ -4110,6 +4165,24 @@ For support, contact: support@merry360x.com
                 </Badge>
               )}
             </Button>
+
+            const BookingStateBadge = ({ status }: { status: string | null }) => {
+              const normalized = String(status || "").toLowerCase();
+
+              if (isBookedBookingStatus(normalized)) {
+                return <Badge className="bg-emerald-100 text-emerald-800">Booked</Badge>;
+              }
+
+              if (isNotBookedBookingStatus(normalized)) {
+                return <Badge className="bg-slate-100 text-slate-800">Not booked</Badge>;
+              }
+
+              if (isPendingBookingStatus(normalized)) {
+                return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+              }
+
+              return <Badge variant="outline">{humanizeAdminLabel(normalized) || "Unknown"}</Badge>;
+            };
             <Button
               variant="outline"
               size="sm"
@@ -4861,13 +4934,70 @@ For support, contact: support@merry360x.com
               )}
             </Card>
 
+            <Card className="p-4 mb-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                Booking Status Shortcuts
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  className="rounded-lg border p-4 text-left hover:bg-muted/40 transition-colors"
+                  onClick={() => {
+                    setBookingStatus("pending_payment");
+                    setAdminTab("bookings");
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">Pending payment</p>
+                  <p className="text-2xl font-semibold text-amber-600">{pendingPaymentBookings}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Open bookings waiting for payment</p>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border p-4 text-left hover:bg-muted/40 transition-colors"
+                  onClick={() => {
+                    setBookingStatus("failed_payment");
+                    setAdminTab("bookings");
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">Failed payment</p>
+                  <p className="text-2xl font-semibold text-destructive">{failedPaymentBookings}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Failed, cancelled, rejected, or expired payments</p>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border p-4 text-left hover:bg-muted/40 transition-colors"
+                  onClick={() => {
+                    setBookingStatus("not_booked");
+                    setAdminTab("bookings");
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">Not booked</p>
+                  <p className="text-2xl font-semibold">{cancelledBookingsCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Cancelled bookings and orders</p>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border p-4 text-left hover:bg-muted/40 transition-colors"
+                  onClick={() => {
+                    setBookingStatus("booked");
+                    setAdminTab("bookings");
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">Booked</p>
+                  <p className="text-2xl font-semibold text-emerald-700">{bookedBookingsCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Confirmed or completed bookings</p>
+                </button>
+              </div>
+            </Card>
+
             {/* Pending Payments Section */}
             <Card className="p-4 mb-6">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-yellow-600" /> 
-                Pending Payments ({bookings.filter(b => b.payment_status === 'pending').length})
+                Pending Payments ({pendingPaymentBookings})
               </h3>
-              {bookings.filter(b => b.payment_status === 'pending').length === 0 ? (
+              {pendingPaymentBookings === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending payments</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -4883,7 +5013,7 @@ For support, contact: support@merry360x.com
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {bookings.filter(b => b.payment_status === 'pending').slice(0, 10).map((b) => (
+                      {bookings.filter((b) => getBookingPaymentStatus(b) === 'pending').slice(0, 10).map((b) => (
                         <TableRow key={b.id}>
                           <TableCell className="font-mono text-xs">{b.id.slice(0, 8)}...</TableCell>
                           <TableCell className="text-sm">
@@ -4911,7 +5041,7 @@ For support, contact: support@merry360x.com
                           <TableCell>
                             <div className="flex gap-1">
                               <StatusBadge status={b.status} />
-                              <PaymentStatusBadge status={b.payment_status} />
+                              <PaymentStatusBadge status={getBookingPaymentStatus(b) || null} />
                             </div>
                           </TableCell>
                           <TableCell>
@@ -6338,6 +6468,10 @@ For support, contact: support@merry360x.com
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending_payment">Pending payment</SelectItem>
+                      <SelectItem value="failed_payment">Failed payment</SelectItem>
+                      <SelectItem value="booked">Booked</SelectItem>
+                      <SelectItem value="not_booked">Not booked</SelectItem>
                       <SelectItem value="confirmed">Confirmed</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -6347,7 +6481,7 @@ For support, contact: support@merry360x.com
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-8 gap-3 mb-4">
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Bookings</p>
                   <p className="text-xl font-semibold">{bookings.length}</p>
@@ -6355,6 +6489,22 @@ For support, contact: support@merry360x.com
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Orders</p>
                   <p className="text-xl font-semibold">{bookingOrderCount}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Booked</p>
+                  <p className="text-xl font-semibold text-emerald-700">{bookedBookingsCount}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Not Booked</p>
+                  <p className="text-xl font-semibold">{cancelledBookingsCount}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Pending Payment</p>
+                  <p className="text-xl font-semibold text-amber-600">{pendingPaymentBookings}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Failed Payment</p>
+                  <p className="text-xl font-semibold text-destructive">{failedPaymentBookings}</p>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Confirmed, Unpaid</p>
@@ -6445,6 +6595,7 @@ For support, contact: support@merry360x.com
                       const paymentCurrencySource = String(b.checkout_requests?.currency || listingCurrency || "RWF");
                       const paymentAmountRwf = toRwfAmount(paymentAmountSource, paymentCurrencySource);
                       const paymentMethod = b.checkout_requests?.payment_method || b.payment_method || "—";
+                      const effectivePaymentStatus = getBookingPaymentStatus(b) || null;
                       const bookingType = String(b.booking_type || "").toLowerCase();
                       const serviceType: "accommodation" | "tour" | "transport" =
                         bookingType === "property"
@@ -6577,7 +6728,7 @@ For support, contact: support@merry360x.com
                               {formatMoney(paymentAmountRwf, "RWF")}
                             </div>
                             <div className="text-xs text-muted-foreground">Method: {paymentMethod}</div>
-                            <PaymentStatusBadge status={b.payment_status} />
+                            <PaymentStatusBadge status={effectivePaymentStatus} />
                             {(refundRequestRefs.has(String(b.id || "").toLowerCase()) || (b.order_id && refundRequestRefs.has(String(b.order_id).toLowerCase()))) && (
                               <Badge className="bg-amber-100 text-amber-800">Refund Requested</Badge>
                             )}
@@ -6594,7 +6745,10 @@ For support, contact: support@merry360x.com
                           </div>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={b.status} />
+                          <div className="flex flex-wrap gap-1">
+                            <StatusBadge status={b.status} />
+                            <BookingStateBadge status={b.status} />
+                          </div>
                         </TableCell>
                         <TableCell className="align-top">
                           {(() => {
@@ -6606,7 +6760,28 @@ For support, contact: support@merry360x.com
 
                             return (
                           <div className="flex flex-wrap justify-end gap-1 min-w-[320px]">
-                            {b.status === 'confirmed' && b.payment_status !== 'paid' && (
+                            {!isBookedBookingStatus(b.status) && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="gap-1 whitespace-nowrap"
+                                onClick={() => updateBookingStatus(b.id, "confirmed", b.order_id)}
+                              >
+                                <CheckCircle className="w-3 h-3" />
+                                Mark Booked
+                              </Button>
+                            )}
+                            {!isNotBookedBookingStatus(b.status) && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="whitespace-nowrap"
+                                onClick={() => updateBookingStatus(b.id, "cancelled", b.order_id)}
+                              >
+                                Mark Not Booked
+                              </Button>
+                            )}
+                            {b.status === 'confirmed' && effectivePaymentStatus !== 'paid' && (
                               <Button
                                 size="sm"
                                 variant="default"
@@ -6618,7 +6793,7 @@ For support, contact: support@merry360x.com
                                 {markingPaid === b.id ? 'Marking...' : 'Mark Paid'}
                               </Button>
                             )}
-                            {isRefundRequested && b.status === 'cancelled' && b.payment_status === 'paid' && (
+                            {isRefundRequested && b.status === 'cancelled' && effectivePaymentStatus === 'paid' && (
                               <>
                                 <Button
                                   size="sm"
@@ -6647,7 +6822,7 @@ For support, contact: support@merry360x.com
                               onClick={async () => {
                                 setSelectedBooking(b);
                                 // Calculate refund if cancelled and paid
-                                if (b.status === 'cancelled' && b.payment_status === 'paid') {
+                                if (b.status === 'cancelled' && effectivePaymentStatus === 'paid') {
                                   const refund = await getRefundInfo(b.id, b.order_id);
                                   setRefundInfo(refund);
                                 } else {
@@ -6794,6 +6969,10 @@ For support, contact: support@merry360x.com
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending_payment">Pending payment</SelectItem>
+                      <SelectItem value="failed_payment">Failed payment</SelectItem>
+                      <SelectItem value="booked">Booked</SelectItem>
+                      <SelectItem value="not_booked">Not booked</SelectItem>
                       <SelectItem value="confirmed">Confirmed</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>

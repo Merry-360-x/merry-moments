@@ -639,7 +639,7 @@ export default async function handler(req, res) {
     return json(res, 405, { error: "Method not allowed" });
   }
 
-  const { action, depositId, checkoutId, bookingId } = req.query;
+  const { action, depositIdcheckoutId, bookingId } = req.query;
   const orderId = checkoutId || bookingId; // Support both
 
   if (!PAWAPAY_API_KEY) {
