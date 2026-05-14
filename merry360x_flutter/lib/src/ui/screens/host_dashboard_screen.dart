@@ -2590,78 +2590,6 @@ class _TransportTab extends StatelessWidget {
     return vType.contains('airport') || title.contains('airport');
   }
 
-  void _showAddVehicleTypePicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'What are you adding?',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Choose the type of vehicle listing you want to create.',
-                style: TextStyle(fontSize: 13, color: AppColors.foggy),
-              ),
-              const SizedBox(height: 20),
-              _VehicleTypeOption(
-                icon: Icons.directions_car_outlined,
-                title: 'Car Rental',
-                subtitle: 'Rent your vehicle by the day, week or month',
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final result = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VehicleWizardScreen(api: api, userId: userId),
-                    ),
-                  );
-                  if (result == true) onRefresh();
-                },
-              ),
-              const SizedBox(height: 12),
-              _VehicleTypeOption(
-                icon: Icons.flight_takeoff_outlined,
-                title: 'Airport Transfer',
-                subtitle: 'Fixed-price transfers to/from the airport',
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final result = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AirportTransferWizardScreen(api: api, userId: userId),
-                    ),
-                  );
-                  if (result == true) onRefresh();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _edit(BuildContext context, Map<String, dynamic> item) async {
     final isTransfer = _isAirportTransfer(item);
     final result = await Navigator.push(
@@ -2715,12 +2643,47 @@ class _TransportTab extends StatelessWidget {
                 },
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.rausch,
-        foregroundColor: AppColors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Vehicle'),
-        onPressed: () => _showAddVehicleTypePicker(context),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'add_car_rental',
+              backgroundColor: AppColors.rausch,
+              foregroundColor: AppColors.white,
+              icon: const Icon(Icons.directions_car_outlined, size: 18),
+              label: const Text('Car Rental', style: TextStyle(fontWeight: FontWeight.w600)),
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VehicleWizardScreen(api: api, userId: userId),
+                  ),
+                );
+                if (result == true) onRefresh();
+              },
+            ),
+            const SizedBox(width: 10),
+            FloatingActionButton.extended(
+              heroTag: 'add_airport_transfer',
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.rausch,
+              icon: const Icon(Icons.flight_takeoff_outlined, size: 18),
+              label: const Text('Airport Transfer', style: TextStyle(fontWeight: FontWeight.w600)),
+              elevation: 2,
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AirportTransferWizardScreen(api: api, userId: userId),
+                  ),
+                );
+                if (result == true) onRefresh();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -7228,58 +7191,6 @@ class _PayoutRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _VehicleTypeOption extends StatelessWidget {
-  const _VehicleTypeOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.rausch.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: AppColors.rausch, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.foggy),
-            ],
-          ),
-        ),
-      );
 }
 
 class _EmptyState extends StatelessWidget {
