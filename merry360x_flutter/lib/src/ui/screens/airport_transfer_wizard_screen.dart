@@ -208,10 +208,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
         // At least one route with a valid price
         return _routePriceCtrls.entries.any((e) => double.tryParse(e.value.text.trim()) != null && double.parse(e.value.text.trim()) > 0);
       case 4:
-        return _insuranceDocUrl != null &&
-            _registrationDocUrl != null &&
-            _roadworthinessDocUrl != null &&
-            _ownerIdDocUrl != null;
+        return true;
       default:
         return true;
     }
@@ -613,6 +610,7 @@ class _AirportTransferWizardScreenState extends State<AirportTransferWizardScree
 
   Widget _docRow({required String label, required String? url, required VoidCallback onPick}) {
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(

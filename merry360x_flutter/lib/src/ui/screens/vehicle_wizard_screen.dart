@@ -133,10 +133,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       case 2: return double.tryParse(_dailyPriceCtrl.text.trim()) != null;
       case 3: return true;
       case 4:
-        return _insuranceDocUrl != null &&
-            _registrationDocUrl != null &&
-            _roadworthinessDocUrl != null &&
-            _ownerIdDocUrl != null;
+        return true;
       default: return true;
     }
   }
@@ -303,6 +300,7 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       required VoidCallback onPick,
     }) {
       return Container(
+        width: double.infinity,
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
