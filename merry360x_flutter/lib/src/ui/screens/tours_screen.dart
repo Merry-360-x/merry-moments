@@ -5,7 +5,7 @@ import '../../app.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
-import 'explore_screen.dart' show resolveListingImageUrl;
+import 'explore_screen.dart' show resolveListingImageUrl, resolveListingImages;
 import 'property_details_screen.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -205,23 +205,38 @@ class _CategoryChips extends StatelessWidget {
   }
 }
 
-class _TourCard extends StatelessWidget {
+class _TourCard extends StatefulWidget {
   const _TourCard({required this.item, required this.session});
   final Map<String, dynamic> item;
   final SessionController session;
 
   @override
+  State<_TourCard> createState() => _TourCardState();
+}
+
+class _TourCardState extends State<_TourCard> {
+  final _pageCtrl = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final title = (item['title'] ?? '').toString();
-    final location = (item['location'] ?? '').toString();
-    final price = item['price_per_person'];
-    final currency = (item['currency'] ?? 'USD').toString();
-    final duration = item['duration_days'];
-    final imgUrl = resolveListingImageUrl(item);
+    final title = (widget.item['title'] ?? '').toString();
+    final location = (widget.item['location'] ?? '').toString();
+    final price = widget.item['price_per_person'];
+    final currency = (widget.item['currency'] ?? 'USD').toString();
+    final duration = widget.item['duration_days'];
+    final description = (widget.item['description'] ?? '').toString().trim();
+    final images = resolveListingImages(widget.item);
 
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => PropertyDetailsScreen(item: item, session: session),
+        builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
       )),
       child: Container(
         decoration: BoxDecoration(
@@ -234,10 +249,66 @@ class _TourCard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                child: (imgUrl != null && imgUrl.isNotEmpty)
-                    ? Image.network(imgUrl, fit: BoxFit.cover, width: double.infinity,
-                        errorBuilder: (_, _, _) => _imgPlaceholder())
-                    : _imgPlaceholder(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      controller: _pageCtrl,
+                      itemCount: images.isEmpty ? 1 : images.length,
+                      onPageChanged: (i) => setState(() => _currentPage = i),
+                      itemBuilder: (_, i) {
+                        final url = images.isEmpty ? null : images[i];
+                        return (url != null && url.isNotEmpty)
+                            ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, width: double.infinity,
+                                errorWidget: (_, _, _) => _imgPlaceholder())
+                            : _imgPlaceholder();
+                      },
+                    ),
+                    // Left arrow
+                    if (images.length > 1 && _currentPage > 0)
+                      Positioned(
+                        left: 6, top: 0, bottom: 0,
+                        child: Center(child: GestureDetector(
+                          onTap: () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                          child: Container(
+                            width: 26, height: 26,
+                            decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                            child: const Icon(Icons.chevron_left, size: 16, color: AppColors.black),
+                          ),
+                        )),
+                      ),
+                    // Right arrow
+                    if (images.length > 1 && _currentPage < images.length - 1)
+                      Positioned(
+                        right: 6, top: 0, bottom: 0,
+                        child: Center(child: GestureDetector(
+                          onTap: () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                          child: Container(
+                            width: 26, height: 26,
+                            decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                            child: const Icon(Icons.chevron_right, size: 16, color: AppColors.black),
+                          ),
+                        )),
+                      ),
+                    // Dots
+                    if (images.length > 1)
+                      Positioned(
+                        bottom: 6, left: 0, right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(images.length, (i) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: _currentPage == i ? 5 : 3,
+                            height: _currentPage == i ? 5 : 3,
+                            decoration: BoxDecoration(
+                              color: _currentPage == i ? Colors.white : Colors.white54,
+                              shape: BoxShape.circle,
+                            ),
+                          )),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -257,11 +328,16 @@ class _TourCard extends StatelessWidget {
                             style: const TextStyle(fontSize: 11, color: AppColors.foggy))),
                       ]),
                     ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(description, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
+                  ],
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(price != null ? '${session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/pp' : '',
+                      Text(price != null ? '${widget.session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/pp' : '',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.rausch)),
                       if (duration != null)
                         Text('${duration}d', style: const TextStyle(fontSize: 11, color: AppColors.foggy)),

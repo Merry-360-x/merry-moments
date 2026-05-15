@@ -20,6 +20,69 @@ import 'transport_screen.dart';
 
 // ── Image URL resolver (shared) ──
 
+/// Returns ALL image URLs for a listing (carousel support).
+List<String> resolveListingImages(Map<String, dynamic> item) {
+  List<String> fromValue(dynamic value) {
+    if (value is List) {
+      final results = <String>[];
+      for (final v in value) {
+        String raw = '';
+        if (v is Map) {
+          raw = (v['url'] ?? v['uri'] ?? v['src'] ?? '').toString().trim();
+        } else {
+          raw = v?.toString().trim() ?? '';
+        }
+        if (raw.isEmpty) continue;
+        if (raw.startsWith('[')) {
+          try {
+            final decoded = jsonDecode(raw);
+            if (decoded is List) results.addAll(fromValue(decoded));
+          } catch (_) {}
+          continue;
+        }
+        if (!raw.startsWith('http://') && !raw.startsWith('https://') && !raw.startsWith('//')) {
+          raw = raw.startsWith('res.cloudinary.com/')
+              ? 'https://$raw'
+              : 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto:eco,dpr_auto,c_limit,w_1200/$raw';
+        }
+        if (raw.startsWith('//')) raw = 'https:$raw';
+        results.add(raw);
+      }
+      return results;
+    }
+    final t = value?.toString().trim() ?? '';
+    if (t.isEmpty) return [];
+    if (t.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(t);
+        if (decoded is List) return fromValue(decoded);
+      } catch (_) {}
+    }
+    final url = resolveListingImageUrl({'images': [t]});
+    return url != null ? [url] : [];
+  }
+
+  final sets = [
+    fromValue(item['images']),
+    fromValue(item['exterior_images']),
+    fromValue(item['interior_images']),
+    fromValue(item['photos']),
+  ];
+  final seen = <String>{};
+  final out = <String>[];
+  for (final set in sets) {
+    for (final url in set) {
+      if (seen.add(url)) out.add(url);
+    }
+  }
+  // Fallback: single main image
+  if (out.isEmpty) {
+    final single = resolveListingImageUrl(item);
+    if (single != null) out.add(single);
+  }
+  return out;
+}
+
 String? resolveListingImageUrl(Map<String, dynamic> item) {
   String? firstImage(dynamic value) {
     if (value is List) {
@@ -1428,7 +1491,7 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
 // ListingCard — Airbnb-style card for all listing types
 // ══════════════════════════════════════════════════════════════════════
 
-class ListingCard extends StatelessWidget {
+class ListingCard extends StatefulWidget {
   const ListingCard({
     super.key,
     required this.item,
@@ -1443,12 +1506,26 @@ class ListingCard extends StatelessWidget {
   final double? imageHeightOverride;
 
   @override
+  State<ListingCard> createState() => _ListingCardState();
+}
+
+class _ListingCardState extends State<ListingCard> {
+  final _pageCtrl = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PropertyDetailsScreen(item: item, session: session),
+          builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
         ),
       ),
       child: _buildCard(context),
@@ -1458,22 +1535,23 @@ class ListingCard extends StatelessWidget {
   Widget _buildCard(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    final title = (item['title'] ?? item['name'] ?? l.listingFallback).toString();
-    final subtitle = _itemSubtitle(item, l);
-    final price = _priceLabel(item, l, session);
-    final imageUrl = resolveListingImageUrl(item);
-    final ratingValue = double.tryParse((item['rating'] ?? item['average_rating'] ?? '').toString());
+    final title = (widget.item['title'] ?? widget.item['name'] ?? l.listingFallback).toString();
+    final subtitle = _itemSubtitle(widget.item, l);
+    final price = _priceLabel(widget.item, l, widget.session);
+    final ratingValue = double.tryParse((widget.item['rating'] ?? widget.item['average_rating'] ?? '').toString());
     final showRating = ratingValue != null && ratingValue > 0;
     final rating = ratingValue == null
         ? ''
         : (ratingValue % 1 == 0 ? ratingValue.toStringAsFixed(0) : ratingValue.toStringAsFixed(1));
-    final imageHeight = imageHeightOverride ?? (compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
+    final imageHeight = widget.imageHeightOverride ?? (widget.compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
+    final images = resolveListingImages(widget.item);
+    final description = (widget.item['description'] ?? '').toString().trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Image with overlays ──
+        // ── Image carousel with overlays ──
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: SizedBox(
@@ -1482,7 +1560,13 @@ class ListingCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _ListingImage(imageUrl: imageUrl),
+                // PageView of images
+                PageView.builder(
+                  controller: _pageCtrl,
+                  itemCount: images.isEmpty ? 1 : images.length,
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  itemBuilder: (_, i) => _ListingImage(imageUrl: images.isEmpty ? null : images[i]),
+                ),
 
                 // Heart / wishlist button
                 Positioned(
@@ -1491,7 +1575,7 @@ class ListingCard extends StatelessWidget {
                   child: GestureDetector(
                     onTap: () async {
                       HapticFeedback.lightImpact();
-                      await session.addListingToWishlist(item);
+                      await widget.session.addListingToWishlist(widget.item);
                       if (context.mounted) {
                         AppSnackBar.success(context, l.savedToWishlist);
                       }
@@ -1507,6 +1591,64 @@ class ListingCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                // Left arrow
+                if (images.length > 1 && _currentPage > 0)
+                  Positioned(
+                    left: 6,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                          child: const Icon(Icons.chevron_left, size: 18, color: AppColors.black),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Right arrow
+                if (images.length > 1 && _currentPage < images.length - 1)
+                  Positioned(
+                    right: 6,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                          child: const Icon(Icons.chevron_right, size: 18, color: AppColors.black),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Dot indicators
+                if (images.length > 1)
+                  Positioned(
+                    bottom: 8,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(images.length, (i) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: _currentPage == i ? 6 : 4,
+                        height: _currentPage == i ? 6 : 4,
+                        decoration: BoxDecoration(
+                          color: _currentPage == i ? Colors.white : Colors.white54,
+                          shape: BoxShape.circle,
+                        ),
+                      )),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1522,7 +1664,7 @@ class ListingCard extends StatelessWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: compact ? 13 : 15, color: AppColors.black),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: widget.compact ? 13 : 15, color: AppColors.black),
               ),
             ),
             if (showRating) ...[
@@ -1540,8 +1682,19 @@ class ListingCard extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: compact ? 12 : 13, color: AppColors.foggy),
+          style: TextStyle(fontSize: widget.compact ? 12 : 13, color: AppColors.foggy),
         ),
+
+        // ── Description ──
+        if (description.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: widget.compact ? 11 : 12, color: AppColors.foggy),
+          ),
+        ],
 
         const SizedBox(height: 4),
 

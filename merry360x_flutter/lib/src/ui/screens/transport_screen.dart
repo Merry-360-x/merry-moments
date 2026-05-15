@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import 'explore_screen.dart' show resolveListingImages;
 import 'property_details_screen.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -165,81 +167,184 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 }
 
-class _TransportTile extends StatelessWidget {
+class _TransportTile extends StatefulWidget {
   const _TransportTile({required this.item, required this.session});
   final Map<String, dynamic> item;
   final SessionController session;
 
   @override
+  State<_TransportTile> createState() => _TransportTileState();
+}
+
+class _TransportTileState extends State<_TransportTile> {
+  final _pageCtrl = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final title = (item['title'] ?? 'Vehicle').toString();
-    final type = (item['vehicle_type'] ?? '').toString();
-    final price = item['price_per_day'];
-    final currency = (item['currency'] ?? 'USD').toString();
-    final capacity = item['passenger_capacity'];
-    final imgUrl = (item['image_url'] ?? (item['images'] is List ? (item['images'] as List).firstOrNull ?? '' : '')).toString();
+    final title = (widget.item['title'] ?? 'Vehicle').toString();
+    final type = (widget.item['vehicle_type'] ?? '').toString();
+    final price = widget.item['price_per_day'];
+    final currency = (widget.item['currency'] ?? 'USD').toString();
+    final seats = widget.item['seats'] ?? widget.item['passenger_capacity'];
+    final transmission = (widget.item['transmission'] ?? '').toString();
+    final description = (widget.item['description'] ?? '').toString().trim();
+    final images = resolveListingImages(widget.item);
 
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => PropertyDetailsScreen(item: item, session: session),
+        builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
       )),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
         ),
-        child: Row(children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
-            child: imgUrl.isNotEmpty
-                ? Image.network(imgUrl, width: 110, height: 100, fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _ph())
-                : _ph(),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (type.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Image carousel ──
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: SizedBox(
+                height: 190,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      controller: _pageCtrl,
+                      itemCount: images.isEmpty ? 1 : images.length,
+                      onPageChanged: (i) => setState(() => _currentPage = i),
+                      itemBuilder: (_, i) {
+                        final url = images.isEmpty ? null : images[i];
+                        return (url != null && url.isNotEmpty)
+                            ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, width: double.infinity,
+                                errorWidget: (_, _, _) => _ph())
+                            : _ph();
+                      },
                     ),
-                    child: Text(type.toUpperCase(), style: const TextStyle(
-                      fontSize: 9, color: Color(0xFF2196F3), fontWeight: FontWeight.w700, letterSpacing: 0.5,
-                    )),
-                  ),
-                const SizedBox(height: 6),
-                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.black)),
-                const SizedBox(height: 8),
-                Row(children: [
-                  if (capacity != null) ...[
-                    const Icon(Icons.people_alt_outlined, size: 14, color: AppColors.foggy),
-                    const SizedBox(width: 4),
-                    Text('$capacity seats', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-                    const SizedBox(width: 12),
+                    // Type badge
+                    if (type.isNotEmpty)
+                      Positioned(
+                        top: 10, left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2196F3).withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(type.toUpperCase(), style: const TextStyle(
+                            fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: 0.5,
+                          )),
+                        ),
+                      ),
+                    // Left arrow
+                    if (images.length > 1 && _currentPage > 0)
+                      Positioned(
+                        left: 8, top: 0, bottom: 0,
+                        child: Center(child: GestureDetector(
+                          onTap: () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                          child: Container(
+                            width: 30, height: 30,
+                            decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                            child: const Icon(Icons.chevron_left, size: 18, color: AppColors.black),
+                          ),
+                        )),
+                      ),
+                    // Right arrow
+                    if (images.length > 1 && _currentPage < images.length - 1)
+                      Positioned(
+                        right: 8, top: 0, bottom: 0,
+                        child: Center(child: GestureDetector(
+                          onTap: () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
+                          child: Container(
+                            width: 30, height: 30,
+                            decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
+                            child: const Icon(Icons.chevron_right, size: 18, color: AppColors.black),
+                          ),
+                        )),
+                      ),
+                    // Dots
+                    if (images.length > 1)
+                      Positioned(
+                        bottom: 8, left: 0, right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(images.length, (i) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: _currentPage == i ? 6 : 4,
+                            height: _currentPage == i ? 6 : 4,
+                            decoration: BoxDecoration(
+                              color: _currentPage == i ? Colors.white : Colors.white54,
+                              shape: BoxShape.circle,
+                            ),
+                          )),
+                        ),
+                      ),
                   ],
-                  if (price != null)
-                    Text('${session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/day', style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rausch,
-                    )),
-                ]),
-              ]),
+                ),
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.hackberry),
-          ),
-        ]),
+            // ── Details ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.black)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    if (seats != null) ...[
+                      const Icon(Icons.people_alt_outlined, size: 14, color: AppColors.foggy),
+                      const SizedBox(width: 4),
+                      Text('$seats seats', style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                    ],
+                    if (seats != null && transmission.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      const Text('•', style: TextStyle(fontSize: 12, color: AppColors.foggy)),
+                      const SizedBox(width: 10),
+                    ],
+                    if (transmission.isNotEmpty)
+                      Text(transmission, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                  ]),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(description, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (price != null)
+                        Text(
+                          '${widget.session.formatPrice(double.tryParse('$price') ?? 0, itemCurrency: currency)}/day',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.rausch),
+                        ),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.hackberry),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _ph() => Container(width: 110, height: 100, color: AppColors.linnen,
-      child: const Center(child: Icon(Icons.directions_car_outlined, color: AppColors.hackberry, size: 32)));
+  Widget _ph() => Container(
+    color: AppColors.linnen,
+    child: const Center(child: Icon(Icons.directions_car_outlined, color: AppColors.hackberry, size: 40)),
+  );
 }
