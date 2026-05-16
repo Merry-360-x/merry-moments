@@ -1512,9 +1512,23 @@ class ListingCard extends StatefulWidget {
 class _ListingCardState extends State<ListingCard> {
   final _pageCtrl = PageController();
   int _currentPage = 0;
+  Timer? _autoRotate;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoRotate = Timer.periodic(const Duration(seconds: 4), (_) {
+      final images = resolveListingImages(widget.item);
+      if (images.length > 1 && mounted) {
+        final next = (_currentPage + 1) % images.length;
+        _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _autoRotate?.cancel();
     _pageCtrl.dispose();
     super.dispose();
   }

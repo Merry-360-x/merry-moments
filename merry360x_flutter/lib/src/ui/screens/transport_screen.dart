@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -179,9 +180,23 @@ class _TransportTile extends StatefulWidget {
 class _TransportTileState extends State<_TransportTile> {
   final _pageCtrl = PageController();
   int _currentPage = 0;
+  Timer? _autoRotate;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoRotate = Timer.periodic(const Duration(seconds: 4), (_) {
+      final images = resolveListingImages(widget.item);
+      if (images.length > 1 && mounted) {
+        final next = (_currentPage + 1) % images.length;
+        _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _autoRotate?.cancel();
     _pageCtrl.dispose();
     super.dispose();
   }
