@@ -313,7 +313,8 @@ const roomPropertyTypeOptions = propertyTypes.map((type) => ({
   value: type,
   label: type === "Hotel" ? "Hotel Room" : type,
 }));
-const isHotelPropertyType = (propertyType: string): boolean => String(propertyType || "").toLowerCase() === "hotel";
+
+
 const conferenceRoomEquipmentOptions = [
   { value: "tv", label: "TV" },
   { value: "monitor", label: "Monitor" },
@@ -323,11 +324,12 @@ const conferenceRoomEquipmentOptions = [
   { value: "video_conferencing", label: "Video Conferencing" },
 ];
 const currencies = CURRENCY_OPTIONS;
-const cancellationPolicies = [
-  { value: "strict", label: "Strict - Less refunds" },
-  { value: "fair", label: "Fair - Moderate refunds" },
-  { value: "lenient", label: "Lenient - More refunds" },
-];
+
+
+
+
+
+
 
 const cancellationPolicyDetails: Record<string, { title: string; lines: string[] }> = {
   strict: {
