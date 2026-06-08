@@ -1,0 +1,35 @@
+{
+  "project_info": {
+    "project_number": "592965243458",
+    "project_id": "merry360x",
+    "storage_bucket": "merry360x.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:592965243458:android:a3b8c2d1e4f56789",
+        "android_client_info": {
+          "package_name": "com.merry360x"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXhaEnhlDxasNaoGJCz9QKKXiMU2LPonE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 2
+        },
+        "appinvite_service": {
+          "status": 2
+        },
+        "google_sign_in_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

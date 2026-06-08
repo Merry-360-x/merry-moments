@@ -309,7 +309,11 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
     for (final item in items) {
       final url = resolveListingImageUrl(item);
       if (url != null && _precachedUrls.add(url)) {
-        precacheImage(CachedNetworkImageProvider(url), context);
+        try {
+          precacheImage(CachedNetworkImageProvider(url), context);
+        } catch (_) {
+          // Silently ignore precache failures (network issues, invalid URLs, etc.)
+        }
       }
     }
   }
@@ -1513,13 +1517,14 @@ class _ListingCardState extends State<ListingCard> {
   final _pageCtrl = PageController();
   int _currentPage = 0;
   Timer? _autoRotate;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
     _autoRotate = Timer.periodic(const Duration(seconds: 4), (_) {
       final images = resolveListingImages(widget.item);
-      if (images.length > 1 && mounted) {
+      if (images.length > 1 && mounted && !_disposed) {
         final next = (_currentPage + 1) % images.length;
         _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
       }
@@ -1528,6 +1533,7 @@ class _ListingCardState extends State<ListingCard> {
 
   @override
   void dispose() {
+    _disposed = true;
     _autoRotate?.cancel();
     _pageCtrl.dispose();
     super.dispose();
@@ -1871,15 +1877,19 @@ class _ListingImage extends StatelessWidget {
       return _placeholder();
     }
 
-    return CachedNetworkImage(
-      imageUrl: imageUrl!,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.medium,
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: Duration.zero,
-      placeholderFadeInDuration: Duration.zero,
-      placeholder: (_, _) => _placeholder(),
-      errorWidget: (_, _, _) => _placeholder(),
+    // Use Builder to ensure CachedNetworkImage always has a valid context
+    // connected to the widget tree (avoids MediaQuery InheritedWidget errors).
+    return Builder(
+      builder: (context) => CachedNetworkImage(
+        imageUrl: imageUrl!,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        placeholderFadeInDuration: Duration.zero,
+        placeholder: (_, _) => _placeholder(),
+        errorWidget: (_, _, _) => _placeholder(),
+      ),
     );
   }
 }

@@ -313,6 +313,7 @@ const roomPropertyTypeOptions = propertyTypes.map((type) => ({
   value: type,
   label: type === "Hotel" ? "Hotel Room" : type,
 }));
+const isHotelPropertyType = (propertyType: string): boolean => String(propertyType || "").toLowerCase() === "hotel";
 const conferenceRoomEquipmentOptions = [
   { value: "tv", label: "TV" },
   { value: "monitor", label: "Monitor" },

@@ -33,6 +33,7 @@ class AppConfig {
     return env.isNotEmpty ? env : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3Z2lvc3RjZXRveG90Zm51bGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNDAxMjgsImV4cCI6MjA4MzkxNjEyOH0.a3jDwpElRGICu7WvV3ahT0MCtmcUj4d9LO0KIHMSTtA';
   }
 
+  /// Mobile sync endpoint - unified API for all platforms
   static Uri mobileSyncUri({String? userId}) {
     final query = <String, String>{
       'include': 'home,profile,wishlists,tripCart,bookings,notifications',
@@ -47,3 +48,4 @@ class AppConfig {
     return Uri.parse('$apiBaseUrl/mobile-action');
   }
 }
+

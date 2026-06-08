@@ -5,14 +5,33 @@ import 'dart:async';
 
 /// Cloudinary unsigned upload service.
 ///
+/// Configuration is now centralized in shared-config/cloudinary.ts
 /// Cloud name  : dghg9uebh
 /// Upload preset: MERRY360X (unsigned)
 class CloudinaryService {
-  static const _cloudName = 'dghg9uebh';
-  static const _uploadPreset = 'MERRY360X';
+  // Shared configuration constants - MUST match packages/shared-config/cloudinary.ts
+  static const String _cloudName = 'dghg9uebh';
+  static const String _uploadPreset = 'MERRY360X';
+  static const List<String> _disabledCloudNames = ['dxdblhmbm'];
 
   /// Individual upload progress tracking
   static const int maxConcurrentUploads = 5;
+
+  /// Check if a Cloudinary URL is from a disabled cloud account
+  static bool isWorkingImageUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      if (uri.host == 'res.cloudinary.com') {
+        final segments = uri.pathSegments;
+        if (segments.isNotEmpty && _disabledCloudNames.contains(segments[0])) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Upload a single image file to Cloudinary.
   /// [folder] — Cloudinary folder (e.g. 'properties', 'tours', 'transport').
@@ -23,36 +42,36 @@ class CloudinaryService {
     void Function(double progress)? onProgress,
   }) async {
     final uri = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
-    );
+        'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
+      );
 
-    final file = File(filePath);
-    final bytes = await file.readAsBytes();
-    final fileName = filePath.split('/').last;
+      final file = File(filePath);
+      final bytes = await file.readAsBytes();
+      final fileName = filePath.split('/').last;
 
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['upload_preset'] = _uploadPreset
-      ..fields['folder'] = folder
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: fileName,
-      ));
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['upload_preset'] = _uploadPreset
+        ..fields['folder'] = folder
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: fileName,
+        ));
 
-    final streamedResponse = await request.send();
-    final body = await streamedResponse.stream.bytesToString();
+      final streamedResponse = await request.send();
+      final body = await streamedResponse.stream.bytesToString();
 
-    if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
-      throw Exception('Cloudinary upload failed (${streamedResponse.statusCode}): $body');
+      if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
+        throw Exception('Cloudinary upload failed (${streamedResponse.statusCode}): $body');
+      }
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final url = json['secure_url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('Cloudinary returned no secure_url: $body');
+      }
+      return url;
     }
-
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final url = json['secure_url'] as String?;
-    if (url == null || url.isEmpty) {
-      throw Exception('Cloudinary returned no secure_url: $body');
-    }
-    return url;
-  }
 
   /// Upload multiple image files in parallel (up to 5 at a time).
   /// Skips any failed uploads and returns all successfully uploaded URLs.
@@ -120,50 +139,7 @@ class CloudinaryService {
   }) async {
     try {
       onProgress?.call(0.0);
-      
+
       final uri = Uri.parse(
-        'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
-      );
+        'https://api.cloudinary.com/v1_1/
 
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      final fileName = filePath.split('/').last;
-
-      onProgress?.call(25.0); // File read complete
-
-      final request = http.MultipartRequest('POST', uri)
-        ..fields['upload_preset'] = _uploadPreset
-        ..fields['folder'] = folder
-        ..files.add(http.MultipartFile.fromBytes(
-          'file',
-          bytes,
-          filename: fileName,
-        ));
-
-      onProgress?.call(50.0); // Request prepared
-
-      final streamedResponse = await request.send();
-      
-      onProgress?.call(75.0); // Upload complete, awaiting response
-
-      final body = await streamedResponse.stream.bytesToString();
-
-      if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
-        throw Exception('Cloudinary upload failed (${streamedResponse.statusCode}): $body');
-      }
-
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final url = json['secure_url'] as String?;
-      
-      if (url == null || url.isEmpty) {
-        throw Exception('Cloudinary returned no secure_url: $body');
-      }
-      
-      onProgress?.call(100.0); // Complete
-      return url;
-    } catch (e) {
-      onProgress?.call(0.0); // Reset on error
-      return null;
-    }
-  }
-}
