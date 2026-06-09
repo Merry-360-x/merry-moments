@@ -105,7 +105,7 @@ export async function uploadFileToCloudinary(
 ): Promise<CloudinaryUploadResult> {
   if (!isCloudinaryConfigured()) {
     throw new Error(
-      "Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET."
+      `Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.`
     );
   }
 
@@ -256,4 +256,4 @@ export function resolveListingImages(
   }
   
   return Array.from(urls);
-}"
+}
