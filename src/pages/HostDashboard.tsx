@@ -23,6 +23,7 @@ import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import {
   PLATFORM_FEES,
 } from "@/lib/fees";
+import { isHotelPropertyType } from "@/lib/property-utils";
 import { getTourPricingModel, getTourPricingModels } from "@/lib/tour-pricing";
 import { useFxRates } from "@/hooks/useFxRates";
 import { usePreferences } from "@/hooks/usePreferences";
