@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isVideoUrl } from "@/lib/media";
-import { optimizeCloudinaryImage } from "@/lib/cloudinary";
+import { isWorkingImageUrl, optimizeCloudinaryImage } from "@/lib/cloudinary";
 
 type Props = {
   images?: Array<string | null | undefined> | null;
@@ -19,7 +19,7 @@ export default function ListingImageCarousel({
   priority = false,
 }: Props) {
   const clean = useMemo(
-    () => (images ?? []).map((x) => (typeof x === "string" ? x : "")).filter(Boolean),
+    () => (images ?? []).map((x) => (typeof x === "string" ? x : "")).filter(Boolean).filter(isWorkingImageUrl),
     [images]
   );
   const [hover, setHover] = useState(false);
