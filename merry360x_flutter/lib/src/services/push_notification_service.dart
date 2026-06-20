@@ -59,27 +59,32 @@ class PushNotificationService {
 
     final messaging = FirebaseMessaging.instance;
 
-    if (_isIos && waitForApns) {
-      String? apnsToken = await messaging.getAPNSToken();
-      if (apnsToken == null || apnsToken.trim().isEmpty) {
-        await Future<void>.delayed(const Duration(seconds: 2));
-        apnsToken = await messaging.getAPNSToken();
-      }
+    // On iOS, explicitly register for remote notifications so the APNs
+    // token is requested from the system.  Without this, getToken() may
+    // fail or return null on the first attempt.
+    if (_isIos) {
+      try {
+        // ignore: deprecated_member_use
+        await messaging.registerForRemoteNotifications();
+      } catch (_) {}
 
-      if (apnsToken == null || apnsToken.trim().isEmpty) {
-        if (!_apnsPendingLogged) {
-          debugPrint(
-            '[PushNotificationService] APNS token not ready yet; postponing FCM token sync',
-          );
-          _apnsPendingLogged = true;
+      if (waitForApns) {
+        String? apnsToken = await messaging.getAPNSToken();
+        if (apnsToken == null || apnsToken.trim().isEmpty) {
+          await Future<void>.delayed(const Duration(seconds: 3));
+          apnsToken = await messaging.getAPNSToken();
         }
-        return null;
       }
-
-      _apnsPendingLogged = false;
     }
 
-    return await messaging.getToken();
+    // Even if APNs token wasn't ready, still try getToken() –
+    // the Firebase SDK handles the APNs registration internally.
+    try {
+      return await messaging.getToken();
+    } catch (error) {
+      debugPrint('[PushNotificationService] getToken() failed: $error');
+      return null;
+    }
   }
 
   Future<void> _initLocalNotifications() async {
@@ -262,12 +267,16 @@ class PushNotificationService {
 
       final token = await _resolveFcmToken();
       if (token == null || token.trim().isEmpty) {
-        debugPrint('[PushNotificationService] No FCM token yet for $trimmedUserId');
+        debugPrint('[PushNotificationService] No FCM token yet for $trimmedUserId; retrying in 5s');
+        Future<void>.delayed(const Duration(seconds: 5), () {
+          syncForUser(trimmedUserId);
+        });
         return;
       }
 
       _cachedToken = token;
 
+      debugPrint('[PushNotificationService] Syncing FCM token for $trimmedUserId ($_platformLabel)');
       await Supabase.instance.client.from('mobile_push_tokens').upsert(
         {
           'user_id': trimmedUserId,
@@ -278,16 +287,8 @@ class PushNotificationService {
         },
         onConflict: 'token',
       );
+      debugPrint('[PushNotificationService] Token synced OK');
     } catch (error) {
-      if (_isApnsNotReadyError(error)) {
-        if (!_apnsPendingLogged) {
-          debugPrint(
-            '[PushNotificationService] APNS token not set yet; waiting before retry',
-          );
-          _apnsPendingLogged = true;
-        }
-        return;
-      }
       debugPrint('[PushNotificationService] Token sync failed: $error');
     }
   }

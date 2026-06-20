@@ -21,7 +21,7 @@ class SessionController extends ChangeNotifier {
   }
 
   static const String _mobileAuthRedirectUri =
-      'com.merry360x.mobile://login-callback/';
+      'com.merry360x.merry360x://login-callback/';
 
   final AppDatabase _api;
   final PushNotificationService _pushNotifications =
@@ -347,13 +347,14 @@ class SessionController extends ChangeNotifier {
           );
         } else {
           final iosClientId = AppConfig.googleIosClientId.trim();
+          final webClientId = AppConfig.googleWebClientId.trim();
           final googleSignIn = GoogleSignIn(
             scopes: const <String>['email', 'profile'],
             clientId: defaultTargetPlatform == TargetPlatform.iOS && iosClientId.isNotEmpty
                 ? iosClientId
                 : null,
-            // Keep native sign-in tied to mobile app client identity.
-            serverClientId: null,
+            // Use web client ID as serverClientId so the ID token is issued for the backend (Supabase).
+            serverClientId: webClientId.isNotEmpty ? webClientId : null,
           );
 
           // Force chooser every time.
