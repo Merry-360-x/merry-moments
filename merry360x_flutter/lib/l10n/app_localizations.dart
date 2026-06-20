@@ -806,6 +806,36 @@ abstract class AppLocalizations {
   /// **'Updates and alerts'**
   String get notificationsDesc;
 
+  /// No description provided for @notificationSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification Settings'**
+  String get notificationSettings;
+
+  /// No description provided for @pushNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Push Notifications'**
+  String get pushNotifications;
+
+  /// No description provided for @pushNotificationsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive alerts for bookings, messages, and offers'**
+  String get pushNotificationsDesc;
+
+  /// No description provided for @inAppNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'In-App Notifications'**
+  String get inAppNotifications;
+
+  /// No description provided for @inAppNotificationsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'View all your notifications in the app'**
+  String get inAppNotificationsDesc;
+
   /// No description provided for @affiliatePortal.
   ///
   /// In en, this message translates to:

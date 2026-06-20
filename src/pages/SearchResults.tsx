@@ -315,6 +315,7 @@ export default function SearchResults() {
               <Label className="mb-3 block">Amenities</Label>
               <div className="flex flex-wrap gap-2">
                 {AMENITIES.slice(0, 20).map((amenity) => {
+                  const Icon = amenity.icon;
                   const active = selectedAmenities.includes(amenity.value);
                   return (
                     <button
@@ -328,12 +329,13 @@ export default function SearchResults() {
                           return Array.from(next);
                         })
                       }
-                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                      className={`px-3 py-1.5 rounded-full text-xs border-2 transition-all duration-200 inline-flex items-center gap-1.5 ${
                         active
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-border hover:border-primary"
+                          ? "bg-primary text-primary-foreground border-primary scale-[1.05]"
+                          : "bg-background border-border hover:border-primary hover:scale-[1.03]"
                       }`}
                     >
+                      <Icon className="w-3.5 h-3.5" />
                       {amenity.label}
                     </button>
                   );

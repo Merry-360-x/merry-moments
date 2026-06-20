@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app.dart';
+import '../../utils/number_format.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../widgets/return_button.dart';
@@ -196,8 +197,7 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
 
   String _money(dynamic raw, [String currency = 'RWF']) {
     final value = (raw as num?)?.toDouble() ?? 0;
-    final whole = value.round().toString();
-    return '$currency $whole';
+    return fmtCurrencyWithCode(value, currency);
   }
 
   String _label(String raw) {

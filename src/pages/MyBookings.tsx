@@ -90,6 +90,7 @@ interface Booking {
     total_amount: number;
     currency: string | null;
     payment_method: string | null;
+    payment_status?: string | null;
     base_price_amount?: number | null;
     service_fee_amount?: number | null;
   } | null;
@@ -350,6 +351,35 @@ const MyBookings = () => {
   const [expandedAdvancedDetails, setExpandedAdvancedDetails] = useState<Record<string, boolean>>({});
   const lastDecisionToastRef = useRef<string>("");
 
+  // Pull-to-refresh
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef(0);
+  const pullThreshold = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (window.scrollY > 0) return;
+    pullStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (window.scrollY > 0 || isRefreshing) return;
+    const diff = e.touches[0].clientY - pullStartY.current;
+    if (diff > 0) {
+      setPullDistance(Math.min(diff * 0.5, pullThreshold * 1.5));
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistance >= pullThreshold && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(pullThreshold);
+      await refetchBookings();
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, isRefreshing, refetchBookings]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
     setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
@@ -395,7 +425,7 @@ const MyBookings = () => {
       const orderIds = [...new Set((data ?? []).filter(b => b.order_id).map(b => b.order_id))];
       const transportIds = [...new Set((data ?? []).filter(b => b.transport_id).map(b => b.transport_id))];
       const checkouts = orderIds.length > 0
-        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method, base_price_amount, service_fee_amount").in("id", orderIds)).data || []
+        ? (await supabase.from("checkout_requests").select("id, total_amount, currency, payment_method, payment_status, base_price_amount, service_fee_amount").in("id", orderIds)).data || []
         : [];
       const vehicles = transportIds.length > 0
         ? (await supabase.from("transport_vehicles").select("id, title, vehicle_type, seats").in("id", transportIds)).data || []
@@ -446,6 +476,13 @@ const MyBookings = () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id, qc]);
+
+  // Force refetch when arriving from payment confirmation to ensure fresh data
+  useEffect(() => {
+    if (cameFromPaymentConfirmation) {
+      refetchBookings();
+    }
+  }, [cameFromPaymentConfirmation, refetchBookings]);
 
   const { data: reviewedBookingIds = new Set() } = useQuery({
     queryKey: ["reviewed-bookings", user?.id],
@@ -1556,7 +1593,33 @@ const MyBookings = () => {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div
+      className="min-h-[100dvh] bg-background"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="flex items-center justify-center overflow-hidden transition-all duration-300"
+        style={{ height: pullDistance }}
+      >
+        <div
+          className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center"
+          style={{
+            transform: `rotate(${(pullDistance / pullThreshold) * 360}deg)`,
+            transition: 'transform 0.1s linear',
+          }}
+        >
+          <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </div>
+        {isRefreshing && (
+          <div className="ml-3 text-sm text-muted-foreground">Refreshing...</div>
+        )}
+      </div>
+
       <Navbar />
 
       <div className="container mx-auto px-4 lg:px-8 py-12">
@@ -1613,10 +1676,11 @@ const MyBookings = () => {
                   );
                 });
               
-              // Calculate total amount paid (from checkout_requests)
+              // Calculate total amount paid (from checkout_requests, fall back to booking total_price)
               const totalPaid = orderBookings.reduce((sum, b) => {
-                return sum + (b.checkout_requests?.total_amount || 0);
+                return sum + (b.checkout_requests?.total_amount || Number(b.total_price) || 0);
               }, 0);
+              const effectivePaymentStatus = firstBooking.checkout_requests?.payment_status || firstBooking.payment_status || "pending";
               const paidCurrency = firstBooking.checkout_requests?.currency || "RWF";
               
               // Get listing currency
@@ -1666,6 +1730,20 @@ const MyBookings = () => {
                         <p className="text-sm font-semibold text-foreground">Order #{displayReference}</p>
                         <p className="text-sm text-muted-foreground">{bookingDateLabel}</p>
                         <p className="text-sm text-muted-foreground">{locationSummary}</p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <Badge className={
+                            effectivePaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" :
+                            effectivePaymentStatus === "pending" ? "bg-amber-100 text-amber-700 hover:bg-amber-100" :
+                            effectivePaymentStatus === "failed" ? "bg-rose-100 text-rose-700 hover:bg-rose-100" :
+                            effectivePaymentStatus === "refunded" ? "bg-slate-100 text-slate-700 hover:bg-slate-100" :
+                            "bg-slate-100 text-slate-700 hover:bg-slate-100"
+                          }>
+                            Payment: {effectivePaymentStatus === "paid" ? "Paid" : effectivePaymentStatus === "pending" ? "Pending" : effectivePaymentStatus === "failed" ? "Failed" : effectivePaymentStatus === "refunded" ? "Refunded" : effectivePaymentStatus}
+                          </Badge>
+                          <Badge className={confirmationUi.badgeClass}>
+                            {firstBooking.status === "pending" ? "Pending" : confirmationUi.badgeLabel}
+                          </Badge>
+                        </div>
                         {orderCharges.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 pt-1">
                             <Badge className={pendingOrderCharges.length > 0 ? "bg-rose-100 text-rose-700 hover:bg-rose-100" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"}>

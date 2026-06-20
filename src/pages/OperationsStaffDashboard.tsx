@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import { calculateBookingFinancialsFromGuestPaidTotal } from "@/lib/fees";
 import { Banknote, Wallet } from "lucide-react";
 
@@ -841,7 +841,7 @@ export default function OperationsStaffDashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingApplications.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(pendingApplications.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
             </CardContent>
           </Card>
@@ -852,7 +852,7 @@ export default function OperationsStaffDashboard() {
               <CalendarCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingBookings.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(pendingBookings.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Need confirmation</p>
             </CardContent>
           </Card>
@@ -863,7 +863,7 @@ export default function OperationsStaffDashboard() {
               <Home className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{activeProperties.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(activeProperties.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Listed accommodations</p>
             </CardContent>
           </Card>
@@ -874,7 +874,7 @@ export default function OperationsStaffDashboard() {
               <MapPin className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{activeTours.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(activeTours.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Available tour packages</p>
             </CardContent>
           </Card>
@@ -885,7 +885,7 @@ export default function OperationsStaffDashboard() {
               <Plane className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{transport.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(transport.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">All transport options</p>
             </CardContent>
           </Card>
@@ -922,14 +922,14 @@ export default function OperationsStaffDashboard() {
             <TabsTrigger value="applications">
               Applications
               {pendingApplications.length > 0 && (
-                <Badge className="ml-2" variant="destructive">{pendingApplications.length}</Badge>
+                <Badge className="ml-2" variant="destructive">{formatNumber(pendingApplications.length)}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="user-data">User Data</TabsTrigger>
             <TabsTrigger value="bookings">
               Bookings
               {pendingBookings.length > 0 && (
-                <Badge className="ml-2" variant="destructive">{pendingBookings.length}</Badge>
+                <Badge className="ml-2" variant="destructive">{formatNumber(pendingBookings.length)}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="accommodations">Accommodations</TabsTrigger>

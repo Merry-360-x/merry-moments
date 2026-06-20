@@ -383,6 +383,11 @@ class AppDatabase {
     String? specialRequests,
     Map<String, dynamic>? metadata,
   }) async {
+    final mergedMetadata = <String, dynamic>{
+      ...?metadata,
+      'items': items,
+      if (paymentProvider != null) 'payment_provider': paymentProvider,
+    };
     final row = <String, dynamic>{
       'user_id': userId.trim().isEmpty ? null : userId,
       'name': name,
@@ -398,7 +403,7 @@ class AppDatabase {
       'status': 'pending',
       'items': items,
       'message': ?specialRequests,
-      'metadata': ?metadata,
+      'metadata': mergedMetadata,
     };
     final result = await _sb.from('checkout_requests').insert(row).select('id').single();
     return (result as Map)['id'].toString();
@@ -442,6 +447,23 @@ class AppDatabase {
     if (resp.statusCode != 200) return 'pending';
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     return (data['paymentStatus'] ?? data['status'] ?? 'pending').toString();
+  }
+
+  /// Check PawaPay mobile money deposit/checkout status.
+  /// Returns one of: 'paid', 'pending', 'failed', or 'unknown'.
+  Future<String> checkPawaPayStatus(String checkoutId, {String? depositId}) async {
+    final queryParams = <String, String>{
+      'checkoutId': checkoutId,
+      if (depositId != null && depositId.isNotEmpty) 'depositId': depositId,
+    };
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/pawapay-check-status').replace(queryParameters: queryParams);
+    final resp = await _http.get(uri);
+    if (resp.statusCode != 200) return 'pending';
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final status = (data['status'] ?? data['paymentStatus'] ?? '').toString().toLowerCase();
+    if (status == 'paid' || status == 'completed') return 'paid';
+    if (status == 'failed' || status == 'rejected' || status == 'cancelled') return 'failed';
+    return 'pending';
   }
 
   /// Initiate PawaPay mobile money deposit via serverless function.

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../services/app_database.dart';
+import '../../services/push_notification_service.dart';
 import '../../session_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/app_snackbar.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_post_booking_screen.dart';
@@ -514,6 +516,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: cardDecoration,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l.notificationSettings, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      _NotificationSettingsTile(session: session),
                     ],
                   ),
                 ),
@@ -1180,6 +1195,170 @@ class _PreferenceTile extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: AppColors.foggy),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Notification Settings Tile ──
+
+class _NotificationSettingsTile extends StatefulWidget {
+  const _NotificationSettingsTile({required this.session});
+  final SessionController session;
+
+  @override
+  State<_NotificationSettingsTile> createState() => _NotificationSettingsTileState();
+}
+
+class _NotificationSettingsTileState extends State<_NotificationSettingsTile> {
+  bool _pushEnabled = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPushStatus();
+  }
+
+  Future<void> _loadPushStatus() async {
+    if (!widget.session.isAuthenticated) {
+      setState(() {
+        _pushEnabled = true;
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = widget.session.userId;
+      final data = await supabase
+          .from('mobile_push_tokens')
+          .select('is_active')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .limit(1);
+      setState(() {
+        _pushEnabled = (data as List).isNotEmpty;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _pushEnabled = true;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _togglePush(bool value) async {
+    if (!widget.session.isAuthenticated) return;
+    setState(() => _loading = true);
+    try {
+      final pushNotifications = PushNotificationService.instance;
+      final userId = widget.session.userId;
+      if (value) {
+        // Re-register token
+        await pushNotifications.syncForUser(userId);
+      } else {
+        // Deactivate tokens
+        await pushNotifications.deactivateForUser(userId);
+      }
+      if (mounted) {
+        setState(() {
+          _pushEnabled = value;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        _SettingsRow(
+          title: l.pushNotifications,
+          subtitle: l.pushNotificationsDesc,
+          icon: Icons.notifications_active_outlined,
+          trailing: Switch(
+            value: _pushEnabled,
+            onChanged: _loading ? null : _togglePush,
+            activeColor: AppColors.rausch,
+          ),
+        ),
+        if (widget.session.isAuthenticated) ...[
+          const Divider(height: 1, indent: 56),
+          _SettingsRow(
+            title: l.inAppNotifications,
+            subtitle: l.inAppNotificationsDesc,
+            icon: Icons.mail_outline,
+            trailing: const Icon(Icons.chevron_right, color: AppColors.foggy, size: 18),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => NotificationsScreen(session: widget.session)),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Settings Row Helper ──
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    this.trailing,
+    this.onTap,
+  });
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.rausch),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.black)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+            if (trailing == null && onTap != null)
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.foggy),
           ],
         ),
       ),

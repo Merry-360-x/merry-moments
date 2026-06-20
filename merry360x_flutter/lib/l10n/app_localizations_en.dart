@@ -366,6 +366,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsDesc => 'Updates and alerts';
 
   @override
+  String get notificationSettings => 'Notification Settings';
+
+  @override
+  String get pushNotifications => 'Push Notifications';
+
+  @override
+  String get pushNotificationsDesc =>
+      'Receive alerts for bookings, messages, and offers';
+
+  @override
+  String get inAppNotifications => 'In-App Notifications';
+
+  @override
+  String get inAppNotificationsDesc => 'View all your notifications in the app';
+
+  @override
   String get affiliatePortal => 'Affiliate Portal';
 
   @override

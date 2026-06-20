@@ -565,6 +565,47 @@ export default async function handler(req, res) {
       });
     }
 
+    // Catch ALL other error / unexpected statuses — not just REJECTED/FAILED.
+    // PawaPay may return HTTP 200 with statuses like ERROR, INVALID, or an empty
+    // payload when the deposit was not actually queued for processing.
+    const validInitiationStatuses = new Set([
+      "SUBMITTED", "ACCEPTED", "PENDING", "ENQUEUED", "CREATED", "QUEUED",
+    ]);
+
+    if (!initialStatus || !validInitiationStatuses.has(initialStatus)) {
+      console.error("⚠️ PawaPay response missing a valid initiation status:", {
+        initialStatus,
+        rawStatus: pawaPayData?.status,
+        rawPayload: rawProviderPayload,
+      });
+
+      const fallbackMessage = rejectionMessage ||
+        `Payment could not be initiated (status: ${initialStatus || "empty"})`;
+
+      // Update database so the webhook / admin can inspect it
+      try {
+        await supabase
+          .from("checkout_requests")
+          .update({
+            payment_method: paymentMethodValue,
+            payment_status: "failed",
+            payment_error: `Unexpected status: ${initialStatus || "empty"}`,
+            dpo_transaction_id: selectedDepositId,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", orderId);
+      } catch (_) { /* best effort */ }
+
+      return json(res, 200, {
+        success: false,
+        error: `Payment ${initialStatus ? String(initialStatus).toLowerCase() : "was not initiated"}`,
+        message: fallbackMessage,
+        depositId: selectedDepositId,
+        status: initialStatus || "UNKNOWN",
+        details: rawProviderPayload,
+      });
+    }
+
     // Update checkout request with payment details
     const { error: updateError } = await supabase
       .from("checkout_requests")

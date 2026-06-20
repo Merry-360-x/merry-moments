@@ -372,6 +372,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get notificationsDesc => 'Mises à jour et alertes';
 
   @override
+  String get notificationSettings => 'Paramètres de notifications';
+
+  @override
+  String get pushNotifications => 'Notifications push';
+
+  @override
+  String get pushNotificationsDesc =>
+      'Recevoir des alertes pour les réservations, messages et offres';
+
+  @override
+  String get inAppNotifications => 'Notifications dans l\'app';
+
+  @override
+  String get inAppNotificationsDesc =>
+      'Voir toutes vos notifications dans l\'application';
+
+  @override
   String get affiliatePortal => 'Portail d\'affiliation';
 
   @override

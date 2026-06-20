@@ -1,4 +1,4 @@
-package com.merry360x
+package com.merry360x.mobile
 
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity

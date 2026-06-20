@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useMemo } from "react";
 import { Car } from "lucide-react";
+import { motion } from "framer-motion";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,15 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
   }, [routerLocation.search]);
   return (
     <Link to={`/transport/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
-      <div className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
+      <motion.div
+        className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300"
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.97 }}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-50px" }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="relative aspect-[4/3] overflow-hidden">
           {imgs.length ? (
             <ListingImageCarousel images={imgs} alt={props.title} className="w-full h-full" />
@@ -98,7 +107,7 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
             <span className="text-[8px] md:text-sm text-muted-foreground">/ day</span>
           </div>
         </div>
-      </div>
+      </motion.div>
     </Link>
   );
 }

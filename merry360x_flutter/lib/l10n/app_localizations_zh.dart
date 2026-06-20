@@ -360,6 +360,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationsDesc => '更新和提醒';
 
   @override
+  String get notificationSettings => '通知设置';
+
+  @override
+  String get pushNotifications => '推送通知';
+
+  @override
+  String get pushNotificationsDesc => '接收预订、消息和优惠的提醒';
+
+  @override
+  String get inAppNotifications => '应用内通知';
+
+  @override
+  String get inAppNotificationsDesc => '在应用中查看所有通知';
+
+  @override
   String get affiliatePortal => '联盟门户';
 
   @override

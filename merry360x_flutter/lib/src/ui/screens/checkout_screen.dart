@@ -732,15 +732,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           provider: _selectedMethod!.id,
         );
         // Check if PawaPay immediately rejected the payment (insufficient funds, invalid number, etc.)
-        if (pawaPayResult['success'] == false) {
+        final pawaSuccess = pawaPayResult['success'];
+        final pawaStatus = pawaPayResult['status']?.toString().toUpperCase().trim() ?? '';
+        final validInitiationStatuses = {'SUBMITTED', 'ACCEPTED', 'PENDING', 'ENQUEUED', 'CREATED', 'QUEUED'};
+
+        if (pawaSuccess == false || (pawaStatus.isNotEmpty && !validInitiationStatuses.contains(pawaStatus))) {
           final msg = pawaPayResult['message']?.toString()
               ?? pawaPayResult['error']?.toString()
-              ?? 'Payment failed. Please try again.';
+              ?? (pawaStatus.isEmpty
+                  ? 'Payment was not initiated. The payment provider returned an empty status.'
+                  : 'Payment failed with status: $pawaStatus. Please try again.');
           _showSnack(msg);
           setState(() => _submitting = false);
           return;
         }
         _paymentMethod = 'mobile_money';
+
+        // Poll the PawaPay webhook to confirm the payment actually completed.
+        // PawaPay is async — the initial response just means the deposit was queued.
+        // We wait up to 15 s for the status to reach 'paid' before showing success.
+        final depositId = pawaPayResult['depositId']?.toString() ?? pawaPayResult['data']?['depositId']?.toString();
+        final confirmed = await _pollCheckoutStatus(checkoutId, 'paid', depositId: depositId);
+        if (!confirmed) {
+          // Payment may still be pending on the network side; offer to retry.
+          if (!mounted) return;
+          _showPawaPayPendingDialog(checkoutId, phone);
+          setState(() {
+            _bookingId = checkoutId;
+            _step = 2;
+          });
+          return;
+        }
         setState(() { _bookingId = checkoutId; _step = 2; });
       } else if (_payTab == 1) {
         // ── Card (Flutterwave) ──
@@ -827,7 +849,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final payResult = await _showPaymentWebView(redirectUrl);
         if (!mounted) return;
         if (payResult == 'success') {
-          setState(() => _step = 2);
+          // Verify payment actually completed via server-side check
+          final status = await api.checkFlutterwaveStatus(checkoutId);
+          if (!mounted) return;
+          if (status.toLowerCase() == 'paid' || status.toLowerCase() == 'successful') {
+            setState(() => _step = 2);
+          } else if (status.toLowerCase() == 'failed' || status.toLowerCase() == 'rejected') {
+            _showSnack(_l.paymentFailed);
+          } else {
+            // Payment still pending on Flutterwave side — poll briefly
+            final confirmed = await _pollCheckoutStatus(
+              checkoutId,
+              'paid',
+              statusChecker: (id, {depositId}) => api.checkFlutterwaveStatus(id),
+            );
+            if (confirmed && mounted) {
+              setState(() => _step = 2);
+            } else if (mounted) {
+              _showSnack('Payment is being processed. Please check your bookings.');
+              setState(() { _bookingId = checkoutId; _step = 2; });
+            }
+          }
         } else if (payResult == 'failed') {
           _showSnack(_l.paymentFailed);
         }
@@ -875,6 +917,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _showSnack(String msg) => AppSnackBar.error(context, msg);
+
+  /// Poll the checkout status until it reaches the expected value or timeout.
+  /// Returns true if the status reached [expected], false otherwise.
+  Future<bool> _pollCheckoutStatus(
+    String checkoutId,
+    String expected, {
+    String? depositId,
+    Future<String> Function(String checkoutId, {String? depositId})? statusChecker,
+    int maxAttempts = 5,
+    Duration delay = const Duration(seconds: 3),
+  }) async {
+    final api = AppDatabase();
+    final checker = statusChecker ?? ((id, {depositId}) => api.checkPawaPayStatus(id, depositId: depositId));
+    for (int i = 0; i < maxAttempts; i++) {
+      if (!mounted) return false;
+      await Future.delayed(delay);
+      if (!mounted) return false;
+      final status = await checker(checkoutId, depositId: depositId);
+      if (status.toLowerCase() == expected.toLowerCase()) return true;
+      if (status == 'failed' || status == 'rejected' || status == 'cancelled') return false;
+    }
+    return false;
+  }
+
+  /// Show dialog when PawaPay payment is pending (webhook hasn't confirmed yet).
+  void _showPawaPayPendingDialog(String checkoutId, String phone) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(_l.paymentInitiated,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.hourglass_top, size: 40, color: AppColors.foggy),
+            const SizedBox(height: 16),
+            Text(
+              'Awaiting confirmation from $phone',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.black),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You should receive an SMS prompt to confirm payment on your mobile money account. '
+              'Confirm on your phone to complete the booking.',
+              style: TextStyle(fontSize: 13, color: AppColors.foggy),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => Clipboard.setData(ClipboardData(text: checkoutId)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.copy, size: 12, color: AppColors.hackberry),
+                    const SizedBox(width: 6),
+                    Text('Ref: ${checkoutId.substring(0, 8)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.hackberry, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

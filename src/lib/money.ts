@@ -100,4 +100,25 @@ export function parseMoney(value: string): number {
   return Number.isFinite(result) ? result : 0;
 }
 
+/**
+ * Format a plain number with thousands separators (commas)
+ * e.g., 42000 -> "42,000", 1500000 -> "1,500,000"
+ * 
+ * @param amount The number to format
+ * @returns Formatted number string with commas
+ */
+export function formatNumber(amount: number): string {
+  const num = Number(amount);
+  if (!Number.isFinite(num)) return "0";
+  
+  try {
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.round(num));
+  } catch {
+    return Math.round(num).toLocaleString();
+  }
+}
+
 

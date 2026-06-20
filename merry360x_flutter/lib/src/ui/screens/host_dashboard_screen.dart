@@ -14,6 +14,7 @@ import '../../services/app_database.dart';
 import '../../services/local_draft_store.dart';
 import '../../session_controller.dart';
 import '../../app.dart';
+import '../../utils/number_format.dart';
 import '../widgets/return_button.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'tour_package_wizard_screen.dart';
@@ -579,7 +580,6 @@ class _OverviewTab extends StatelessWidget {
         (stats?['property_count'] as num?)?.toInt() ?? properties.length;
     final currency = (stats?['currency'] ?? 'RWF').toString();
 
-    // Revenue proportion for bar
     final payoutBar = (netEarnings > 0)
         ? (completedPayout / netEarnings).clamp(0.0, 1.0)
         : 0.0;
@@ -589,411 +589,148 @@ class _OverviewTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Dark hero earnings card ───────────────────────────────────
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1A2E4A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -20,
-                  top: -20,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _kRed.withValues(alpha: 0.12),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 30,
-                  bottom: -15,
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.04),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.15),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF22C55E),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'Host Earnings',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _kRed.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '$totalBookings bookings',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Net Earnings',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatMoney(netEarnings, currency),
-                        style: const TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          height: 0.95,
-                          letterSpacing: -1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // Payout progress bar
-                      if (netEarnings > 0) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${(payoutBar * 100).toStringAsFixed(0)}% paid out',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            Text(
-                              '${_formatMoney(availableForPayout, currency)} available',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF22C55E),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: Stack(
-                            children: [
-                              Container(
-                                height: 5,
-                                width: double.infinity,
-                                color: Colors.white.withValues(alpha: 0.1),
-                              ),
-                              FractionallySizedBox(
-                                widthFactor: payoutBar,
-                                child: Container(
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        const Color(0xFF22C55E),
-                                        const Color(0xFF16A34A),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _darkPill(
-                              label: 'Available',
-                              value: _formatMoney(availableForPayout, currency),
-                              color: const Color(0xFF22C55E),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _darkPill(
-                              label: 'Paid out',
-                              value: _formatMoney(completedPayout, currency),
-                              color: const Color(0xFF60A5FA),
-                            ),
-                          ),
-                          if (pendingPayout > 0) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _darkPill(
-                                label: 'Pending',
-                                value: _formatMoney(pendingPayout, currency),
-                                color: const Color(0xFFFBBF24),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _HostHeroCard(
+            netEarnings: netEarnings,
+            totalBookings: totalBookings,
+            currency: currency,
+            availableForPayout: availableForPayout,
+            completedPayout: completedPayout,
+            pendingPayout: pendingPayout,
+            payoutBar: payoutBar,
           ),
-
           const SizedBox(height: 16),
-
-          // ── Booking stats row ─────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _statTile(
-                  value: '$totalBookings',
-                  label: 'Total',
-                  icon: Icons.calendar_month_rounded,
-                  color: const Color(0xFF6C63FF),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _statTile(
-                  value: '$pending',
-                  label: 'Pending',
-                  icon: Icons.hourglass_top_rounded,
-                  color: const Color(0xFFF59E0B),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _statTile(
-                  value: '$confirmed',
-                  label: 'Confirmed',
-                  icon: Icons.check_circle_rounded,
-                  color: const Color(0xFF22C55E),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _statTile(
-                  value: '$completed',
-                  label: 'Done',
-                  icon: Icons.done_all_rounded,
-                  color: const Color(0xFF0EA5E9),
-                ),
-              ),
-            ],
+          _BookingStatsRow(
+            totalBookings: totalBookings,
+            pending: pending,
+            confirmed: confirmed,
+            completed: completed,
           ),
-
           const SizedBox(height: 20),
-
-          // ── Listings inventory ────────────────────────────────────────
-          Row(
-            children: [
-              const Text(
-                'Your Listings',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.black,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${propertyCount + tours.length + transport.length} total',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.foggy,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          _InventoryRow(
+            propertyCount: propertyCount,
+            publishedProperties: publishedProperties,
+            tours: tours,
+            transport: transport,
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _inventoryCard(
-                  icon: Icons.home_rounded,
-                  label: 'Properties',
-                  total: propertyCount,
-                  live: publishedProperties,
-                  color: const Color(0xFF2563EB),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _inventoryCard(
-                  icon: Icons.explore_rounded,
-                  label: 'Tours',
-                  total: tours.length,
-                  live: tours
-                      .where((t) => t['is_published'] == true)
-                      .length,
-                  color: const Color(0xFF0D9488),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _inventoryCard(
-                  icon: Icons.directions_car_rounded,
-                  label: 'Transport',
-                  total: transport.length,
-                  live: transport
-                      .where((t) => t['is_published'] == true)
-                      .length,
-                  color: const Color(0xFFF59E0B),
-                ),
-              ),
-            ],
-          ),
-
           if (bookings.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Row(
-              children: [
-                const Text(
-                  'Recent Bookings',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.black,
-                  ),
-                ),
-                const Spacer(),
-                if (pending > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$pending pending',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                  ),
-              ],
+            _RecentBookingsCard(
+              bookings: bookings,
+              pending: pending,
             ),
-            const SizedBox(height: 10),
-            ...bookings.take(5).map(
-                  (b) => _BookingSummaryRow(booking: b),
-                ),
           ],
         ],
       ),
     );
   }
+}
 
-  Widget _darkPill({
-    required String label,
-    required String value,
-    required Color color,
-  }) {
+// ─── Host Hero Earnings Card ─────────────────────────────────────────────────────
+
+class _HostHeroCard extends StatelessWidget {
+  const _HostHeroCard({
+    required this.netEarnings,
+    required this.totalBookings,
+    required this.currency,
+    required this.availableForPayout,
+    required this.completedPayout,
+    required this.pendingPayout,
+    required this.payoutBar,
+  });
+
+  final num netEarnings, availableForPayout, completedPayout, pendingPayout;
+  final int totalBookings;
+  final String currency;
+  final double payoutBar;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF94A3B8),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF121212), Color(0xFF1A1A2E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF121212).withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(right: -20, top: -20, child: _deco(110, 0.08)),
+          Positioned(right: 30, bottom: -15, child: _deco(70, 0.04)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _hostBadge(Icons.account_balance_wallet_rounded, 'Earnings', const Color(0xFF1DB954)),
+                    const Spacer(),
+                    _hostPill('${_fmtHostNum(totalBookings)} bookings', _kRed),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _hostLabel('Net Earnings'),
+                const SizedBox(height: 3),
+                Text(
+                  _formatMoney(netEarnings, currency),
+                  style: const TextStyle(
+                    fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white,
+                    height: 0.95, letterSpacing: -1.0,
+                  ),
+                ),
+                if (netEarnings > 0) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${(payoutBar * 100).toStringAsFixed(0)}% paid out',
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
+                      Text('${_formatMoney(availableForPayout, currency)} available',
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF1DB954), fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Stack(
+                      children: [
+                        Container(height: 5, width: double.infinity, color: Colors.white.withValues(alpha: 0.1)),
+                        FractionallySizedBox(
+                          widthFactor: payoutBar,
+                          child: Container(
+                            height: 5,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFF1DB954), Color(0xFF16A34A)]),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                Row(
+                  children: [
+                    Expanded(child: _hostPillCard(label: 'Available', value: _formatMoney(availableForPayout, currency), color: const Color(0xFF1DB954))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _hostPillCard(label: 'Paid out', value: _formatMoney(completedPayout, currency), color: const Color(0xFF6C63FF))),
+                    if (pendingPayout > 0) ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: _hostPillCard(label: 'Pending', value: _formatMoney(pendingPayout, currency), color: const Color(0xFFF59E0B))),
+                    ],
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -1001,123 +738,239 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  Widget _statTile({
-    required String value,
-    required String label,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: color,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: color.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
+  Widget _deco(double size, double opacity) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white.withValues(alpha: opacity),
+    ),
+  );
+
+  Widget _hostBadge(IconData icon, String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+      ],
+    ),
+  );
+
+  Widget _hostPill(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+  );
+
+  Widget _hostLabel(String text) => Text(
+    text,
+    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF6B7280), letterSpacing: 0.5),
+  );
+
+  Widget _hostPillCard({required String label, required String value, required Color color}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 5),
+            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+      ],
+    ),
+  );
+}
+
+// ─── Booking Stats Row ──────────────────────────────────────────────────────────
+
+class _BookingStatsRow extends StatelessWidget {
+  const _BookingStatsRow({
+    required this.totalBookings, required this.pending,
+    required this.confirmed, required this.completed,
+  });
+
+  final int totalBookings, pending, confirmed, completed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _statCard(Icons.calendar_month_rounded, '$totalBookings', 'Total', const Color(0xFF6C63FF))),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard(Icons.hourglass_top_rounded, '$pending', 'Pending', const Color(0xFFF59E0B))),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard(Icons.check_circle_rounded, '$confirmed', 'Confirmed', const Color(0xFF1DB954))),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard(Icons.done_all_rounded, '$completed', 'Done', const Color(0xFF0EA5E9))),
+      ],
     );
   }
 
-  Widget _inventoryCard({
-    required IconData icon,
-    required String label,
-    required int total,
-    required int live,
-    required Color color,
-  }) {
+  Widget _statCard(IconData icon, String value, String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color.withValues(alpha: 0.15)),
+    ),
+    child: Column(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color, height: 1)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color.withValues(alpha: 0.7))),
+      ],
+    ),
+  );
+}
+
+// ─── Inventory Row ──────────────────────────────────────────────────────────────
+
+class _InventoryRow extends StatelessWidget {
+  const _InventoryRow({
+    required this.propertyCount, required this.publishedProperties,
+    required this.tours, required this.transport,
+  });
+
+  final int propertyCount, publishedProperties;
+  final List<Map<String, dynamic>> tours, transport;
+
+  @override
+  Widget build(BuildContext context) {
+    final tourLive = tours.where((t) => t['is_published'] == true).length;
+    final transportLive = transport.where((t) => t['is_published'] == true).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Your Listings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black)),
+            const Spacer(),
+            Text('${_fmtHostNum(propertyCount + tours.length + transport.length)} total',
+              style: const TextStyle(fontSize: 12, color: AppColors.foggy, fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _invCard(Icons.home_rounded, 'Properties', propertyCount, publishedProperties, const Color(0xFF1DB954))),
+            const SizedBox(width: 10),
+            Expanded(child: _invCard(Icons.explore_rounded, 'Tours', tours.length, tourLive, const Color(0xFF0D9488))),
+            const SizedBox(width: 10),
+            Expanded(child: _invCard(Icons.directions_car_rounded, 'Transport', transport.length, transportLive, const Color(0xFFF59E0B))),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _invCard(IconData icon, String label, int total, int live, Color color) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 18, color: color),
+        ),
+        const SizedBox(height: 10),
+        Text('${_fmtHostNum(total)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.black, height: 1)),
+        const SizedBox(height: 2),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.hof)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Container(
+              width: 6, height: 6,
+              decoration: BoxDecoration(
+                color: live > 0 ? const Color(0xFF1DB954) : AppColors.border,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text('${_fmtHostNum(live)} live', style: TextStyle(
+              fontSize: 10, fontWeight: FontWeight.w700,
+              color: live > 0 ? const Color(0xFF1DB954) : AppColors.foggy,
+            )),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+// ─── Recent Bookings Card ────────────────────────────────────────────────────────
+
+class _RecentBookingsCard extends StatelessWidget {
+  const _RecentBookingsCard({required this.bookings, required this.pending});
+  final List<Map<String, dynamic>> bookings;
+  final int pending;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 17, color: color),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '$total',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: AppColors.black,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.hof,
-            ),
-          ),
-          const SizedBox(height: 6),
           Row(
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: live > 0
-                      ? const Color(0xFF22C55E)
-                      : AppColors.border,
-                  shape: BoxShape.circle,
+              const Text('Recent Bookings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black)),
+              const Spacer(),
+              if (pending > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(20)),
+                  child: Text('$pending pending',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFD97706))),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '$live live',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: live > 0
-                      ? const Color(0xFF22C55E)
-                      : AppColors.foggy,
-                ),
-              ),
             ],
           ),
+          const SizedBox(height: 10),
+          ...bookings.take(5).map((b) => _BookingSummaryRow(booking: b)),
         ],
       ),
     );
   }
+}
+
+String _fmtHostNum(dynamic v) {
+  final n = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0;
+  return fmtInt(n);
 }
 
 // ===================== PROPERTIES =====================

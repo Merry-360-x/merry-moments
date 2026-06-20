@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import {
   ChartContainer,
   ChartLegend,
@@ -85,6 +85,117 @@ import {
   Percent,
 } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+
+interface MetricCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  accentColor: string;
+  accentGradient: string;
+  subLabel?: string;
+}
+
+const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => (
+  <div
+    style={{
+      background: '#1E1E1E',
+      borderRadius: '16px',
+      padding: '24px',
+      position: 'relative',
+      overflow: 'hidden',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)',
+      border: 'none',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'translateY(0)';
+      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)';
+    }}
+  >
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '4px',
+        height: '100%',
+        background: `linear-gradient(180deg, ${accentGradient})`,
+        opacity: 0.8,
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: '80px',
+        height: '80px',
+        background: `linear-gradient(135deg, ${accentColor}20, transparent)`,
+        borderRadius: '0 0 0 80px',
+        pointerEvents: 'none',
+      }}
+    />
+    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '40px',
+          height: '40px',
+          background: `${accentColor}15`,
+          borderRadius: '10px',
+          color: accentColor,
+        }}
+      >
+        {icon}
+      </div>
+    </div>
+    <div style={{ marginTop: '16px' }}>
+      <p
+        style={{
+          fontSize: '32px',
+          fontWeight: '800',
+          lineHeight: '1.1',
+          color: '#FFFFFF',
+          margin: 0,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </p>
+      <p
+        style={{
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#B3B3B3',
+          margin: '8px 0 0 0',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}
+      >
+        {label}
+      </p>
+      {subLabel && (
+        <p
+          style={{
+            fontSize: '11px',
+            fontWeight: '400',
+            color: '#737373',
+            margin: '6px 0 0 0',
+          }}
+        >
+          {subLabel}
+        </p>
+     
+      )}
+    </div>
+  </div>
+);
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 const REGION_CHART_COLORS = ["#2563eb", "#06b6d4", "#f97316", "#22c55e", "#eab308", "#ef4444"];
@@ -4163,12 +4274,12 @@ For support, contact: support@merry360x.com
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col" style={{ background: tab === 'overview' ? '#121212' : undefined }}>
       <Navbar />
 
-      <main className="flex-1 container max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+      <main className="flex-1 container max-w-7xl mx-auto px-4 py-8" style={{ background: tab === 'overview' ? 'transparent' : undefined }}>
+        <div className="flex items-center justify-between mb-6" style={{ color: tab === 'overview' ? '#FFFFFF' : undefined }}>
+          <h1 className="text-2xl font-bold" style={{ color: tab === 'overview' ? '#FFFFFF' : 'inherit' }}>Admin Dashboard</h1>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}>
               <Shield className="w-4 h-4 mr-2" />
@@ -4294,86 +4405,82 @@ For support, contact: support@merry360x.com
 
           {/* OVERVIEW TAB */}
           <TabsContent value="overview">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  <span className="text-sm">Revenue</span>
-                </div>
-                <p className="text-2xl font-bold text-primary">
-                  {formatMoney(displayedRevenueGross, "RWF")}
-                </p>
-          </Card>
-          <Card className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-sm">Bookings (Total)</span>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{metrics?.bookings_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Pending: {metrics?.bookings_pending ?? 0}</p>
-          </Card>
-          <Card className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm">Users (Total)</span>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{metrics?.users_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Hosts: {metrics?.hosts_total ?? 0}</p>
-          </Card>
-          <Card className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Home className="w-4 h-4" />
-                  <span className="text-sm">Properties (Total)</span>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{metrics?.properties_total ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Live: {metrics?.properties_published ?? 0}</p>
-          </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Host Earnings Only</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminHostNetEarningsTotal, "RWF")}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Percent className="w-4 h-4" />
-                  <span className="text-sm">Gross Bookings (Pre-Discount)</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Wallet className="w-4 h-4" />
-                  <span className="text-sm">Discount Total</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground">{formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  <span className="text-sm">Platform Earnings (Guest Fee + Host Fee)</span>
-                    </div>
-                    <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.earnedFromCharges, "RWF")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {`Guest fees: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")}, Host fees: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")}`}
-                    </p>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Wallet className="w-4 h-4" />
-                  <span className="text-sm">PawaPay Fees (Guest Paid x 3.1%)</span>
-                    </div>
-                    <p className="text-2xl font-bold text-destructive">{formatMoney(adminPaidFinancialOverview.totalPawapayFees, "RWF")}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  <span className="text-sm">Net Received (Guest Paid - PawaPay)</span>
-                    </div>
-                    <p className="text-2xl font-bold text-primary">{formatMoney(adminPaidFinancialOverview.totalAmountAfterPawapay, "RWF")}</p>
-                  </Card>
-        </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8" style={{ background: 'transparent' }}>
+              <MetricCard
+                label="Revenue"
+                value={formatMoney(displayedRevenueGross, "RWF")}
+                icon={<DollarSign className="w-6 h-6" />}
+                accentColor="#1DB954"
+                accentGradient="from-[#1DB954] to-[#1ED760]"
+              />
+              <MetricCard
+                label="Total Bookings"
+                value={formatNumber(metrics?.bookings_total ?? 0)}
+                icon={<Calendar className="w-6 h-6" />}
+                accentColor="#3B82F6"
+                accentGradient="from-[#3B82F6] to-[#60A5FA]"
+                subLabel={`Pending: ${formatNumber(metrics?.bookings_pending ?? 0)}`}
+              />
+              <MetricCard
+                label="Total Users"
+                value={formatNumber(metrics?.users_total ?? 0)}
+                icon={<Users className="w-6 h-6" />}
+                accentColor="#8B5CF6"
+                accentGradient="from-[#8B5CF6] to-[#A78BFA]"
+                subLabel={`Hosts: ${formatNumber(metrics?.hosts_total ?? 0)}`}
+              />
+              <MetricCard
+                label="Properties"
+                value={formatNumber(metrics?.properties_total ?? 0)}
+                icon={<Home className="w-6 h-6" />}
+                accentColor="#F59E0B"
+                accentGradient="from-[#F59E0B] to-[#FBBF24]"
+                subLabel={`Live: ${formatNumber(metrics?.properties_published ?? 0)}`}
+              />
+              <MetricCard
+                label="Host Earnings"
+                value={formatMoney(adminHostNetEarningsTotal, "RWF")}
+                icon={<Wallet className="w-6 h-6" />}
+                accentColor="#10B981"
+                accentGradient="from-[#10B981] to-[#34D399]"
+              />
+              <MetricCard
+                label="Gross Bookings"
+                value={formatMoney(adminPaidFinancialOverview.totalAmountAfterPlatformFees, "RWF")}
+                icon={<Percent className="w-6 h-6" />}
+                accentColor="#6366F1"
+                accentGradient="from-[#6366F1] to-[#818CF8]"
+              />
+              <MetricCard
+                label="Discounts Applied"
+                value={formatMoney(adminPaidFinancialOverview.totalDiscountApplied, "RWF")}
+                icon={<Wallet className="w-6 h-6" />}
+                accentColor="#F97316"
+                accentGradient="from-[#F97316] to-[#FB923C]"
+              />
+              <MetricCard
+                label="Platform Earnings"
+                value={formatMoney(adminPaidFinancialOverview.earnedFromCharges, "RWF")}
+                icon={<DollarSign className="w-6 h-6" />}
+                accentColor="#EC4899"
+                accentGradient="from-[#EC4899] to-[#F472B6]"
+                subLabel={`Guest: ${formatMoney(adminPaidFinancialOverview.platformGuestFees, "RWF")} • Host: ${formatMoney(adminPaidFinancialOverview.hostFees, "RWF")}`}
+              />
+              <MetricCard
+                label="PawaPay Fees"
+                value={formatMoney(adminPaidFinancialOverview.totalPawapayFees, "RWF")}
+                icon={<Wallet className="w-6 h-6" />}
+                accentColor="#EF4444"
+                accentGradient="from-[#EF4444] to-[#F87171]"
+              />
+              <MetricCard
+                label="Net Received"
+                value={formatMoney(adminPaidFinancialOverview.totalAmountAfterPawapay, "RWF")}
+                icon={<DollarSign className="w-6 h-6" />}
+                accentColor="#14B8A6"
+                accentGradient="from-[#14B8A6] to-[#2DD4BF]"
+              />
+            </div>
 
             <Card className="p-4 mb-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
@@ -4450,7 +4557,7 @@ For support, contact: support@merry360x.com
                       <span className="text-sm">Visitors</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">
-                      {isLiveWebAnalyticsLoading ? "—" : liveWebAnalytics?.live_visitors ?? 0}
+                      {isLiveWebAnalyticsLoading ? "—" : formatNumber(liveWebAnalytics?.live_visitors ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-lg border p-3">
@@ -4459,7 +4566,7 @@ For support, contact: support@merry360x.com
                       <span className="text-sm">Hosts</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">
-                      {isLiveWebAnalyticsLoading ? "—" : liveWebAnalytics?.live_hosts ?? 0}
+                      {isLiveWebAnalyticsLoading ? "—" : formatNumber(liveWebAnalytics?.live_hosts ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-lg border p-3">
@@ -4468,7 +4575,7 @@ For support, contact: support@merry360x.com
                       <span className="text-sm">Guests</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">
-                      {isLiveWebAnalyticsLoading ? "—" : liveWebAnalytics?.live_guests ?? 0}
+                      {isLiveWebAnalyticsLoading ? "—" : formatNumber(liveWebAnalytics?.live_guests ?? 0)}
                     </p>
                   </div>
                   <div className="rounded-lg border p-3">
@@ -4477,7 +4584,7 @@ For support, contact: support@merry360x.com
                       <span className="text-sm">Failed attempts</span>
                     </div>
                     <p className="text-2xl font-bold text-destructive">
-                      {isLiveWebAnalyticsLoading ? "—" : liveWebAnalytics?.failed_attempts ?? 0}
+                      {isLiveWebAnalyticsLoading ? "—" : formatNumber(liveWebAnalytics?.failed_attempts ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -4620,7 +4727,7 @@ For support, contact: support@merry360x.com
                       <div key={`type-${row.type}`}>
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="capitalize">{row.type}</span>
-                          <span>{row.count} ({row.share.toFixed(1)}%)</span>
+                          <span>{formatNumber(row.count)} ({row.share.toFixed(1)}%)</span>
                         </div>
                         <div className="h-2 rounded bg-muted overflow-hidden">
                           <div className="h-full bg-primary" style={{ width: `${Math.min(100, row.share)}%` }} />
@@ -4637,7 +4744,7 @@ For support, contact: support@merry360x.com
                       <div key={`pm-${row.method}`}>
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="capitalize">{row.method.replaceAll("_", " ")}</span>
-                          <span>{row.count} ({row.share.toFixed(1)}%)</span>
+                          <span>{formatNumber(row.count)} ({row.share.toFixed(1)}%)</span>
                         </div>
                         <div className="h-2 rounded bg-muted overflow-hidden">
                           <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, row.share)}%` }} />
@@ -4684,7 +4791,7 @@ For support, contact: support@merry360x.com
                               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: row.fill }} />
                               <span className="truncate">{row.region}</span>
                             </div>
-                            <span>{row.count} ({row.share.toFixed(1)}%)</span>
+                            <span>{formatNumber(row.count)} ({row.share.toFixed(1)}%)</span>
                           </div>
                         ))}
                       </div>
@@ -5127,11 +5234,11 @@ For support, contact: support@merry360x.com
                   <MessageSquare className="w-4 h-4" /> Open Tickets
                   {(metrics?.tickets_open ?? 0) > 0 && (
                     <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-                      {(metrics?.tickets_open ?? 0) > 99 ? "99+" : metrics?.tickets_open}
+                      {(metrics?.tickets_open ?? 0) > 99 ? "99+" : formatNumber(metrics?.tickets_open ?? 0)}
                     </span>
                   )}
                 </h4>
-                <p className="text-2xl font-bold">{metrics?.tickets_open ?? 0}</p>
+                <p className="text-2xl font-bold">{formatNumber(metrics?.tickets_open ?? 0)}</p>
                 {(metrics?.tickets_open ?? 0) > 0 && (
                   <p className="text-xs text-red-600 mt-1">⚠️ Needs attention - Click to view</p>
                 )}
@@ -5140,13 +5247,13 @@ For support, contact: support@merry360x.com
                 <h4 className="font-medium flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" /> Open Incidents
                 </h4>
-                <p className="text-2xl font-bold">{metrics?.incidents_open ?? 0}</p>
+                <p className="text-2xl font-bold">{formatNumber(metrics?.incidents_open ?? 0)}</p>
               </Card>
               <Card className="p-4 border-l-4 border-l-gray-500">
                 <h4 className="font-medium flex items-center gap-2">
                   <Ban className="w-4 h-4" /> Blacklisted
                 </h4>
-                <p className="text-2xl font-bold">{metrics?.blacklist_count ?? 0}</p>
+                <p className="text-2xl font-bold">{formatNumber(metrics?.blacklist_count ?? 0)}</p>
               </Card>
             </div>
           </TabsContent>
@@ -7150,7 +7257,7 @@ For support, contact: support@merry360x.com
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">Paid Bookings</p>
-                <p className="text-2xl font-bold">{metrics?.bookings_paid ?? 0}</p>
+                <p className="text-2xl font-bold">{formatNumber(metrics?.bookings_paid ?? 0)}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">PawaPay Fees ({PAWAPAY_PROCESSING_FEE_PERCENT}%)</p>

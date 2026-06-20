@@ -18,7 +18,7 @@ import { CloudinaryUploadDialog } from "@/components/CloudinaryUploadDialog";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import { isVideoUrl } from "@/lib/media";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import { AMENITIES, AMENITIES_BY_CATEGORY } from "@/lib/amenities";
 import {
   PLATFORM_FEES,
@@ -37,6 +37,117 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
+
+interface MetricCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  accentColor: string;
+  accentGradient: string;
+  subLabel?: string;
+}
+
+const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => (
+  <div
+    style={{
+      background: '#1E1E1E',
+      borderRadius: '16px',
+      padding: '24px',
+      position: 'relative',
+      overflow: 'hidden',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)',
+      border: 'none',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'translateY(0)';
+      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)';
+    }}
+  >
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '4px',
+        height: '100%',
+        background: `linear-gradient(180deg, ${accentGradient})`,
+        opacity: 0.8,
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: '80px',
+        height: '80px',
+        background: `linear-gradient(135deg, ${accentColor}20, transparent)`,
+        borderRadius: '0 0 0 80px',
+        pointerEvents: 'none',
+      }}
+    />
+    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '40px',
+          height: '40px',
+          background: `${accentColor}15`,
+          borderRadius: '10px',
+          color: accentColor,
+        }}
+      >
+        {icon}
+      </div>
+    </div>
+    <div style={{ marginTop: '16px' }}>
+      <p
+        style={{
+          fontSize: '32px',
+          fontWeight: '800',
+          lineHeight: '1.1',
+          color: '#FFFFFF',
+          margin: 0,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </p>
+      <p
+        style={{
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#B3B3B3',
+          margin: '8px 0 0 0',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}
+      >
+        {label}
+      </p>
+      {subLabel && (
+        <p
+          style={{
+            fontSize: '11px',
+            fontWeight: '400',
+            color: '#737373',
+            margin: '6px 0 0 0',
+          }}
+        >
+          {subLabel}
+        </p>
+      )}
+    </div>
+  </div>
+);
+
 import {
   Home,
   Calendar,
@@ -6555,6 +6666,7 @@ export default function HostDashboard() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{category.name}</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {category.items.map((amenity) => {
+                          const Icon = amenity.icon;
                           const isSelected = propertyForm.amenities.includes(amenity.value);
                           return (
                             <button
@@ -6568,13 +6680,16 @@ export default function HostDashboard() {
                                     : [...f.amenities, amenity.value],
                                 }))
                               }
-                              className={`px-3 py-2 rounded-lg border text-xs text-left transition-all ${
+                              className={`p-2 rounded-lg border-2 text-xs text-left transition-all duration-200 ${
                                 isSelected
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border hover:border-primary/50"
+                                  ? "border-primary bg-primary/10 text-primary scale-[1.03]"
+                                  : "border-border hover:border-primary/50 hover:scale-[1.02]"
                               }`}
                             >
-                              {amenity.label}
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-4 h-4 shrink-0" />
+                                <span>{amenity.label}</span>
+                              </div>
                             </button>
                           );
                         })}
@@ -7572,10 +7687,10 @@ export default function HostDashboard() {
                                     : [...f.amenities, amenity.value],
                                 }));
                               }}
-                              className={`p-3 rounded-xl border-2 flex items-center gap-2 transition-all text-left ${
+                              className={`p-3 rounded-xl border-2 flex items-center gap-2 transition-all duration-200 text-left ${
                                 isSelected
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border hover:border-primary/50"
+                                  ? "border-primary bg-primary/10 text-primary scale-[1.03]"
+                                  : "border-border hover:border-primary/50 hover:scale-[1.02]"
                               }`}
                             >
                               <Icon className="w-4 h-4 shrink-0" />
@@ -8068,14 +8183,14 @@ export default function HostDashboard() {
 
   // Main Dashboard
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div className="min-h-[100dvh] bg-background" style={{ background: tab === 'overview' ? '#121212' : undefined }}>
       <Navbar />
 
-      <div className="container mx-auto overflow-x-hidden px-4 py-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="container mx-auto overflow-x-hidden px-4 py-8" style={{ background: tab === 'overview' ? 'transparent' : undefined }}>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between" style={{ color: tab === 'overview' ? '#FFFFFF' : undefined }}>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Host Dashboard</h1>
+              <h1 className="text-2xl font-bold" style={{ color: tab === 'overview' ? '#FFFFFF' : 'inherit' }}>Host Dashboard</h1>
               {hostProfile?.profile_complete && (
                 <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
                   <BadgeCheck className="w-3.5 h-3.5" />
@@ -8083,7 +8198,7 @@ export default function HostDashboard() {
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground">Manage your properties, tours, and bookings</p>
+            <p style={{ color: tab === 'overview' ? '#B3B3B3' : 'inherit' }}>Manage your properties, tours, and bookings</p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <Button variant="outline" size="sm" className="w-full justify-center sm:w-auto" onClick={() => setHostTab("post-booking")}>
@@ -8139,82 +8254,82 @@ export default function HostDashboard() {
             </TabsList>
           </div>
 
-          {/* Overview */}
+{/* Overview */}
           <TabsContent value="overview">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      availableForPayout > 0 ? "bg-green-100" : "bg-muted"
-                    }`}
-                  >
-                    <DollarSign
-                      className={`w-5 h-5 ${availableForPayout > 0 ? "text-green-600" : "text-muted-foreground"}`}
-                    />
-          </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Available for payout</p>
-                    <p className="text-xl font-bold">{formatDashboardMoneyFromRwf(availableForPayout)}</p>
-                    {dashboardDisplayCurrency !== 'RWF' && (
-                      <p className="text-xs text-muted-foreground">Base: {formatMoney(availableForPayout, 'RWF')}</p>
-                    )}
-                  </div>
-                </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" style={{ background: 'transparent' }}>
+              <MetricCard
+                label="Available for Payout"
+                value={formatDashboardMoneyFromRwf(availableForPayout)}
+                icon={<DollarSign className="w-6 h-6" />}
+                accentColor="#1DB954"
+                accentGradient="from-[#1DB954] to-[#1ED760]"
+                subLabel={dashboardDisplayCurrency !== 'RWF' ? `Base: ${formatMoney(availableForPayout, 'RWF')}` : undefined}
+              />
+              <MetricCard
+                label="Properties"
+                value={`${formatNumber(publishedProperties)} / ${formatNumber((properties || []).length)}`}
+                icon={<Building2 className="w-6 h-6" />}
+                accentColor="#3B82F6"
+                accentGradient="from-[#3B82F6] to-[#60A5FA]"
+              />
+              <MetricCard
+                label="Pending Bookings"
+                value={formatNumber(pendingBookings)}
+                icon={<Clock className="w-6 h-6" />}
+                accentColor="#F59E0B"
+                accentGradient="from-[#F59E0B] to-[#FBBF24]"
+              />
+              <MetricCard
+                label="Total Bookings"
+                value={formatNumber(totalBookingsCount)}
+                icon={<Calendar className="w-6 h-6" />}
+                accentColor="#8B5CF6"
+                accentGradient="from-[#8B5CF6] to-[#A78BFA]"
+              />
+            </div>
+            {availableForPayout > 0 && (
+              <div className="mb-8" style={{ background: 'transparent' }}>
                 <Button 
                   size="sm" 
-                  variant={availableForPayout > 0 ? "default" : "outline"}
-                  className="w-full mt-3 gap-2" 
+                  variant="default"
+                  className="w-full gap-2" 
                   onClick={handlePayoutClick}
-                  disabled={availableForPayout <= 0}
+                  style={{
+                    background: 'linear-gradient(90deg, #1DB954, #1ED760)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '14px 24px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
                 >
                   <Banknote className="w-4 h-4" />
-                  {availableForPayout > 0 ? "Request Payout" : "No Payout Available"}
+                  Request Payout
                 </Button>
-                {availableForPayout <= 0 && (
-                  <p className="mt-1.5 text-[11px] text-center text-muted-foreground">
-                    New confirmed earnings will appear here when eligible for withdrawal.
-                  </p>
-                )}
-                <div className="mt-2 text-xs text-center text-muted-foreground space-y-0.5">
-                  <p>Net earnings: {formatDashboardMoneyFromRwf(totalEligibleEarnings)}</p>
-                  <p>Pending payouts: {formatDashboardMoneyFromRwf(pendingPayoutAmount)}</p>
-                  <p>Completed payouts: {formatDashboardMoneyFromRwf(completedPayoutAmount)}</p>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Properties</p>
-                    <p className="text-xl font-bold">{publishedProperties} / {(properties || []).length}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-yellow-600" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pending</p>
-                    <p className="text-xl font-bold">{pendingBookings}</p>
-              </div>
-            </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-purple-600" />
-          </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Bookings</p>
-                    <p className="text-xl font-bold">{totalBookingsCount}</p>
-              </div>
-                </div>
-              </Card>
+            )}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8" style={{ background: 'transparent' }}>
+              <MetricCard
+                label="Net Earnings"
+                value={formatDashboardMoneyFromRwf(totalEligibleEarnings)}
+                icon={<Wallet className="w-6 h-6" />}
+                accentColor="#10B981"
+                accentGradient="from-[#10B981] to-[#34D39999]"
+              />
+              <MetricCard
+                label="Pending Payouts"
+                value={formatDashboardMoneyFromRwf(pendingPayoutAmount)}
+                icon={<Clock className="w-6 h-6" />}
+                accentColor="#F59E0B"
+                accentGradient="from-[#F59E0B] to-[#FBBF24]"
+              />
+              <MetricCard
+                label="Completed Payouts"
+                value={formatDashboardMoneyFromRwf(completedPayoutAmount)}
+                icon={<CheckCircle className="w-6 h-6" />}
+                accentColor="#1DB954"
+                accentGradient="from-[#1DB954] to-[#1ED760]"
+              />
             </div>
           </TabsContent>
 

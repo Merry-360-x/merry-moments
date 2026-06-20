@@ -370,6 +370,22 @@ class AppLocalizationsRw extends AppLocalizations {
   String get notificationsDesc => 'Ivugurura n\'imenyesha';
 
   @override
+  String get notificationSettings => 'Amasezerano y\'Amakuru';
+
+  @override
+  String get pushNotifications => 'Amakuru Apush';
+
+  @override
+  String get pushNotificationsDesc =>
+      'Gufashisha ibimenyesha by\'amabukiriro, ubutumwa, n\'ibikorwa';
+
+  @override
+  String get inAppNotifications => 'Amakuru mu App';
+
+  @override
+  String get inAppNotificationsDesc => 'Reba amakuru yawe yose mu app';
+
+  @override
   String get affiliatePortal => 'Irembo rya Affilie';
 
   @override

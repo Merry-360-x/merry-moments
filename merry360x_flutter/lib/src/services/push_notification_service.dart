@@ -59,21 +59,11 @@ class PushNotificationService {
 
     final messaging = FirebaseMessaging.instance;
 
-    // On iOS, explicitly register for remote notifications so the APNs
-    // token is requested from the system.  Without this, getToken() may
-    // fail or return null on the first attempt.
-    if (_isIos) {
-      try {
-        // ignore: deprecated_member_use
-        await messaging.registerForRemoteNotifications();
-      } catch (_) {}
-
-      if (waitForApns) {
-        String? apnsToken = await messaging.getAPNSToken();
-        if (apnsToken == null || apnsToken.trim().isEmpty) {
-          await Future<void>.delayed(const Duration(seconds: 3));
-          apnsToken = await messaging.getAPNSToken();
-        }
+    if (_isIos && waitForApns) {
+      String? apnsToken = await messaging.getAPNSToken();
+      if (apnsToken == null || apnsToken.trim().isEmpty) {
+        await Future<void>.delayed(const Duration(seconds: 3));
+        apnsToken = await messaging.getAPNSToken();
       }
     }
 

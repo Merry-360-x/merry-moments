@@ -24,6 +24,7 @@ import {
   Bell
 } from "lucide-react";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
+import { formatNumber } from "@/lib/money";
 
 const AffiliateDashboard = () => {
   const { user } = useAuth();
@@ -267,7 +268,7 @@ const AffiliateDashboard = () => {
                     <CardDescription>Total Referrals</CardDescription>
                     <CardTitle className="text-3xl flex items-center gap-2">
                       <Users className="w-6 h-6 text-blue-600" />
-                      {affiliate.total_referrals}
+                      {formatNumber(affiliate.total_referrals)}
                     </CardTitle>
                   </CardHeader>
                 </Card>
@@ -287,8 +288,8 @@ const AffiliateDashboard = () => {
               <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="referrals">Referrals ({totalClicks})</TabsTrigger>
-                  <TabsTrigger value="commissions">Commissions ({commissions.length})</TabsTrigger>
+                  <TabsTrigger value="referrals">Referrals ({formatNumber(totalClicks)})</TabsTrigger>
+                  <TabsTrigger value="commissions">Commissions ({formatNumber(commissions.length)})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4">
@@ -303,14 +304,14 @@ const AffiliateDashboard = () => {
                           <MousePointerClick className="w-4 h-4" />
                           Total Clicks
                         </span>
-                        <span className="font-bold">{totalClicks}</span>
+                        <span className="font-bold">{formatNumber(totalClicks)}</span>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-sm font-medium flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-green-600" />
                           Conversions
                         </span>
-                        <span className="font-bold">{totalConversions}</span>
+                        <span className="font-bold">{formatNumber(totalConversions)}</span>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-sm font-medium">Commission Rate</span>

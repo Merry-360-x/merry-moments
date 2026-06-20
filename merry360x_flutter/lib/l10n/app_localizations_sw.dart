@@ -365,6 +365,22 @@ class AppLocalizationsSw extends AppLocalizations {
   String get notificationsDesc => 'Masasisho na tahadhari';
 
   @override
+  String get notificationSettings => 'Mipangilio ya Arifa';
+
+  @override
+  String get pushNotifications => 'Arifa za Push';
+
+  @override
+  String get pushNotificationsDesc =>
+      'Pokea arifa kwa mihifadhi, ujumbe, na mapendekezo';
+
+  @override
+  String get inAppNotifications => 'Arifa ndani ya App';
+
+  @override
+  String get inAppNotificationsDesc => 'Ona arifa zako zote ndani ya programu';
+
+  @override
   String get affiliatePortal => 'Lango la Msaidizi';
 
   @override

@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/animations.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -146,7 +147,16 @@ class _ToursScreenState extends State<ToursScreen> {
   }
 
   Widget _body(AppLocalizations l) {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
+    if (_loading) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75,
+        ),
+        itemCount: 4,
+        itemBuilder: (_, i) => ShimmerCardPlaceholder(compact: true, imageHeightOverride: 120),
+      );
+    }
     final tours = _filtered;
     if (tours.isEmpty) {
       return Center(
@@ -159,7 +169,10 @@ class _ToursScreenState extends State<ToursScreen> {
         crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75,
       ),
       itemCount: tours.length,
-      itemBuilder: (_, i) => _TourCard(item: tours[i], session: widget.session),
+      itemBuilder: (_, i) => StaggeredSlideFade(
+        index: i,
+        child: _TourCard(item: tours[i], session: widget.session),
+      ),
     );
   }
 }
@@ -249,7 +262,7 @@ class _TourCardState extends State<_TourCard> {
     final description = (widget.item['description'] ?? '').toString().trim();
     final images = resolveListingImages(widget.item);
 
-    return GestureDetector(
+    return AnimatedPressable(
       onTap: () => Navigator.push(context, MaterialPageRoute(
         builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
       )),

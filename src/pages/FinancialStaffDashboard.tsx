@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle, Bell, Banknote, Clock, XCircle, User, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1004,7 +1004,7 @@ export default function FinancialStaffDashboard() {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{bookingSummaryCounts.total}</div>
+              <div className="text-2xl font-bold">{formatNumber(bookingSummaryCounts.total)}</div>
               <p className="text-xs text-muted-foreground mt-1">{startDate || endDate ? 'Selected range' : 'All time'}</p>
             </CardContent>
           </Card>
@@ -1015,7 +1015,7 @@ export default function FinancialStaffDashboard() {
               <Wallet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{bookingSummaryCounts.paid}</div>
+              <div className="text-2xl font-bold">{formatNumber(bookingSummaryCounts.paid)}</div>
               <p className="text-xs text-muted-foreground mt-1">Confirmed/completed and paid</p>
             </CardContent>
           </Card>
@@ -1026,7 +1026,7 @@ export default function FinancialStaffDashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{bookingSummaryCounts.pending}</div>
+              <div className="text-2xl font-bold">{formatNumber(bookingSummaryCounts.pending)}</div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting payment</p>
             </CardContent>
           </Card>
@@ -1040,7 +1040,7 @@ export default function FinancialStaffDashboard() {
               All Bookings
               {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length > 0 && (
                 <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length}
+                  {formatNumber(bookings.filter(b => b.payment_status !== 'paid' && b.status === 'confirmed').length)}
                 </Badge>
               )}
             </TabsTrigger>
@@ -1049,7 +1049,7 @@ export default function FinancialStaffDashboard() {
               Host Payouts
               {payouts.filter(p => p.status === 'pending').length > 0 && (
                 <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-xs h-5 min-w-[20px] rounded-full">
-                  {payouts.filter(p => p.status === 'pending').length}
+                  {formatNumber(payouts.filter(p => p.status === 'pending').length)}
                 </Badge>
               )}
             </TabsTrigger>

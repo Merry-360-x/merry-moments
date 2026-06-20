@@ -59,20 +59,41 @@ function safeNum(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+const DISABLED_CLOUD_NAMES = ['dxdblhmbm'];
+
+function isWorkingCloudinaryUrl(url) {
+  try {
+    const uri = new URL(url);
+    if (uri.host === 'res.cloudinary.com') {
+      const segments = uri.pathname.split('/').filter(Boolean);
+      if (segments.length > 0 && DISABLED_CLOUD_NAMES.includes(segments[0])) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeImages(images, mainImage) {
-  const filtered = (images || [])
-    .filter(v => v && typeof v === 'string' && v.trim())
-    .map(v => v.trim());
+  const allCandidates = [
+    ...(Array.isArray(images) ? images.filter(v => v && typeof v === 'string' && v.trim()) : []),
+    ...(mainImage && typeof mainImage === 'string' && mainImage.trim() ? [mainImage.trim()] : []),
+  ];
+
+  // Prefer working Cloudinary URLs; fall back to any non-empty candidate.
+  const working = allCandidates.filter(v => isWorkingCloudinaryUrl(v));
   
-  if (filtered.length > 0) return filtered;
+  if (working.length > 0) return working;
+  if (allCandidates.length > 0) return allCandidates;
   
-  const mi = mainImage?.toString().trim() ?? '';
-  return mi ? [mi] : [];
+  return [];
 }
 
 function normalizeProperty(row) {
   const imgs = normalizeImages(row.images, row.main_image);
-  const mainImage = row.main_image?.toString().trim() || imgs[0] || null;
+  const mainImage = imgs[0] || row.main_image?.toString().trim() || null;
   return {
     ...row,
     item_type: 'property',
@@ -96,7 +117,7 @@ function normalizeProperty(row) {
 
 function normalizeTour(row) {
   const imgs = normalizeImages(row.images, row.main_image);
-  const mainImage = row.main_image?.toString().trim() || imgs[0] || null;
+  const mainImage = imgs[0] || row.main_image?.toString().trim() || null;
   return {
     ...row,
     item_type: 'tour',

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Star, Heart, Users, BadgeCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
@@ -144,7 +145,15 @@ const PropertyCard = ({
   }, [checkFavorite, id, isFavorited]);
 
   const content = (
-    <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300 animate-fade-in">
+    <motion.div
+      className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300"
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.97 }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
         {gallery.length ? (
@@ -157,7 +166,7 @@ const PropertyCard = ({
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
         )}
-        <button
+        <motion.button
           type="button"
           onClick={(e) => {
             e.preventDefault();
@@ -174,11 +183,18 @@ const PropertyCard = ({
           }}
           className="absolute top-2 right-2 p-1.5 md:p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors"
           aria-label={t("actions.favorites")}
+          whileTap={{ scale: 1.3 }}
+          transition={{ type: "spring", stiffness: 400, damping: 10 }}
         >
-          <Heart
-            className={`w-3.5 h-3.5 md:w-4 md:h-4 ${fav ? "fill-primary text-primary" : "text-foreground"}`}
-          />
-        </button>
+          <motion.div
+            animate={fav ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Heart
+              className={`w-3.5 h-3.5 md:w-4 md:h-4 ${fav ? "fill-primary text-primary" : "text-foreground"}`}
+            />
+          </motion.div>
+        </motion.button>
         <span className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-background/90 backdrop-blur-sm text-[11px] md:text-xs font-medium flex items-center gap-1">
           {type}
           {hostVerified && (
@@ -290,9 +306,9 @@ const PropertyCard = ({
               <span className="text-xs text-muted-foreground">{t("common.perPerson", "per person")}</span>
             </div>
           ) : null}
+          </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
   );
 
   if (!id) return content;

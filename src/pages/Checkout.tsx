@@ -3153,10 +3153,17 @@ export default function CheckoutNew() {
                             <Input
                               id="phone"
                               type="tel"
+                              inputMode="numeric"
+                              enterKeyHint="done"
                               value={phoneNumber}
                               onChange={(e) => {
                                 setPhoneNumber(e.target.value.replace(/\D/g, ''));
                                 setSelectedSavedMethodId(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  (e.target as HTMLInputElement).blur();
+                                }
                               }}
                               placeholder="78XXXXXXX"
                               className="pl-10 h-11"

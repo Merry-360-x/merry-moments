@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Filter } from "lucide-react";
 import { AMENITIES } from "@/lib/amenities";
@@ -794,11 +795,11 @@ const Accommodations = () => {
         </div>
 
         {/* Mobile filters sheet */}
-        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <SheetContent side="bottom" className="p-0 h-[88dvh] flex flex-col">
-            <SheetHeader className="p-6 pb-2">
-              <SheetTitle>{t("accommodations.filters")}</SheetTitle>
-            </SheetHeader>
+        <Drawer open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <DrawerContent className="p-0 max-h-[88dvh] flex flex-col">
+            <DrawerHeader className="p-6 pb-2">
+              <DrawerTitle>{t("accommodations.filters")}</DrawerTitle>
+            </DrawerHeader>
             <div className="flex-1 min-h-0 p-6 pt-4 overflow-y-auto">
               <Accordion type="multiple" defaultValue={["price", "type"]}>
                 <AccordionItem value="price">
@@ -1005,8 +1006,8 @@ const Accommodations = () => {
                 Apply
               </Button>
             </div>
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar (desktop only, minimized with accordion) */}
@@ -1272,9 +1273,20 @@ const Accommodations = () => {
                 
                 {/* Mobile recommendations */}
                 <div className="sm:hidden">
-                  <div className="grid grid-flow-col auto-cols-[75%] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                  <motion.div
+                    className="grid grid-flow-col auto-cols-[75%] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4"
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true }}
+                    variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+                  >
                     {recommendations.slice(0, 4).map((property) => (
-                      <div key={`rec-mobile-${property.id}`} className="snap-start">
+                      <motion.div
+                        key={`rec-mobile-${property.id}`}
+                        className="snap-start"
+                        variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
+                        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      >
                         <PropertyCard
                           id={property.id}
                           image={property.images?.[0] ?? null}
@@ -1305,16 +1317,26 @@ const Accommodations = () => {
                             }
                           }}
                         />
-                      </div>
+                      </motion.div>
                     ))}
-                  </div>
+                  </motion.div>
                 </div>
                 
                 {/* Desktop recommendations */}
-                <div className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+                <motion.div
+                  className="hidden sm:grid grid-cols-2 xl:grid-cols-3 gap-6 mb-8"
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true }}
+                  variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+                >
                   {recommendations.slice(0, 6).map((property) => (
-                    <PropertyCard
+                    <motion.div
                       key={`rec-desktop-${property.id}`}
+                      variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <PropertyCard
                       id={property.id}
                       image={property.images?.[0] ?? null}
                       images={property.images ?? null}
@@ -1344,8 +1366,9 @@ const Accommodations = () => {
                         }
                       }}
                     />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
                 
                 <div className="border-t border-border pt-6 md:pt-8 mb-3 md:mb-4">
                   <h3 className="text-base md:text-lg font-medium text-foreground">All accommodations</h3>
@@ -1375,12 +1398,22 @@ const Accommodations = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
+                <motion.div
+                  className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6"
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true }}
+                  variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+                >
                   {properties
                     .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
                     .map((property) => (
-                    <PropertyCard
+                    <motion.div
                       key={property.id}
+                      variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <PropertyCard
                       id={property.id}
                       image={property.images?.[0] ?? null}
                       images={property.images ?? null}
@@ -1410,8 +1443,9 @@ const Accommodations = () => {
                         }
                       }}
                     />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
 
                 {/* Pagination Controls */}
                 {properties.length > ITEMS_PER_PAGE && (

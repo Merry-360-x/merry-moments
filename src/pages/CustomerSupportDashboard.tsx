@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, MessageSquare, Mail, AlertCircle, Eye, Bell, Headset, Send, Clock } from "lucide-react";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useFxRates } from "@/hooks/useFxRates";
@@ -465,7 +465,7 @@ export default function CustomerSupportDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(users.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Registered accounts</p>
             </CardContent>
           </Card>
@@ -476,7 +476,7 @@ export default function CustomerSupportDashboard() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{openTickets.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(openTickets.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting response</p>
             </CardContent>
           </Card>
@@ -487,7 +487,7 @@ export default function CustomerSupportDashboard() {
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{highPriorityTickets.length}</div>
+              <div className="text-2xl font-bold">{formatNumber(highPriorityTickets.length)}</div>
               <p className="text-xs text-muted-foreground mt-1">Urgent issues</p>
             </CardContent>
           </Card>
@@ -499,11 +499,11 @@ export default function CustomerSupportDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter(u => {
+                {formatNumber(users.filter(u => {
                   const weekAgo = new Date();
                   weekAgo.setDate(weekAgo.getDate() - 7);
                   return u.created_at && new Date(u.created_at) > weekAgo;
-                }).length}
+                }).length)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">New users</p>
             </CardContent>
@@ -518,13 +518,13 @@ export default function CustomerSupportDashboard() {
             <TabsTrigger value="bookings">
               Bookings
               {pendingBookings.length > 0 && (
-                <Badge className="ml-2" variant="destructive">{pendingBookings.length}</Badge>
+                <Badge className="ml-2" variant="destructive">{formatNumber(pendingBookings.length)}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="tickets">
               Support Tickets
               {openTickets.length > 0 && (
-                <Badge className="ml-2" variant="destructive">{openTickets.length}</Badge>
+                <Badge className="ml-2" variant="destructive">{formatNumber(openTickets.length)}</Badge>
               )}
             </TabsTrigger>
           </TabsList>

@@ -1,24 +1,52 @@
 import '../config.dart';
 
+/// Cloudinary cloud names that are disabled and should never be used for display.
+/// MUST match packages/shared-config/cloudinary.ts
+const _disabledCloudNames = ['dxdblhmbm'];
+
+/// Check if a Cloudinary URL is from a disabled cloud account
+bool _isWorkingCloudinaryUrl(String url) {
+  try {
+    final uri = Uri.parse(url);
+    if (uri.host == 'res.cloudinary.com') {
+      final segments = uri.pathSegments;
+      if (segments.isNotEmpty && _disabledCloudNames.contains(segments[0])) {
+        return false;
+      }
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 String? normalizeMediaUrl(String? raw) {
   final value = raw?.trim() ?? '';
   if (value.isEmpty) return null;
 
   if (value.startsWith('http://') || value.startsWith('https://')) {
-    final baseHost = Uri.tryParse(AppConfig.apiHostBase)?.host;
+    final baseHost = Uri.tryParse(AppConfig.apiBaseUrl)?.host;
     final uri = Uri.tryParse(value);
+    // Reject URLs from disabled cloud accounts
+    if (!_isWorkingCloudinaryUrl(value)) return null;
     if (uri != null && uri.host.isNotEmpty && baseHost == uri.host && value.startsWith('http://')) {
       return value.replaceFirst('http://', 'https://');
     }
     return value;
   }
-  if (value.startsWith('//')) return 'https:$value';
-  if (value.startsWith('res.cloudinary.com/')) return 'https://$value';
+  if (value.startsWith('//')) {
+    final resolved = 'https:$value';
+    return _isWorkingCloudinaryUrl(resolved) ? resolved : null;
+  }
+  if (value.startsWith('res.cloudinary.com/')) {
+    final resolved = 'https://$value';
+    return _isWorkingCloudinaryUrl(resolved) ? resolved : null;
+  }
   if (value.startsWith('merry360x.com/') || value.startsWith('www.merry360x.com/')) {
     return 'https://$value';
   }
 
-  final base = AppConfig.apiHostBase;
+  final base = AppConfig.apiBaseUrl;
   const relativePrefixes = ['uploads/', 'media/', 'images/', 'storage/'];
   if (value.startsWith('/') || relativePrefixes.any((p) => value.startsWith(p))) {
     final path = value.startsWith('/') ? value : '/$value';

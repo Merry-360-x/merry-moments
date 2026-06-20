@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../utils/animations.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -153,7 +154,16 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 
   Widget _body(AppLocalizations l) {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.rausch));
+    if (_loading) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 4,
+        itemBuilder: (_, i) => const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: ShimmerCardPlaceholder(imageHeightOverride: 190),
+        ),
+      );
+    }
     final items = _filtered;
     if (items.isEmpty) {
       return Center(
@@ -163,7 +173,10 @@ class _TransportScreenState extends State<TransportScreen> {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
-      itemBuilder: (_, i) => _TransportTile(item: items[i], session: widget.session),
+      itemBuilder: (_, i) => StaggeredSlideFade(
+        index: i,
+        child: _TransportTile(item: items[i], session: widget.session),
+      ),
     );
   }
 }
@@ -212,7 +225,7 @@ class _TransportTileState extends State<_TransportTile> {
     final description = (widget.item['description'] ?? '').toString().trim();
     final images = resolveListingImages(widget.item);
 
-    return GestureDetector(
+    return AnimatedPressable(
       onTap: () => Navigator.push(context, MaterialPageRoute(
         builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
       )),

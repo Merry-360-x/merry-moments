@@ -1,4 +1,5 @@
 import { Search, Star } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -372,16 +373,36 @@ const Tours = () => {
 
       {/* Tours */}
       <div className="container mx-auto px-4 lg:px-8 py-10 pb-24 lg:pb-10">
+        <AnimatePresence mode="wait">
         {isError ? (
-          <div className="py-20 text-center">
+          <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-20 text-center">
             <p className="text-muted-foreground">{t("tours.errorLoading")}</p>
-          </div>
-        ) : !toursLoading && tours.length === 0 ? (
-          <div className="py-20 text-center">
+          </motion.div>
+        ) : toursLoading ? (
+          <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="rounded-xl overflow-hidden bg-card shadow-card">
+                <div className="aspect-[4/3] bg-muted animate-pulse" />
+                <div className="p-3 md:p-4 space-y-3">
+                  <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+                  <div className="h-3 bg-muted animate-pulse rounded w-1/3" />
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        ) : tours.length === 0 ? (
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-20 text-center">
             <p className="text-muted-foreground">{t("tours.noResults")}</p>
-          </div>
-        ) : !toursLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+          </motion.div>
+        ) : (
+          <motion.div
+            key="content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6"
+          >
             {rankedTours.map((tour) => (
               <div
                 key={tour.id}
@@ -479,8 +500,9 @@ const Tours = () => {
                 </div>
               </div>
             ))}
-          </div>
-        ) : null}
+          </motion.div>
+        )}
+        </AnimatePresence>
       </div>
 
       <Footer />

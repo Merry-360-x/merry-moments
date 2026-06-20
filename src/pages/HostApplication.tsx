@@ -1379,9 +1379,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1410,9 +1410,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1441,9 +1441,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1472,9 +1472,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1503,9 +1503,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1534,9 +1534,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1565,9 +1565,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />
@@ -1596,9 +1596,9 @@ export default function HostApplication() {
                                     : [...(serviceData.amenities || []), amenity.value];
                                   updateField("amenities", newAmenities);
                                 }}
-                                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                                }`}
+className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+  selected ? "border-primary bg-primary/5 scale-[1.03]" : "border-border hover:border-primary/50 hover:scale-[1.02]"
+}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <Icon className="w-4 h-4" />

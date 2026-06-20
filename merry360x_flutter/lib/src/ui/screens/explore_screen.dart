@@ -4,12 +4,12 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
+import '../utils/animations.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
@@ -19,6 +19,26 @@ import 'tours_screen.dart';
 import 'transport_screen.dart';
 
 // ── Image URL resolver (shared) ──
+
+/// Cloudinary cloud names that are disabled and should never be used for display.
+/// MUST match packages/shared-config/cloudinary.ts
+const _disabledCloudNames = ['dxdblhmbm'];
+
+/// Check if a Cloudinary URL is from a disabled cloud account
+bool _isWorkingCloudinaryUrl(String url) {
+  try {
+    final uri = Uri.parse(url);
+    if (uri.host == 'res.cloudinary.com') {
+      final segments = uri.pathSegments;
+      if (segments.isNotEmpty && _disabledCloudNames.contains(segments[0])) {
+        return false;
+      }
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 /// Returns ALL image URLs for a listing (carousel support).
 List<String> resolveListingImages(Map<String, dynamic> item) {
@@ -40,12 +60,15 @@ List<String> resolveListingImages(Map<String, dynamic> item) {
           } catch (_) {}
           continue;
         }
+        // Normalize to HTTPS URL
         if (!raw.startsWith('http://') && !raw.startsWith('https://') && !raw.startsWith('//')) {
           raw = raw.startsWith('res.cloudinary.com/')
               ? 'https://$raw'
               : 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto:eco,dpr_auto,c_limit,w_1200/$raw';
         }
         if (raw.startsWith('//')) raw = 'https:$raw';
+        // Skip URLs from disabled cloud accounts
+        if (!_isWorkingCloudinaryUrl(raw)) continue;
         results.add(raw);
       }
       return results;
@@ -109,13 +132,41 @@ String? resolveListingImageUrl(Map<String, dynamic> item) {
     return t;
   }
 
-  final raw = firstImage(item['images']) ??
+  String? firstWorkingImage(dynamic value) {
+    if (value is List) {
+      for (final v in value) {
+        String? url;
+        if (v is Map) {
+          url = (v['url'] ?? v['uri'] ?? v['src'] ?? '')?.toString().trim();
+        } else {
+          url = v?.toString().trim();
+        }
+        if (url != null && url.isNotEmpty && _isWorkingCloudinaryUrl(url)) {
+          return url;
+        }
+      }
+      return null;
+    }
+    final t = value?.toString().trim() ?? '';
+    if (t.isEmpty) return null;
+    if (_isWorkingCloudinaryUrl(t)) return t;
+    return null;
+  }
+
+  final raw = firstWorkingImage(item['images']) ??
+      firstWorkingImage(item['main_image']) ??
+      firstWorkingImage(item['image']) ??
+      firstWorkingImage(item['photos']) ??
+      firstImage(item['images']) ??
       firstImage(item['main_image']) ??
       firstImage(item['image']) ??
       firstImage(item['photos']);
   if (raw == null) return null;
 
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    // Return HTTP URLs as-is (validation already done above for disabled clouds)
+    return raw;
+  }
   if (raw.startsWith('//')) return 'https:$raw';
   if (raw.startsWith('res.cloudinary.com/')) return 'https://$raw';
   // Preserve source aspect ratio to avoid unexpected zoom/crop artifacts on cards.
@@ -302,6 +353,8 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
 
   final _precachedUrls = <String>{};
   int _lastPrecachedItemCount = 0;
+  final _scrollCtrl = ScrollController();
+  bool _showFab = false;
 
   void _precacheListingImages(BuildContext context, List<Map<String, dynamic>> items) {
     if (items.length <= _lastPrecachedItemCount) return;
@@ -322,11 +375,16 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollCtrl.addListener(() {
+      final show = _scrollCtrl.offset > 600;
+      if (show != _showFab) setState(() => _showFab = show);
+    });
     _queueStartupBottomSheets();
   }
 
   @override
   void dispose() {
+    _scrollCtrl.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -429,10 +487,13 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
 
     final hPad = isTablet ? 28.0 : 16.0;
 
-    return RefreshIndicator(
-      onRefresh: session.refresh,
-      child: CustomScrollView(
-        slivers: [
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: session.refresh,
+          child: CustomScrollView(
+            controller: _scrollCtrl,
+            slivers: [
           // Search bar with padding
           SliverPadding(
             padding: EdgeInsets.fromLTRB(hPad, isTablet ? 20 : 14, hPad, isTablet ? 16 : 12),
@@ -616,12 +677,7 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                 _CategoryChips(isTablet: isTablet, session: session),
                 SizedBox(height: isTablet ? 18 : 14),
                 if (session.loading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 40),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
+                  _ShimmerGrid(gridColumns: gridColumns, gridAspect: gridAspect)
                 else if (session.error != null)
                   _ErrorCard(message: session.error!)
                 else ...[
@@ -658,7 +714,10 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                         childAspectRatio: gridAspect,
                       ),
                       itemBuilder: (context, index) {
-                        return ListingCard(item: tours[index], session: session, compact: true);
+                        return StaggeredSlideFade(
+                          index: index,
+                          child: ListingCard(item: tours[index], session: session, compact: true),
+                        );
                       },
                     ),
                   ],
@@ -677,7 +736,10 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
                         childAspectRatio: gridAspect,
                       ),
                       itemBuilder: (context, index) {
-                        return ListingCard(item: transport[index], session: session, compact: true);
+                        return StaggeredSlideFade(
+                          index: index,
+                          child: ListingCard(item: transport[index], session: session, compact: true),
+                        );
                       },
                     ),
                   ],
@@ -697,7 +759,31 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
           ),
         ],
       ),
-    );
+    ),
+    if (_showFab)
+      Positioned(
+        right: 16,
+        bottom: 16,
+        child: AnimatedPressable(
+          onTap: () {
+            _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
+          },
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.rausch,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.arrow_upward, color: Colors.white, size: 22),
+          ),
+        ),
+      ),
+  ],
+  );
   }
 }
 
@@ -1400,12 +1486,15 @@ class _CityStaySection extends StatelessWidget {
                 itemCount: items.length,
                 separatorBuilder: (context, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: ListingCard(
-                      item: items[index],
-                      session: session,
-                      compact: true,
+                  return StaggeredSlideFade(
+                    index: index,
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: ListingCard(
+                        item: items[index],
+                        session: session,
+                        compact: true,
+                      ),
                     ),
                   );
                 },
@@ -1467,7 +1556,10 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
             childAspectRatio: gridAspect,
           ),
           itemBuilder: (context, index) {
-            return ListingCard(item: visibleItems[index], session: widget.session, compact: true);
+            return StaggeredSlideFade(
+              index: index,
+              child: ListingCard(item: visibleItems[index], session: widget.session, compact: true),
+            );
           },
         ),
         if (hasMore)
@@ -1522,7 +1614,7 @@ class _ListingCardState extends State<ListingCard> {
   @override
   void initState() {
     super.initState();
-    _autoRotate = Timer.periodic(const Duration(seconds: 4), (_) {
+    _autoRotate = Timer.periodic(const Duration(seconds: 8), (_) {
       final images = resolveListingImages(widget.item);
       if (images.length > 1 && mounted && !_disposed) {
         final next = (_currentPage + 1) % images.length;
@@ -1541,7 +1633,7 @@ class _ListingCardState extends State<ListingCard> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AnimatedPressable(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
@@ -1580,34 +1672,37 @@ class _ListingCardState extends State<ListingCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // PageView of images
-                PageView.builder(
-                  controller: _pageCtrl,
-                  itemCount: images.isEmpty ? 1 : images.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (_, i) => _ListingImage(imageUrl: images.isEmpty ? null : images[i]),
+                // Hero shared-element transition
+                Hero(
+                  tag: 'listing_image_${widget.item['id'] ?? widget.item.hashCode}',
+                  child: PageView.builder(
+                    controller: _pageCtrl,
+                    itemCount: images.isEmpty ? 1 : images.length,
+                    onPageChanged: (i) => setState(() => _currentPage = i),
+                    itemBuilder: (_, i) => _ListingImage(imageUrl: images.isEmpty ? null : images[i]),
+                  ),
                 ),
 
                 // Heart / wishlist button
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: GestureDetector(
-                    onTap: () async {
-                      HapticFeedback.lightImpact();
-                      await widget.session.addListingToWishlist(widget.item);
-                      if (context.mounted) {
-                        AppSnackBar.success(context, l.savedToWishlist);
-                      }
-                    },
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: const BoxDecoration(
-                        color: Color(0x66000000),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.favorite_border, color: Colors.white, size: 18),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: Color(0x66000000),
+                      shape: BoxShape.circle,
+                    ),
+                    child: HeartBurst(
+                      size: 18,
+                      color: Colors.white,
+                      onChanged: (_) async {
+                        await widget.session.addListingToWishlist(widget.item);
+                        if (context.mounted) {
+                          AppSnackBar.success(context, l.savedToWishlist);
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -1650,7 +1745,7 @@ class _ListingCardState extends State<ListingCard> {
                     ),
                   ),
 
-                // Dot indicators
+                // Dot indicators - limit to 5 to prevent overflow on properties with many images
                 if (images.length > 1)
                   Positioned(
                     bottom: 8,
@@ -1658,15 +1753,18 @@ class _ListingCardState extends State<ListingCard> {
                     right: 0,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(images.length, (i) => Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        width: _currentPage == i ? 6 : 4,
-                        height: _currentPage == i ? 6 : 4,
-                        decoration: BoxDecoration(
-                          color: _currentPage == i ? Colors.white : Colors.white54,
-                          shape: BoxShape.circle,
+                      children: List.generate(
+                        images.length > 5 ? 5 : images.length,
+                        (i) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: _currentPage == i ? 6 : 4,
+                          height: _currentPage == i ? 6 : 4,
+                          decoration: BoxDecoration(
+                            color: _currentPage == i ? Colors.white : Colors.white54,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      )),
+                      ),
                     ),
                   ),
               ],
@@ -1890,6 +1988,33 @@ class _ListingImage extends StatelessWidget {
         placeholder: (_, _) => _placeholder(),
         errorWidget: (_, _, _) => _placeholder(),
       ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Shimmer placeholder grid for loading state
+// ══════════════════════════════════════════════════════════════════════
+
+class _ShimmerGrid extends StatelessWidget {
+  const _ShimmerGrid({required this.gridColumns, required this.gridAspect});
+
+  final int gridColumns;
+  final double gridAspect;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: gridColumns * 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: gridColumns,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 10,
+        childAspectRatio: gridAspect,
+      ),
+      itemBuilder: (_, i) => ShimmerCardPlaceholder(compact: true),
     );
   }
 }

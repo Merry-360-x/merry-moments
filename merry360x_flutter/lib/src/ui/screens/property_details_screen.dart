@@ -691,12 +691,15 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 else
                   GestureDetector(
                     onTap: () => _openGallery(images, _currentImage),
-                    child: _GalleryView(
-                      images: images,
-                      onPageChanged: (i) => setState(() => _currentImage = i),
-                      onValidCountChanged: (n) {
-                        if (_validImageCount != n) setState(() => _validImageCount = n);
-                      },
+                    child: Hero(
+                      tag: 'listing_image_${widget.item['id'] ?? widget.item.hashCode}',
+                      child: _GalleryView(
+                        images: images,
+                        onPageChanged: (i) => setState(() => _currentImage = i),
+                        onValidCountChanged: (n) {
+                          if (_validImageCount != n) setState(() => _validImageCount = n);
+                        },
+                      ),
                     ),
                   ),
                 // Top bar: back, like, share

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HeroSearch from "@/components/HeroSearch";
@@ -494,9 +495,20 @@ const Index = () => {
             ))}
           </div>
         ) : popularTours.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <motion.div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+          >
             {popularTours.map((tour, index) => (
-              <div key={tour.id} className={index >= 6 ? "hidden md:block" : ""}>
+              <motion.div
+                key={tour.id}
+                className={index >= 6 ? "hidden md:block" : ""}
+                variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
                 <TourPromoCard
                   id={tour.id}
                   title={tour.title}
@@ -514,9 +526,9 @@ const Index = () => {
                   pricingDurationValue={tour.pricingDurationValue}
                   pricingDurationUnit={tour.pricingDurationUnit}
                 />
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : (
           <Card>
             <CardContent className="p-6 text-center">

@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatNumber } from "@/lib/money";
 import { getTourPriceSuffix, getTourPricingModel } from "@/lib/tour-pricing";
 import { logError, uiErrorMessage } from "@/lib/ui-errors";
 import { convertAmount, DEFAULT_FX_RATES } from "@/lib/fx";
@@ -754,19 +754,19 @@ For support, contact: support@merry360x.com
           </Card>
           <Card className="p-5">
             <div className="text-sm text-muted-foreground">Bookings</div>
-            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.bookings_total ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{formatNumber(metrics?.bookings_total ?? 0)}</div>
             <div className="text-xs text-muted-foreground mt-2">
-              Pending: {metrics?.bookings_pending ?? 0} · Paid: {metrics?.bookings_paid ?? 0}
+              Pending: {formatNumber(metrics?.bookings_pending ?? 0)} · Paid: {formatNumber(metrics?.bookings_paid ?? 0)}
             </div>
           </Card>
           <Card className="p-5">
             <div className="text-sm text-muted-foreground">Orders</div>
-            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.orders_total ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{formatNumber(metrics?.orders_total ?? 0)}</div>
             <div className="text-xs text-muted-foreground mt-2">Trip cart items</div>
           </Card>
           <Card className="p-5">
             <div className="text-sm text-muted-foreground">Published</div>
-            <div className="text-2xl font-bold text-foreground mt-1">{metrics?.properties_published ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground mt-1">{formatNumber(metrics?.properties_published ?? 0)}</div>
             <div className="text-xs text-muted-foreground mt-2">Accommodations</div>
           </Card>
         </div>
@@ -782,7 +782,7 @@ For support, contact: support@merry360x.com
                 className="w-64"
               />
               <Badge variant="outline" className="border-primary/30 text-primary">
-                {metrics?.bookings_total ?? 0} total
+                {formatNumber(metrics?.bookings_total ?? 0)} total
               </Badge>
             </div>
           </div>

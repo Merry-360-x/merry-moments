@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useMemo } from "react";
 import { MapPin, Star, BadgeCheck } from "lucide-react";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
@@ -80,7 +81,15 @@ export default function TourPromoCard(props: TourPromoCardProps) {
 
   return (
     <Link to={`/tours/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
-      <div className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300">
+      <motion.div
+        className="group rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300"
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.97 }}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-50px" }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="relative aspect-[4/3] overflow-hidden">
           {gallery.length ? (
             <ListingImageCarousel images={gallery} alt={props.title} className="w-full h-full" />
@@ -171,7 +180,7 @@ export default function TourPromoCard(props: TourPromoCardProps) {
             ) : null}
           </div>
         </div>
-      </div>
+      </motion.div>
     </Link>
   );
 }

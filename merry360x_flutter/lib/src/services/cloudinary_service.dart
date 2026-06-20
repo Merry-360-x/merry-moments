@@ -141,5 +141,44 @@ class CloudinaryService {
       onProgress?.call(0.0);
 
       final uri = Uri.parse(
-        'https://api.cloudinary.com/v1_1/
+        'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
+      );
+
+      final file = File(filePath);
+      final bytes = await file.readAsBytes();
+      final fileName = filePath.split('/').last;
+
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['upload_preset'] = _uploadPreset
+        ..fields['folder'] = folder
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: fileName,
+        ));
+
+      // Track upload progress (simulated via sent bytes for multipart)
+      final streamedResponse = await request.send();
+      final body = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode < 200 ||
+          streamedResponse.statusCode >= 300) {
+        throw Exception(
+            'Cloudinary upload failed (${streamedResponse.statusCode}): $body');
+      }
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final url = json['secure_url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('Cloudinary returned no secure_url: $body');
+      }
+
+      onProgress?.call(1.0);
+      return url;
+    } catch (e) {
+      onProgress?.call(0.0);
+      return null;
+    }
+  }
+}
 

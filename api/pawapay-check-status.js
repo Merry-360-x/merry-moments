@@ -635,12 +635,15 @@ async function syncPayoutStatuses(req, res, supabase) {
  * GET /api/pawapay-check-status?depositId=xxx&checkoutId=xxx
  */
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
+  // Support both GET (web) and POST (mobile) requests
+  const params = req.method === "POST" ? (req.body || {}) : req.query;
+
+  if (req.method !== "GET" && req.method !== "POST") {
     return json(res, 405, { error: "Method not allowed" });
   }
 
-  const { action, depositIdcheckoutId, bookingId } = req.query;
-  const orderId = checkoutId || bookingId; // Support both
+  const { action, depositId, checkoutId, bookingId } = params;
+  let orderId = checkoutId || bookingId;
 
   if (!PAWAPAY_API_KEY) {
     console.error("Missing PawaPay API token");
@@ -655,6 +658,23 @@ export default async function handler(req, res) {
 
   if (action === "sync-payouts") {
     return syncPayoutStatuses(req, res, supabase);
+  }
+
+  // If depositId is not provided but we have an orderId, try to look it up from the DB
+  if (!depositId && orderId) {
+    try {
+      const { data: checkout } = await supabase
+        .from("checkout_requests")
+        .select("dpo_transaction_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (checkout?.dpo_transaction_id) {
+        depositId = checkout.dpo_transaction_id;
+        console.log(`Resolved depositId ${depositId} from checkout ${orderId}`);
+      }
+    } catch (lookupErr) {
+      console.warn("Failed to look up depositId from checkout:", lookupErr);
+    }
   }
 
   if (!depositId) {

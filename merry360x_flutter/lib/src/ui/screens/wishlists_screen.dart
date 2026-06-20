@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
+import '../utils/animations.dart';
 
 import '../../session_controller.dart';
 import '../../../l10n/app_localizations.dart';
@@ -31,56 +32,79 @@ class WishlistsScreen extends StatelessWidget {
             child: Text('${items.length} saved place${items.length == 1 ? '' : 's'}', style: const TextStyle(color: AppColors.foggy)),
           ),
         if (items.isNotEmpty)
-          ...items.map((item) {
-            final id = (item['id'] ?? '').toString();
-            final title = (item['title'] ?? item['item_type'] ?? 'Saved item').toString();
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+          for (int i = 0; i < items.length; i++)
+            StaggeredSlideFade(
+              index: i,
+              child: _WishlistItem(
+                item: items[i],
+                session: session,
+                index: i,
               ),
-              child: Row(
+            ),
+      ],
+    );
+  }
+}
+
+class _WishlistItem extends StatelessWidget {
+  const _WishlistItem({
+    required this.item,
+    required this.session,
+    required this.index,
+  });
+
+  final Map<String, dynamic> item;
+  final SessionController session;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final id = (item['id'] ?? '').toString();
+    final title = (item['title'] ?? item['item_type'] ?? 'Saved item').toString();
+
+    return AnimatedPressable(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            HeartBurst(
+              size: 20,
+              color: AppColors.rausch,
+              liked: true,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFEFF0),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Icon(Icons.favorite, color: AppColors.rausch, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 3),
-                        Text(
-                          (item['created_at'] ?? '').toString(),
-                          style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () async {
-                      await session.removeWishlistItem(id);
-                      if (context.mounted) {
-                        AppSnackBar.success(context, l.removedFromWishlist);
-                      }
-                    },
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(
+                    (item['created_at'] ?? '').toString(),
+                    style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                   ),
                 ],
               ),
-            );
-          }),
-      ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () async {
+                await session.removeWishlistItem(id);
+                if (context.mounted) {
+                  AppSnackBar.success(context, l.removedFromWishlist);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -30,7 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useScroll, useMotionValueEvent, useAnimationControls } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -331,8 +332,32 @@ const Navbar = () => {
     window.dispatchEvent(new CustomEvent(BOOKING_DECISION_SEEN_EVENT, { detail: { seenAt: nextSeenAt } }));
   }, [bookingDecisions, user?.id]);
 
+  const { scrollY } = useScroll();
+  const navbarControls = useAnimationControls();
+  const lastScroll = useRef(0);
+
+  useMotionValueEvent(scrollY, "change", (current) => {
+    const diff = current - lastScroll.current;
+    const hidingThreshold = 5;
+    const atTop = current < 80;
+
+    if (atTop) {
+      navbarControls.start({ y: 0 });
+    } else if (diff > hidingThreshold) {
+      navbarControls.start({ y: -120 });
+    } else if (diff < -hidingThreshold) {
+      navbarControls.start({ y: 0 });
+    }
+    lastScroll.current = current;
+  });
+
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <motion.header
+      className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border"
+      animate={navbarControls}
+      initial={false}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
       {(activeAd || fallbackAd) && (
         <div
           className="w-full border-b border-border/60"
@@ -1022,7 +1047,7 @@ const Navbar = () => {
           </div>
         )}
       </div>
-    </header>
+    </motion.header>
   );
 };
 
