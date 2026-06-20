@@ -66,10 +66,6 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/hotel-calendar-sync?action=sync-all",
-      "schedule": "0 3 * * *"
-    },
-    {
       "path": "/api/pawapay-check-status?action=sync-payouts&syncAll=1&limit=100",
       "schedule": "15 4 * * *"
     }
