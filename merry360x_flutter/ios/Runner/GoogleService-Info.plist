@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.merry360x.mobile</string>
+	<string>com.merry360x.merry360x</string>
 	<key>PROJECT_ID</key>
 	<string>merry360x</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:592965243458:ios:d45be736c9e88735ccd3db</string>
+	<string>1:592965243458:ios:78590b63e78a5cc6ccd3db</string>
 </dict>
 </plist>
