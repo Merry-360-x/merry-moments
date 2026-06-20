@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isVideoUrl } from "@/lib/media";
 import { optimizeCloudinaryImage } from "@/lib/cloudinary";
 
@@ -25,10 +25,12 @@ export default function ListingImageCarousel({
   const [hover, setHover] = useState(false);
   const [idx, setIdx] = useState(0);
   const [loadedIndices, setLoadedIndices] = useState<Set<number>>(() => new Set([0]));
+  const [errored, setErrored] = useState<Set<number>>(() => new Set());
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setLoadedIndices(new Set([0]));
+    setErrored(new Set());
   }, [clean.length]);
 
   useEffect(() => {
@@ -57,9 +59,25 @@ export default function ListingImageCarousel({
   }, [hover]);
 
   const [imgLoaded, setImgLoaded] = useState(false);
+  const handleError = useCallback((i: number) => {
+    setErrored((prev) => {
+      if (prev.has(i)) return prev;
+      const next = new Set(prev);
+      next.add(i);
+      if (i === 0) setImgLoaded(true);
+      return next;
+    });
+  }, []);
+
+  const hasAnyValidImage = useMemo(
+    () => clean.some((_, i) => !errored.has(i)),
+    [clean, errored]
+  );
 
   if (clean.length === 0) {
-    return <div className={className ?? ""} />;
+    return (
+      <div className={`bg-gradient-to-br from-muted via-muted/70 to-muted/40 ${className ?? ""}`} />
+    );
   }
 
   return (
@@ -80,8 +98,13 @@ export default function ListingImageCarousel({
         className="h-full w-full flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${idx * 100}%)` }}
       >
-        {clean.map((src, i) => (
-          isVideoUrl(src) ? (
+        {clean.map((src, i) => {
+          if (errored.has(i)) {
+            return (
+              <div key={src} className="w-full h-full shrink-0 bg-gradient-to-br from-muted via-muted/70 to-muted/40" />
+            );
+          }
+          return isVideoUrl(src) ? (
             <video
               key={src}
               src={loadedIndices.has(i) ? src : undefined}
@@ -89,6 +112,7 @@ export default function ListingImageCarousel({
               muted
               playsInline
               preload="metadata"
+              onError={() => handleError(i)}
             />
           ) : (
             <img
@@ -104,9 +128,10 @@ export default function ListingImageCarousel({
               decoding={i === 0 && priority ? "sync" : "async"}
               fetchPriority={i === 0 && priority ? "high" : "auto"}
               onLoad={i === 0 ? () => setImgLoaded(true) : undefined}
+              onError={() => handleError(i)}
             />
-          )
-        ))}
+          );
+        })}
       </div>
     </div>
   );

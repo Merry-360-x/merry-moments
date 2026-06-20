@@ -77,17 +77,22 @@ function isWorkingCloudinaryUrl(url) {
 }
 
 function normalizeImages(images, mainImage) {
-  const allCandidates = [
-    ...(Array.isArray(images) ? images.filter(v => v && typeof v === 'string' && v.trim()) : []),
-    ...(mainImage && typeof mainImage === 'string' && mainImage.trim() ? [mainImage.trim()] : []),
-  ];
+  const candidates = new Set();
+  if (Array.isArray(images)) {
+    for (const v of images) {
+      if (v && typeof v === 'string') candidates.add(v.trim());
+    }
+  }
+  if (mainImage && typeof mainImage === 'string' && mainImage.trim()) {
+    candidates.add(mainImage.trim());
+  }
 
-  // Prefer working Cloudinary URLs; fall back to any non-empty candidate.
-  const working = allCandidates.filter(v => isWorkingCloudinaryUrl(v));
-  
+  // Prefer working Cloudinary URLs only.
+  const working = [...candidates].filter(v => isWorkingCloudinaryUrl(v));
   if (working.length > 0) return working;
-  if (allCandidates.length > 0) return allCandidates;
-  
+
+  // If no working Cloudinary URLs, return empty — UI will show a placeholder
+  // instead of a broken 401 image from a disabled/misconfigured cloud.
   return [];
 }
 
