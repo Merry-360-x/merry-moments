@@ -103,14 +103,14 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
   <div
     style={{
       background: isDark ? '#1E1E1E' : '#FFFFFF',
-      borderRadius: '16px',
-      padding: '24px',
+      borderRadius: '12px',
+      padding: '12px',
       position: 'relative',
       overflow: 'hidden',
       boxShadow: isDark
         ? '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)'
         : '0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06)',
-      border: 'none',
+      border: isDark ? 'none' : '1px solid hsl(var(--border))',
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     }}
     onMouseEnter={(e) => {
@@ -142,10 +142,10 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
         position: 'absolute',
         top: 0,
         right: 0,
-        width: '80px',
-        height: '80px',
+        width: '60px',
+        height: '60px',
         background: `linear-gradient(135deg, ${accentColor}20, transparent)`,
-        borderRadius: '0 0 0 80px',
+        borderRadius: '0 0 0 60px',
         pointerEvents: 'none',
       }}
     />
@@ -155,22 +155,22 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '40px',
-          height: '40px',
+          width: '32px',
+          height: '32px',
           background: `${accentColor}15`,
-          borderRadius: '10px',
+          borderRadius: '8px',
           color: accentColor,
         }}
       >
         {icon}
       </div>
     </div>
-    <div style={{ marginTop: '16px' }}>
+    <div style={{ marginTop: '8px' }}>
       <p
         style={{
-          fontSize: '32px',
+          fontSize: '24px',
           fontWeight: '800',
-          lineHeight: '1.1',
+          lineHeight: '1.2',
           color: isDark ? '#FFFFFF' : '#1a1a1a',
           margin: 0,
           letterSpacing: '-0.02em',
@@ -183,7 +183,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
           fontSize: '13px',
           fontWeight: '500',
           color: isDark ? '#B3B3B3' : '#666666',
-          margin: '8px 0 0 0',
+          margin: '4px 0 0 0',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
         }}
