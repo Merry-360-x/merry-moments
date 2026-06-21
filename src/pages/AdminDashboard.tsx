@@ -891,6 +891,11 @@ export default function AdminDashboard() {
   const [trafficAnalyticsRange, setTrafficAnalyticsRange] = useState<"1h" | "24h" | "7d" | "30d">("24h");
   const [revenueAnalyticsRange, setRevenueAnalyticsRange] = useState<"12w" | "12m">("12w");
   const [analyticsChart, setAnalyticsChart] = useState<"traffic" | "revenue">("traffic");
+  const [analyticsLastUpdated, setAnalyticsLastUpdated] = useState<Date>(new Date());
+
+  useEffect(() => {
+    setAnalyticsLastUpdated(new Date());
+  }, [liveWebAnalytics, webAnalyticsSeries]);
 
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
@@ -1118,9 +1123,9 @@ export default function AdminDashboard() {
       if (error) throw error;
       return (data?.[0] ?? null) as LiveWebAnalyticsRow | null;
     },
-    staleTime: 1000 * 10,
+    staleTime: 0,
     gcTime: 1000 * 60 * 5,
-    refetchInterval: 15_000,
+    refetchInterval: 5_000,
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
@@ -1137,9 +1142,9 @@ export default function AdminDashboard() {
       if (error) throw error;
       return (data ?? []) as WebAnalyticsSeriesRow[];
     },
-    staleTime: 1000 * 30,
+    staleTime: 0,
     gcTime: 1000 * 60 * 10,
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
@@ -4499,8 +4504,12 @@ For support, contact: support@merry360x.com
                 <div>
                   <h3 className="font-semibold flex items-center gap-2">
                     <Activity className="w-4 h-4" /> Live Traffic
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      LIVE
+                    </span>
                   </h3>
-                  <p className="text-xs text-muted-foreground">Live counts are last 15 minutes</p>
+                  <p className="text-xs text-muted-foreground">Updated {analyticsLastUpdated.toLocaleTimeString()}</p>
                 </div>
 
                 <div className="w-full md:w-auto flex flex-col md:flex-row gap-2 md:items-center">
@@ -4650,11 +4659,30 @@ For support, contact: support@merry360x.com
                     minTickGap={24}
                     tickFormatter={formatAnalyticsBucket}
                   />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    allowDecimals={false}
+                    tickFormatter={(value) => {
+                      const n = Number(value ?? 0);
+                      if (analyticsChart === "revenue") return `${(n / 1000).toFixed(0)}k`;
+                      return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+                    }}
+                  />
                   <ChartTooltip
                     cursor={false}
                     content={
                       <ChartTooltipContent
+                        labelFormatter={(label) => {
+                          const d = new Date(label);
+                          return d.toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          });
+                        }}
                         formatter={(value, name) => {
                           if (analyticsChart === "revenue" && name === "revenue_rwf") {
                             return <span className="font-mono">{formatMoney(Number(value ?? 0), "RWF")}</span>;
