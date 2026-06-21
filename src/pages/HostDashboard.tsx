@@ -47,25 +47,34 @@ interface MetricCardProps {
   subLabel?: string;
 }
 
-const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => (
+const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => {
+  const { resolvedTheme } = usePreferences();
+  const isDark = resolvedTheme === 'dark';
+  return (
   <div
     style={{
-      background: '#1E1E1E',
+      background: isDark ? '#1E1E1E' : '#FFFFFF',
       borderRadius: '16px',
       padding: '24px',
       position: 'relative',
       overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)',
+      boxShadow: isDark
+        ? '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)'
+        : '0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06)',
       border: 'none',
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     }}
     onMouseEnter={(e) => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)';
+      e.currentTarget.style.boxShadow = isDark
+        ? '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+        : '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06)';
     }}
     onMouseLeave={(e) => {
       e.currentTarget.style.transform = 'translateY(0)';
-      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)';
+      e.currentTarget.style.boxShadow = isDark
+        ? '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)'
+        : '0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06)';
     }}
   >
     <div
@@ -113,7 +122,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
           fontSize: '32px',
           fontWeight: '800',
           lineHeight: '1.1',
-          color: '#FFFFFF',
+          color: isDark ? '#FFFFFF' : '#1a1a1a',
           margin: 0,
           letterSpacing: '-0.02em',
         }}
@@ -124,7 +133,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
         style={{
           fontSize: '13px',
           fontWeight: '500',
-          color: '#B3B3B3',
+          color: isDark ? '#B3B3B3' : '#666666',
           margin: '8px 0 0 0',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
@@ -147,6 +156,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
     </div>
   </div>
 );
+};
 
 import {
   Home,
@@ -538,7 +548,7 @@ export default function HostDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { usdRates } = useFxRates();
-  const { currency: preferredCurrency } = usePreferences();
+  const { currency: preferredCurrency, resolvedTheme } = usePreferences();
 
   const [tab, setTab] = useState<HostTabValue>(() => {
     if (typeof window === "undefined") return "overview";
@@ -8183,14 +8193,14 @@ export default function HostDashboard() {
 
   // Main Dashboard
   return (
-    <div className="min-h-[100dvh] bg-background" style={{ background: tab === 'overview' ? '#121212' : undefined }}>
+    <div className="min-h-[100dvh] bg-background" style={tab === 'overview' && resolvedTheme === 'dark' ? { background: '#121212' } : undefined}>
       <Navbar />
 
       <div className="container mx-auto overflow-x-hidden px-4 py-8" style={{ background: tab === 'overview' ? 'transparent' : undefined }}>
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between" style={{ color: tab === 'overview' ? '#FFFFFF' : undefined }}>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between" style={tab === 'overview' && resolvedTheme === 'dark' ? { color: '#FFFFFF' } : undefined}>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold" style={{ color: tab === 'overview' ? '#FFFFFF' : 'inherit' }}>Host Dashboard</h1>
+              <h1 className="text-2xl font-bold" style={tab === 'overview' && resolvedTheme === 'dark' ? { color: '#FFFFFF' } : {}}>Host Dashboard</h1>
               {hostProfile?.profile_complete && (
                 <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
                   <BadgeCheck className="w-3.5 h-3.5" />
@@ -8198,7 +8208,7 @@ export default function HostDashboard() {
                 </Badge>
               )}
             </div>
-            <p style={{ color: tab === 'overview' ? '#B3B3B3' : 'inherit' }}>Manage your properties, tours, and bookings</p>
+            <p style={tab === 'overview' && resolvedTheme === 'dark' ? { color: '#B3B3B3' } : {}}>Manage your properties, tours, and bookings</p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <Button variant="outline" size="sm" className="w-full justify-center sm:w-auto" onClick={() => setHostTab("post-booking")}>

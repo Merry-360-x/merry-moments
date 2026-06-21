@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePreferences } from "@/hooks/usePreferences";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AffiliatesManagement } from "@/components/AffiliatesManagement";
@@ -95,25 +96,34 @@ interface MetricCardProps {
   subLabel?: string;
 }
 
-const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => (
+const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel }: MetricCardProps) => {
+  const { resolvedTheme } = usePreferences();
+  const isDark = resolvedTheme === 'dark';
+  return (
   <div
     style={{
-      background: '#1E1E1E',
+      background: isDark ? '#1E1E1E' : '#FFFFFF',
       borderRadius: '16px',
       padding: '24px',
       position: 'relative',
       overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)',
+      boxShadow: isDark
+        ? '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)'
+        : '0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06)',
       border: 'none',
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     }}
     onMouseEnter={(e) => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)';
+      e.currentTarget.style.boxShadow = isDark
+        ? '0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+        : '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06)';
     }}
     onMouseLeave={(e) => {
       e.currentTarget.style.transform = 'translateY(0)';
-      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)';
+      e.currentTarget.style.boxShadow = isDark
+        ? '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03)'
+        : '0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06)';
     }}
   >
     <div
@@ -161,7 +171,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
           fontSize: '32px',
           fontWeight: '800',
           lineHeight: '1.1',
-          color: '#FFFFFF',
+          color: isDark ? '#FFFFFF' : '#1a1a1a',
           margin: 0,
           letterSpacing: '-0.02em',
         }}
@@ -172,7 +182,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
         style={{
           fontSize: '13px',
           fontWeight: '500',
-          color: '#B3B3B3',
+          color: isDark ? '#B3B3B3' : '#666666',
           margin: '8px 0 0 0',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
@@ -196,6 +206,7 @@ const MetricCard = ({ label, value, icon, accentColor, accentGradient, subLabel 
     </div>
   </div>
 );
+};
 
 type HostApplicationStatus = "draft" | "pending" | "approved" | "rejected";
 const REGION_CHART_COLORS = ["#2563eb", "#06b6d4", "#f97316", "#22c55e", "#eab308", "#ef4444"];
@@ -775,6 +786,7 @@ async function fetchAdminPostBookingOverview(): Promise<AdminPostBookingOverview
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { resolvedTheme } = usePreferences();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -4274,12 +4286,12 @@ For support, contact: support@merry360x.com
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ background: tab === 'overview' ? '#121212' : undefined }}>
+    <div className="min-h-screen bg-background flex flex-col" style={tab === 'overview' && resolvedTheme === 'dark' ? { background: '#121212' } : undefined}>
       <Navbar />
 
       <main className="flex-1 container max-w-7xl mx-auto px-4 py-8" style={{ background: tab === 'overview' ? 'transparent' : undefined }}>
-        <div className="flex items-center justify-between mb-6" style={{ color: tab === 'overview' ? '#FFFFFF' : undefined }}>
-          <h1 className="text-2xl font-bold" style={{ color: tab === 'overview' ? '#FFFFFF' : 'inherit' }}>Admin Dashboard</h1>
+        <div className="flex items-center justify-between mb-6" style={tab === 'overview' && resolvedTheme === 'dark' ? { color: '#FFFFFF' } : undefined}>
+          <h1 className="text-2xl font-bold" style={tab === 'overview' && resolvedTheme === 'dark' ? { color: '#FFFFFF' } : {}}>Admin Dashboard</h1>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/admin/post-booking")}>
               <Shield className="w-4 h-4 mr-2" />
