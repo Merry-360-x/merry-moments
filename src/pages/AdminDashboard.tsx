@@ -894,10 +894,6 @@ export default function AdminDashboard() {
   const [analyticsLastUpdated, setAnalyticsLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
-    setAnalyticsLastUpdated(new Date());
-  }, [liveWebAnalytics, webAnalyticsSeries]);
-
-  useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
     if (!isAdminTabValue(urlTab)) return;
     if (pendingTabSyncRef.current && urlTab !== pendingTabSyncRef.current) {
@@ -1148,6 +1144,10 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: true,
     placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    setAnalyticsLastUpdated(new Date());
+  }, [liveWebAnalytics, webAnalyticsSeries]);
 
   const webAnalyticsChartConfig = useMemo<ChartConfig>(
     () => ({
