@@ -13,6 +13,7 @@ import 'config.dart';
 import 'lib/fx.dart';
 import 'models/mobile_sync.dart';
 import 'services/app_database.dart';
+import 'services/notification_service.dart';
 import 'services/push_notification_service.dart';
 
 class SessionController extends ChangeNotifier {
@@ -148,6 +149,7 @@ class SessionController extends ChangeNotifier {
       _userId = session.user.id;
       _rebindUserSyncSubscriptions();
       unawaited(_pushNotifications.syncForUser(_userId));
+      NotificationService.instance.init(userId: _userId);
       unawaited(loadPreferences());
       notifyListeners();
     } else {
@@ -175,6 +177,7 @@ class SessionController extends ChangeNotifier {
         _rebindUserSyncSubscriptions();
         if (_userId.isNotEmpty) {
           unawaited(_pushNotifications.syncForUser(_userId));
+          NotificationService.instance.init(userId: _userId);
           // Mark as ever authenticated (persisted across sessions).
           if (!_hasEverAuthenticated) {
             _hasEverAuthenticated = true;
@@ -911,6 +914,17 @@ class SessionController extends ChangeNotifier {
     _backgroundRefresh();
   }
 
+  /// Extract the best-available main image URL from a listing item.
+  String? _listingMainImage(Map<String, dynamic> item) {
+    final images = item['images'];
+    if (images is List && images.isNotEmpty) return images.first.toString();
+    final img = item['main_image']?.toString() ?? item['image']?.toString();
+    if (img != null && img.isNotEmpty) return img;
+    final cover = item['cover_image']?.toString();
+    if (cover != null && cover.isNotEmpty) return cover;
+    return null;
+  }
+
   Future<String?> createBooking({
     required Map<String, dynamic> item,
     String? checkIn,
@@ -928,11 +942,14 @@ class SessionController extends ChangeNotifier {
       throw Exception('Please enter your name and contact details to book as a guest');
     }
     final type = (item['item_type'] ?? 'property').toString();
+    final hostId = (item['host_id'] ?? item['created_by'] ?? '').toString();
     final result = await _api.createBooking(
       userId: isAuthenticated ? _userId : '',
       itemType: type,
       referenceId: (item['id'] ?? '').toString(),
       title: (item['title'] ?? item['name'] ?? 'Listing').toString(),
+      mainImage: _listingMainImage(item),
+      hostId: hostId,
       checkIn: checkIn,
       checkOut: checkOut,
       guests: guests,

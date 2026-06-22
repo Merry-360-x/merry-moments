@@ -409,6 +409,24 @@ class AppDatabase {
     return (result as Map)['id'].toString();
   }
 
+  /// Update metadata on an existing checkout request.
+  Future<void> updateCheckoutRequestMetadata({
+    required String checkoutId,
+    required Map<String, dynamic> metadata,
+  }) async {
+    try {
+      final existing = await _sb
+          .from('checkout_requests')
+          .select('metadata')
+          .eq('id', checkoutId)
+          .maybeSingle();
+      final existingMap = existing as Map<String, dynamic>?;
+      final oldMeta = existingMap?['metadata'] as Map<String, dynamic>?;
+      final merged = <String, dynamic>{...?oldMeta, ...metadata};
+      await _sb.from('checkout_requests').update({'metadata': merged}).eq('id', checkoutId);
+    } catch (_) {}
+  }
+
   /// Initiate Flutterwave card payment via serverless function
   Future<Map<String, dynamic>> initFlutterwavePayment({
     required String checkoutId,
@@ -464,6 +482,23 @@ class AppDatabase {
     if (status == 'paid' || status == 'completed') return 'paid';
     if (status == 'failed' || status == 'rejected' || status == 'cancelled') return 'failed';
     return 'pending';
+  }
+
+  /// Fetch the USD→RWF exchange rate from a free public API.
+  /// Returns the rate (e.g. 1100.0) or null on failure.
+  Future<double?> fetchExchangeRate() async {
+    try {
+      final uri = Uri.parse('https://api.exchangerate-api.com/v4/latest/USD');
+      final resp = await _http.get(uri);
+      if (resp.statusCode != 200) return null;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final rates = data['rates'] as Map<String, dynamic>?;
+      if (rates == null) return null;
+      final rate = rates['RWF'] ?? rates['rwf'];
+      return double.tryParse('$rate');
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Initiate PawaPay mobile money deposit via serverless function.
@@ -554,6 +589,8 @@ class AppDatabase {
     required String itemType,
     required String referenceId,
     required String title,
+    String? mainImage,
+    String? hostId,
     String? checkIn,
     String? checkOut,
     required int guests,
@@ -588,6 +625,8 @@ class AppDatabase {
       'guests': guests,
       'total_price': totalAmount,
       'currency': currency,
+      if (mainImage != null && mainImage.isNotEmpty) 'main_image': mainImage,
+      if (hostId != null && hostId.isNotEmpty) 'host_id': hostId,
       'status': 'pending',
       'payment_status': 'pending',
       if (!isGuest) 'guest_phone': ?paymentPhone,

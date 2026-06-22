@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
@@ -21,12 +22,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    widget.session.addListener(_onSessionChanged);
   }
 
   @override
   void dispose() {
+    widget.session.removeListener(_onSessionChanged);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (mounted) setState(() {});
   }
 
   List<Map<String, dynamic>> get _all => widget.session.payload?.bookings ?? [];
@@ -130,11 +137,15 @@ class _BookingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final title = (booking['title'] ?? 'Booking').toString();
+    final mainImage = booking['main_image']?.toString() ?? '';
     final checkIn = booking['check_in']?.toString() ?? '';
     final checkOut = booking['check_out']?.toString() ?? '';
-    final amount = (booking['total_amount'] as num?)?.toDouble() ?? 0;
+    final amount = (booking['total_amount'] as num?)?.toDouble() ??
+        (booking['total_price'] as num?)?.toDouble() ??
+        0;
     final currency = (booking['currency'] ?? 'USD').toString();
     final status = (booking['status'] ?? 'pending').toString();
+    final paymentStatus = (booking['payment_status'] ?? 'pending').toString();
     final bookingId = (booking['id'] ?? '').toString();
     final hasReview = booking['has_review'] == true;
 
@@ -144,6 +155,12 @@ class _BookingTile extends StatelessWidget {
       'completed' => (const Color(0xFF2196F3), isDark ? const Color(0xFF0D2238) : const Color(0xFFE3F2FD)),
       'cancelled' => (AppColors.rausch, isDark ? const Color(0xFF3A0A0F) : const Color(0xFFFFF0F1)),
       _ => (const Color(0xFFFFB400), isDark ? const Color(0xFF3A2800) : const Color(0xFFFFF8E1)),
+    };
+    final (payColor, payBg) = switch (paymentStatus) {
+      'paid' || 'completed' => (const Color(0xFF2E7D32), isDark ? const Color(0xFF1B3A1B) : const Color(0xFFE8F5E9)),
+      'failed' || 'rejected' => (AppColors.rausch, isDark ? const Color(0xFF3A0A0F) : const Color(0xFFFFF0F1)),
+      'refunded' => (const Color(0xFF1565C0), isDark ? const Color(0xFF0D2238) : const Color(0xFFE3F2FD)),
+      _ => (const Color(0xFFFF8F00), isDark ? const Color(0xFF3A2800) : const Color(0xFFFFF8E1)),
     };
 
     return Container(
@@ -157,16 +174,38 @@ class _BookingTile extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 56, height: 42,
+                child: mainImage.isNotEmpty
+                    ? CachedNetworkImage(imageUrl: mainImage, fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _imagePlaceholder,
+                        placeholder: (_, __) => const SizedBox())
+                    : _imagePlaceholder,
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.black)),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-              child: Text(status[0].toUpperCase() + status.substring(1),
-                  style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
-            ),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
+                child: Text(status[0].toUpperCase() + status.substring(1),
+                    style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: payBg, borderRadius: BorderRadius.circular(20)),
+                child: Text(paymentStatus[0].toUpperCase() + paymentStatus.substring(1),
+                    style: TextStyle(fontSize: 11, color: payColor, fontWeight: FontWeight.w600)),
+              ),
+            ]),
           ]),
           const SizedBox(height: 10),
           if (checkIn.isNotEmpty) ...[
@@ -207,6 +246,11 @@ class _BookingTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget get _imagePlaceholder => Container(
+    color: AppColors.border,
+    child: const Icon(Icons.image_outlined, size: 20, color: AppColors.foggy),
+  );
 
   String _fmt(String s) {
     try {

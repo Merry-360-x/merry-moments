@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { formatMoney } from "@/lib/money";
 import { useTripCart, CartItemMetadata, getCartItemMetadata } from "@/hooks/useTripCart";
+import { SlideToPay } from "@/components/ui/slide-to-pay";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount, PAYMENT_CURRENCIES, roundToCurrency } from "@/lib/fx";
 import {
@@ -532,6 +533,8 @@ export default function CheckoutNew() {
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentState, setPaymentState] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
+  const [paymentRetryKey, setPaymentRetryKey] = useState(0);
   const [paymentType, setPaymentType] = useState<'group' | 'individual'>('group');
   const checkoutStepTopRef = useRef<HTMLDivElement | null>(null);
 
@@ -1911,7 +1914,7 @@ export default function CheckoutNew() {
         description: "Please provide your name and email address.",
       });
       setIsProcessing(false);
-      return;
+      throw new Error("Contact info required");
     }
 
     if (!acceptedAdult) {
@@ -1921,7 +1924,7 @@ export default function CheckoutNew() {
         title: "18+ confirmation required",
         description: "Please confirm you are 18 years or older to continue.",
       });
-      return;
+      throw new Error("18+ confirmation required");
     }
     
     setIsProcessing(true);
@@ -2485,7 +2488,25 @@ export default function CheckoutNew() {
       console.error("Payment error:", error);
       setPaymentError(getFriendlyPaymentErrorMessage(error.message));
       setIsProcessing(false);
+      throw error;
     }
+  };
+
+  const handleSlideConfirm = async () => {
+    setPaymentState('processing');
+    try {
+      await handlePayment();
+      setPaymentState('success');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    } catch {
+      setPaymentState('failed');
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePaymentRetry = () => {
+    setPaymentState('idle');
+    setPaymentRetryKey(k => k + 1);
   };
 
   if (!authLoading && !isLoading && cartItems.length === 0) {
@@ -3423,34 +3444,27 @@ export default function CheckoutNew() {
                     </div>
                   )}
 
-                  <div className="flex md:flex-row gap-3">
+                  <div className="flex flex-col md:flex-row gap-3">
                     <Button 
                       variant="outline" 
                       size="lg"
                       onClick={() => goToStep('payment')}
-                      disabled={isProcessing}
+                      disabled={paymentState !== 'idle'}
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                    <Button 
-                      size="lg" 
-                      className="hidden md:flex flex-1"
-                      onClick={handlePayment}
-                      disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Pay {formatMoney(payableAmount, displayCurrency)}
-                        </>
-                      )}
-                    </Button>
+                    <div className="hidden md:block flex-1">
+                      <SlideToPay
+                        key={paymentRetryKey}
+                        label="Slide to pay"
+                        amount={formatMoney(payableAmount, displayCurrency)}
+                        onConfirm={handleSlideConfirm}
+                        onRetry={handlePaymentRetry}
+                        state={paymentState}
+                        disabled={!acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
+                      />
+                    </div>
                   </div>
 
                   {/* Validation hint */}
@@ -3729,18 +3743,17 @@ export default function CheckoutNew() {
                 <ArrowRight className="w-4 h-4 ml-2 hidden sm:inline" />
               </Button>
             ) : (
-              <Button
-                className="h-11 px-3 whitespace-nowrap"
-                onClick={handlePayment}
-                disabled={isProcessing || !acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
-              >
-                {isProcessing ? "Processing..." : (
-                  <>
-                    <span className="sm:hidden">Pay now</span>
-                    <span className="hidden sm:inline">Pay {formatMoney(payableAmount, displayCurrency)}</span>
-                  </>
-                )}
-              </Button>
+              <div className="col-span-2">
+                <SlideToPay
+                  key={paymentRetryKey}
+                  label="Slide to pay"
+                  amount={formatMoney(payableAmount, displayCurrency)}
+                  onConfirm={handleSlideConfirm}
+                  onRetry={handlePaymentRetry}
+                  state={paymentState}
+                  disabled={!acceptedTerms || !acceptedPrivacy || !acceptedCancellation || !acceptedAdult}
+                />
+              </div>
             )}
           </div>
         </div>

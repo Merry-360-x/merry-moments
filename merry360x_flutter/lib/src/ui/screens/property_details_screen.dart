@@ -14,6 +14,7 @@ import 'checkout_screen.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'messages_screen.dart';
 import '../../../l10n/app_localizations.dart';
+import '../widgets/slide_to_confirm_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PropertyDetailsScreen
@@ -646,32 +647,30 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Price
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.session.formatPrice(_pricePerUnit, itemCurrency: _currency),
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.session.formatPrice(_pricePerUnit, itemCurrency: _currency),
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black),
+                      ),
+                      Text(_unitLabel, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
+                    ],
                   ),
-                  Text(_unitLabel, style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
-                ],
-              ),
+                ),
+              ],
             ),
-            // Reserve button
-            FilledButton(
-              onPressed: _bookNow,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.rausch,
-                minimumSize: const Size(0, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text(_l.reserve, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white)),
+            const SizedBox(height: 10),
+            SlideToConfirmButton(
+              label: 'Slide to Reserve',
+              onConfirmed: _bookNow,
             ),
           ],
         ),

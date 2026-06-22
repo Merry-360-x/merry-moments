@@ -13,8 +13,8 @@ import '../utils/animations.dart';
 import '../../session_controller.dart';
 import 'property_details_screen.dart';
 import 'search_screen.dart';
-import 'stories_screen.dart';
 import 'notifications_screen.dart';
+import '../../services/notification_service.dart';
 import 'tours_screen.dart';
 import 'transport_screen.dart';
 
@@ -61,7 +61,9 @@ List<String> resolveListingImages(Map<String, dynamic> item) {
           continue;
         }
         // Normalize to HTTPS URL
-        if (!raw.startsWith('http://') && !raw.startsWith('https://') && !raw.startsWith('//')) {
+        if (!raw.startsWith('http://') &&
+            !raw.startsWith('https://') &&
+            !raw.startsWith('//')) {
           raw = raw.startsWith('res.cloudinary.com/')
               ? 'https://$raw'
               : 'https://res.cloudinary.com/dghg9uebh/image/upload/f_auto,q_auto:eco,dpr_auto,c_limit,w_1200/$raw';
@@ -81,7 +83,9 @@ List<String> resolveListingImages(Map<String, dynamic> item) {
         if (decoded is List) return fromValue(decoded);
       } catch (_) {}
     }
-    final url = resolveListingImageUrl({'images': [t]});
+    final url = resolveListingImageUrl({
+      'images': [t],
+    });
     return url != null ? [url] : [];
   }
 
@@ -112,7 +116,8 @@ String? resolveListingImageUrl(Map<String, dynamic> item) {
       for (final v in value) {
         // v may be a plain URL string or a map like {"url": "..."}
         if (v is Map) {
-          final url = (v['url'] ?? v['uri'] ?? v['src'] ?? '')?.toString().trim() ?? '';
+          final url =
+              (v['url'] ?? v['uri'] ?? v['src'] ?? '')?.toString().trim() ?? '';
           if (url.isNotEmpty) return url;
         }
         final t = v?.toString().trim() ?? '';
@@ -153,7 +158,8 @@ String? resolveListingImageUrl(Map<String, dynamic> item) {
     return null;
   }
 
-  final raw = firstWorkingImage(item['images']) ??
+  final raw =
+      firstWorkingImage(item['images']) ??
       firstWorkingImage(item['main_image']) ??
       firstWorkingImage(item['image']) ??
       firstWorkingImage(item['photos']) ??
@@ -175,7 +181,11 @@ String? resolveListingImageUrl(Map<String, dynamic> item) {
 
 // ── Price label helper ──
 
-String _priceLabel(Map<String, dynamic> item, AppLocalizations l, SessionController session) {
+String _priceLabel(
+  Map<String, dynamic> item,
+  AppLocalizations l,
+  SessionController session,
+) {
   final itemCurrency = (item['currency'] ?? 'USD').toString();
   final type = (item['item_type'] ?? 'property').toString();
 
@@ -208,7 +218,9 @@ String _itemSubtitle(Map<String, dynamic> item, AppLocalizations l) {
     case 'tour':
       return location.isEmpty ? l.tourLabel : l.tourInLocation(location);
     case 'tour_package':
-      return location.isEmpty ? l.tourPackageLabel : l.tourPackageInLocation(location);
+      return location.isEmpty
+          ? l.tourPackageLabel
+          : l.tourPackageInLocation(location);
     case 'transport':
       final vehicle = (item['vehicle_type'] ?? '').toString();
       return vehicle.isEmpty ? l.transport : vehicle;
@@ -235,7 +247,8 @@ String? _knownCityLabel(String raw) {
   final lower = raw.toLowerCase();
 
   // Kigali neighborhoods - keep as separate sections
-  if (lower.contains('kimihurura') || lower.contains('kimihura')) return 'Kimihurura';
+  if (lower.contains('kimihurura') || lower.contains('kimihura'))
+    return 'Kimihurura';
   if (lower.contains('gishushu')) return 'Gishushu';
   if (lower.contains('remera')) return 'Remera';
   if (lower.contains('nyarutarama')) return 'Nyarutarama';
@@ -246,7 +259,10 @@ String? _knownCityLabel(String raw) {
   if (lower.contains('kibagabaga')) return 'Kibagabaga';
   if (lower.contains('kagugu')) return 'Kagugu';
   if (lower.contains('rugando')) return 'Rugando';
-  if (lower.contains('kisenyi') || lower.contains('kisseni') || lower.contains('kiseni')) return 'Kisenyi';
+  if (lower.contains('kisenyi') ||
+      lower.contains('kisseni') ||
+      lower.contains('kiseni'))
+    return 'Kisenyi';
   if (lower.contains('nyamirambo')) return 'Nyamirambo';
   if (lower.contains('gisozi')) return 'Gisozi';
   if (lower.contains('kinyinya')) return 'Kinyinya';
@@ -258,7 +274,8 @@ String? _knownCityLabel(String raw) {
   if (lower.contains('nyarugenge')) return 'Nyarugenge';
   if (lower.contains('kicukiro')) return 'Kicukiro';
   // Fallback for generic "Kigali" only - try to use a non-street location part as sub-area
-  if (lower.contains('kigali')) return null; // Let _extractCityLabel handle it with more context
+  if (lower.contains('kigali'))
+    return null; // Let _extractCityLabel handle it with more context
 
   // Other Rwanda cities
   if (lower.contains('musanze')) return 'Musanze';
@@ -282,8 +299,9 @@ String? _knownCityLabel(String raw) {
 bool _looksLikeStreetAddress(String raw) {
   final lower = raw.toLowerCase();
   if (RegExp(r'\d').hasMatch(lower)) return true;
-  return RegExp(r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|kg|plot|house|apt|apartment|cell|sector|block)\b')
-      .hasMatch(lower);
+  return RegExp(
+    r'\b(street|st\.?|road|rd\.?|avenue|ave\.?|kg|plot|house|apt|apartment|cell|sector|block)\b',
+  ).hasMatch(lower);
 }
 
 String _extractCityLabel(Map<String, dynamic> item) {
@@ -343,7 +361,8 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserver {
+class _ExploreScreenState extends State<ExploreScreen>
+    with WidgetsBindingObserver {
   // Static flag: sheet shows at most once per app process lifetime.
   static bool _startupSheetEverShown = false;
 
@@ -356,7 +375,10 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
   final _scrollCtrl = ScrollController();
   bool _showFab = false;
 
-  void _precacheListingImages(BuildContext context, List<Map<String, dynamic>> items) {
+  void _precacheListingImages(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+  ) {
     if (items.length <= _lastPrecachedItemCount) return;
     _lastPrecachedItemCount = items.length;
     for (final item in items) {
@@ -404,7 +426,8 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
     if (force) {
       final now = DateTime.now();
       final lastRun = _lastStartupSheetsAt;
-      if (lastRun != null && now.difference(lastRun) < const Duration(seconds: 2)) {
+      if (lastRun != null &&
+          now.difference(lastRun) < const Duration(seconds: 2)) {
         return;
       }
     }
@@ -436,7 +459,6 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
         backgroundColor: Colors.transparent,
         builder: (_) => _ExploreMomoBottomSheet(isTablet: isTablet),
       );
-
     } finally {
       _startupSheetsInProgress = false;
     }
@@ -448,39 +470,39 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
     final l = AppLocalizations.of(context)!;
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final searchSurface = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7);
-    final searchIconColor = isDark ? const Color(0xFFA8B0BF) : const Color(0xFF808089);
-    final searchTitleColor = isDark ? const Color(0xFFEFF3FA) : const Color(0xFF3A3A42);
-    final searchMetaColor = isDark ? const Color(0xFF98A2B3) : const Color(0xFF8A8A94);
+    final searchSurface = isDark
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFF5F5F7);
+    final searchIconColor = isDark
+        ? const Color(0xFFA8B0BF)
+        : const Color(0xFF808089);
 
     final gridColumns = isTablet ? 3 : 2;
     final gridAspect = isTablet ? 0.85 : 0.76;
 
     final payload = session.payload;
     final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
-    final allStories = payload?.stories ?? const <Map<String, dynamic>>[];
-    Map<String, dynamic>? myStory;
-    final stories = <Map<String, dynamic>>[];
-    for (final story in allStories) {
-      final storyUserId = (story['user_id'] ?? '').toString();
-      if (session.isAuthenticated && storyUserId == session.userId) {
-        myStory ??= story;
-      } else {
-        stories.add(story);
-      }
-    }
-    final hasStoriesStrip = session.isAuthenticated || myStory != null || stories.isNotEmpty;
-
     _precacheListingImages(context, all);
 
-    final properties = all.where((i) => i['item_type'] == 'property').toList();
-    final tours = all.where((i) => i['item_type'] == 'tour' || i['item_type'] == 'tour_package').toList();
+    final properties = all.where((i) {
+      if (i['item_type'] != 'property') return false;
+      final title = (i['title'] ?? '').toString().trim().toLowerCase();
+      if (title.isEmpty || title == 'test' || title == 'test101') return false;
+      return true;
+    }).toList();
+    final tours = all
+        .where(
+          (i) => i['item_type'] == 'tour' || i['item_type'] == 'tour_package',
+        )
+        .toList();
     final transport = all.where((i) => i['item_type'] == 'transport').toList();
 
     final propertySections = <String, List<Map<String, dynamic>>>{};
     for (final item in properties) {
       final city = _extractCityLabel(item);
-      propertySections.putIfAbsent(city, () => <Map<String, dynamic>>[]).add(item);
+      propertySections
+          .putIfAbsent(city, () => <Map<String, dynamic>>[])
+          .add(item);
     }
     final sortedPropertySections = propertySections.entries.toList()
       ..sort((a, b) => b.value.length.compareTo(a.value.length));
@@ -494,303 +516,296 @@ class _ExploreScreenState extends State<ExploreScreen> with WidgetsBindingObserv
           child: CustomScrollView(
             controller: _scrollCtrl,
             slivers: [
-          // Search bar with padding
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(hPad, isTablet ? 20 : 14, hPad, isTablet ? 16 : 12),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (_, animation, _) => SearchScreen(session: session),
-                          transitionDuration: const Duration(milliseconds: 380),
-                          reverseTransitionDuration: const Duration(milliseconds: 300),
-                          transitionsBuilder: (_, animation, _, child) {
-                            final curved = CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                              reverseCurve: Curves.easeInCubic,
-                            );
-                            return SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 1),
-                                end: Offset.zero,
-                              ).animate(curved),
-                              child: child,
+              // Search bar with padding
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  hPad,
+                  isTablet ? 20 : 14,
+                  hPad,
+                  isTablet ? 16 : 12,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder: (_, animation, _) =>
+                                  SearchScreen(session: session),
+                              transitionDuration: const Duration(
+                                milliseconds: 380,
+                              ),
+                              reverseTransitionDuration: const Duration(
+                                milliseconds: 300,
+                              ),
+                              transitionsBuilder: (_, animation, _, child) {
+                                final curved = CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                  reverseCurve: Curves.easeInCubic,
+                                );
+                                return SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 1),
+                                    end: Offset.zero,
+                                  ).animate(curved),
+                                  child: child,
+                                );
+                              },
+                            ),
+                          ),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isTablet ? 18 : 14,
+                              vertical: isTablet ? 12 : 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: searchSurface,
+                              borderRadius: BorderRadius.circular(
+                                isTablet ? 28 : 24,
+                              ),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF38383A)
+                                    : const Color(0xFFE0E0E0),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search,
+                                  size: isTablet ? 26 : 18,
+                                  color: searchIconColor,
+                                ),
+                                SizedBox(width: isTablet ? 12 : 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l.searchStaysToursTransport,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                          color: AppColors.black,
+                                        ),
+                                      ),
+                                      SizedBox(height: isTablet ? 2 : 1),
+                                      Text(
+                                        l.anywhereAnyWeek,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: const Color(0xFF6A6A6A),
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: isTablet ? 10 : 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  NotificationsScreen(session: session),
+                            ),
+                          );
+                        },
+                        child: _NotificationBell(
+                          size: isTablet ? 48 : 40,
+                          iconSize: isTablet ? 24 : 20,
+                          color: searchIconColor,
+                          bgColor: searchSurface,
+                          borderColor: isDark
+                              ? const Color(0xFF38383A)
+                              : const Color(0xFFE0E0E0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Hero video with 3 px side inset and 5 px corner radius
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                sliver: SliverToBoxAdapter(
+                  child: _HeroVideoSection(
+                    isTablet: isTablet,
+                    l: l,
+                    fullWidth: true,
+                  ),
+                ),
+              ),
+              // Rest of content with padding
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  hPad,
+                  isTablet ? 16 : 12,
+                  hPad,
+                  isTablet ? 24 : 16,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+
+                    _CategoryChips(isTablet: isTablet, session: session),
+                    const SizedBox(height: 16),
+                    if (session.loading)
+                      _ShimmerGrid(
+                        gridColumns: gridColumns,
+                        gridAspect: gridAspect,
+                      )
+                    else if (session.error != null)
+                      _ErrorCard(message: session.error!)
+                    else ...[
+                      if (sortedPropertySections.isNotEmpty)
+                        _CityStayRail(
+                          sections: sortedPropertySections,
+                          session: session,
+                          isTablet: isTablet,
+                          gridColumns: gridColumns,
+                          gridAspect: gridAspect,
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 20, bottom: 8),
+                          child: Center(
+                            child: Text(
+                              l.noStaysAvailable,
+                              style: const TextStyle(color: AppColors.foggy),
+                            ),
+                          ),
+                        ),
+                      if (tours.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _SectionHeader(title: l.toursAndExperiences),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: tours.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: gridColumns,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: gridAspect,
+                              ),
+                          itemBuilder: (context, index) {
+                            return StaggeredSlideFade(
+                              index: index,
+                              child: ListingCard(
+                                item: tours[index],
+                                session: session,
+                                compact: true,
+                              ),
                             );
                           },
                         ),
-                      ),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 18 : 14,
-                          vertical: isTablet ? 12 : 8,
+                      ],
+                      if (transport.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _SectionHeader(title: l.transport),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: transport.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: gridColumns,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: gridAspect,
+                              ),
+                          itemBuilder: (context, index) {
+                            return StaggeredSlideFade(
+                              index: index,
+                              child: ListingCard(
+                                item: transport[index],
+                                session: session,
+                                compact: true,
+                              ),
+                            );
+                          },
                         ),
-                        decoration: BoxDecoration(
-                          color: searchSurface,
-                          borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF38383A) : const Color(0xFFE0E0E0),
-                            width: 1,
+                      ],
+                      if (properties.isEmpty &&
+                          tours.isEmpty &&
+                          transport.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: Center(
+                            child: Text(
+                              l.noListingsYet,
+                              style: const TextStyle(color: AppColors.foggy),
+                            ),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.search, size: isTablet ? 26 : 18, color: searchIconColor),
-                            SizedBox(width: isTablet ? 12 : 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l.searchStaysToursTransport,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: isTablet ? 22 : 15,
-                                      color: searchTitleColor,
-                                    ),
-                                  ),
-                                  SizedBox(height: isTablet ? 2 : 1),
-                                  Text(
-                                    l.anywhereAnyWeek,
-                                    style: TextStyle(
-                                      fontSize: isTablet ? 15 : 12,
-                                      color: searchMetaColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    ],
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_showFab)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: AnimatedPressable(
+              onTap: () {
+                _scrollCtrl.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                );
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: AppColors.rausch,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
                     ),
-                  ),
-                  SizedBox(width: isTablet ? 10 : 8),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => NotificationsScreen(session: session),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      width: isTablet ? 48 : 40,
-                      height: isTablet ? 48 : 40,
-                      decoration: BoxDecoration(
-                        color: searchSurface,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF38383A) : const Color(0xFFE0E0E0),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.notifications_outlined,
-                        size: isTablet ? 24 : 20,
-                        color: searchIconColor,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+                child: const Icon(
+                  Icons.arrow_upward,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ),
           ),
-          // Hero video with 3 px side inset and 5 px corner radius
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            sliver: SliverToBoxAdapter(
-              child: _HeroVideoSection(isTablet: isTablet, l: l, fullWidth: true),
-            ),
-          ),
-          // Rest of content with padding
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(hPad, isTablet ? 16 : 12, hPad, isTablet ? 24 : 16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                if (hasStoriesStrip) ...[
-                  SizedBox(
-                    height: isTablet ? 96 : 82,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: (session.isAuthenticated ? 1 : 0) + stories.length,
-                      separatorBuilder: (_, _) => SizedBox(width: isTablet ? 14 : 10),
-                      itemBuilder: (_, i) {
-                        if (session.isAuthenticated && i == 0) {
-                          final profile = session.payload?.profile ?? const <String, dynamic>{};
-                          final myAvatar = (profile['avatar_url'] ?? profile['photo_url'] ?? profile['image'] ?? '')
-                              .toString();
-                          final myStoryId = (myStory?['id'] ?? '').toString();
-                          final myPreview = ((myStory?['media_url'] ?? myStory?['image_url']) ?? myAvatar).toString();
-                          return _StoryItem(
-                            isTablet: isTablet,
-                            text: l.yourStoryLabel,
-                            imageUrl: myPreview,
-                            showAddBadge: true,
-                            onTap: () {
-                              showStoriesPopup(
-                                context,
-                                session: session,
-                                initialStoryId: myStoryId.isEmpty ? null : myStoryId,
-                                openMyStoryOnStart: myStoryId.isEmpty,
-                              );
-                            },
-                            onAddTap: () {
-                              showStoriesPopup(
-                                context,
-                                session: session,
-                                openComposerOnStart: true,
-                              );
-                            },
-                          );
-                        }
-
-                        final index = session.isAuthenticated ? i - 1 : i;
-                        if (index < 0 || index >= stories.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final story = stories[index];
-                        return _StoryItem(
-                          isTablet: isTablet,
-                          text: (story['username'] ?? 'story').toString(),
-                          imageUrl: (story['media_url'] ?? story['avatar_url'] ?? '').toString(),
-                          onTap: () {
-                            final storyId = (story['id'] ?? '').toString();
-                            showStoriesPopup(
-                              context,
-                              session: session,
-                              initialStoryId: storyId.isEmpty ? null : storyId,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(height: isTablet ? 16 : 12),
-                ],
-                _CategoryChips(isTablet: isTablet, session: session),
-                SizedBox(height: isTablet ? 18 : 14),
-                if (session.loading)
-                  _ShimmerGrid(gridColumns: gridColumns, gridAspect: gridAspect)
-                else if (session.error != null)
-                  _ErrorCard(message: session.error!)
-                else ...[
-                  if (sortedPropertySections.isNotEmpty)
-                    _CityStayRail(
-                      sections: sortedPropertySections,
-                      session: session,
-                      isTablet: isTablet,
-                      gridColumns: gridColumns,
-                      gridAspect: gridAspect,
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.only(top: 20, bottom: 8),
-                      child: Center(
-                        child: Text(
-                          l.noStaysAvailable,
-                          style: const TextStyle(color: AppColors.foggy),
-                        ),
-                      ),
-                    ),
-                  if (tours.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _SectionHeader(title: l.toursAndExperiences),
-                    const SizedBox(height: 8),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: tours.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridColumns,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: gridAspect,
-                      ),
-                      itemBuilder: (context, index) {
-                        return StaggeredSlideFade(
-                          index: index,
-                          child: ListingCard(item: tours[index], session: session, compact: true),
-                        );
-                      },
-                    ),
-                  ],
-                  if (transport.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _SectionHeader(title: l.transport),
-                    const SizedBox(height: 8),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: transport.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridColumns,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: gridAspect,
-                      ),
-                      itemBuilder: (context, index) {
-                        return StaggeredSlideFade(
-                          index: index,
-                          child: ListingCard(item: transport[index], session: session, compact: true),
-                        );
-                      },
-                    ),
-                  ],
-                  if (properties.isEmpty && tours.isEmpty && transport.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 40),
-                      child: Center(
-                        child: Text(
-                          l.noListingsYet,
-                          style: const TextStyle(color: AppColors.foggy),
-                        ),
-                      ),
-                    ),
-                ],
-              ]),
-            ),
-          ),
-        ],
-      ),
-    ),
-    if (_showFab)
-      Positioned(
-        right: 16,
-        bottom: 16,
-        child: AnimatedPressable(
-          onTap: () {
-            _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
-          },
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: AppColors.rausch,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 2)),
-              ],
-            ),
-            child: const Icon(Icons.arrow_upward, color: Colors.white, size: 22),
-          ),
-        ),
-      ),
-  ],
-  );
+      ],
+    );
   }
 }
 
 // ── Hero Video Section ──
 
 class _HeroVideoSection extends StatefulWidget {
-  const _HeroVideoSection({required this.isTablet, required this.l, this.fullWidth = false});
+  const _HeroVideoSection({
+    required this.isTablet,
+    required this.l,
+    this.fullWidth = false,
+  });
   final bool isTablet;
   final AppLocalizations l;
   final bool fullWidth;
@@ -825,7 +840,7 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
 
   @override
   Widget build(BuildContext context) {
-    final height = widget.isTablet ? 300.0 : 260.0;
+    final height = 180.0;
     final radius = widget.fullWidth ? 5.0 : (widget.isTablet ? 20.0 : 16.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -917,7 +932,9 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(widget.isTablet ? 12 : 10),
+                      borderRadius: BorderRadius.circular(
+                        widget.isTablet ? 12 : 10,
+                      ),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.3),
                       ),
@@ -952,121 +969,59 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
   }
 }
 
-class _StoryItem extends StatelessWidget {
-  const _StoryItem({
-    required this.isTablet,
-    required this.text,
-    required this.imageUrl,
-    required this.onTap,
-    this.showAddBadge = false,
-    this.onAddTap,
-  });
 
-  final bool isTablet;
-  final String text;
-  final String imageUrl;
-  final VoidCallback onTap;
-  final bool showAddBadge;
-  final VoidCallback? onAddTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final trimmed = text.trim();
-    final fallback = trimmed.isEmpty ? 'S' : trimmed.substring(0, 1).toUpperCase();
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: isTablet ? 90 : 82,
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: isTablet ? 78 : 70,
-                  height: isTablet ? 78 : 70,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.rausch, width: 2),
-                  ),
-                  child: ClipOval(
-                    child: imageUrl.trim().isNotEmpty
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _StoryFallback(fallback: fallback),
-                          )
-                        : _StoryFallback(fallback: fallback),
-                  ),
-                ),
-                if (showAddBadge)
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: GestureDetector(
-                      onTap: onAddTap ?? onTap,
-                      child: Container(
-                        width: isTablet ? 22 : 20,
-                        height: isTablet ? 22 : 20,
-                        decoration: BoxDecoration(
-                          color: AppColors.rausch,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.surface, width: 2),
-                        ),
-                        child: const Icon(Icons.add, size: 12, color: Colors.white),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-class _StoryFallback extends StatelessWidget {
-  const _StoryFallback({required this.fallback});
-
-  final String fallback;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFE8EDF5),
-      alignment: Alignment.center,
-      child: Text(
-        fallback,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF44506A),
-        ),
-      ),
-    );
-  }
-}
 
 // ── Payment providers data ─────────────────────────────────────────────────
 const _kPayProviders = [
-  (label: 'MTN MoMo',     asset: 'assets/payment/mtn-momo.png',    brandColor: Color(0xFFFFCC00)),
-  (label: 'Airtel Money', asset: 'assets/payment/airtel-money.svg', brandColor: Color(0xFFE40000)),
-  (label: 'M-Pesa',       asset: 'assets/payment/mpesa.png',        brandColor: Color(0xFF60BB46)),
-  (label: 'Orange Money', asset: 'assets/payment/orange-money.png', brandColor: Color(0xFFFF6900)),
-  (label: 'Vodacom',      asset: 'assets/payment/vodacom.svg',      brandColor: Color(0xFFE60000)),
-  (label: 'Moov Money',   asset: 'assets/payment/moov-money.png',   brandColor: Color(0xFFFF6D00)),
-  (label: 'Halotel',      asset: 'assets/payment/halotel.png',      brandColor: Color(0xFFE2401A)),
-  (label: 'Zamtel',       asset: 'assets/payment/zamtel.png',       brandColor: Color(0xFF006B3C)),
-  (label: 'Free Money',   asset: '',                                 brandColor: Color(0xFFCD2027)),
+  (
+    label: 'MTN MoMo',
+    asset: 'assets/payment/mtn-momo.png',
+    brandColor: Color(0xFFFFCC00),
+  ),
+  (
+    label: 'Airtel Money',
+    asset: 'assets/payment/airtel-money.svg',
+    brandColor: Color(0xFFE40000),
+  ),
+  (
+    label: 'M-Pesa',
+    asset: 'assets/payment/mpesa.png',
+    brandColor: Color(0xFF60BB46),
+  ),
+  (
+    label: 'Orange Money',
+    asset: 'assets/payment/orange-money.png',
+    brandColor: Color(0xFFFF6900),
+  ),
+  (
+    label: 'Vodacom',
+    asset: 'assets/payment/vodacom.svg',
+    brandColor: Color(0xFFE60000),
+  ),
+  (
+    label: 'Moov Money',
+    asset: 'assets/payment/moov-money.png',
+    brandColor: Color(0xFFFF6D00),
+  ),
+  (
+    label: 'Halotel',
+    asset: 'assets/payment/halotel.png',
+    brandColor: Color(0xFFE2401A),
+  ),
+  (
+    label: 'Zamtel',
+    asset: 'assets/payment/zamtel.png',
+    brandColor: Color(0xFF006B3C),
+  ),
+  (label: 'Free Money', asset: '', brandColor: Color(0xFFCD2027)),
 ];
 
 class _ExploreMomoBottomSheet extends StatefulWidget {
   const _ExploreMomoBottomSheet({required this.isTablet});
   final bool isTablet;
   @override
-  State<_ExploreMomoBottomSheet> createState() => _ExploreMomoBottomSheetState();
+  State<_ExploreMomoBottomSheet> createState() =>
+      _ExploreMomoBottomSheetState();
 }
 
 class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
@@ -1111,13 +1066,24 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final titleColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtitleColor = isDark ? const Color(0xFFB0B0B0) : const Color(0xFF666666);
-    final handleColor = isDark ? const Color(0xFF48484A) : const Color(0xFFDDDDDD);
+    final subtitleColor = isDark
+        ? const Color(0xFFB0B0B0)
+        : const Color(0xFF666666);
+    final handleColor = isDark
+        ? const Color(0xFF48484A)
+        : const Color(0xFFDDDDDD);
     final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF8F8F8);
-    final cardBorder = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8E8);
+    final cardBorder = isDark
+        ? const Color(0xFF3A3A3C)
+        : const Color(0xFFE8E8E8);
 
     return Container(
-      margin: EdgeInsets.fromLTRB(isTablet ? 20 : 8, 0, isTablet ? 20 : 8, isTablet ? 20 : 8),
+      margin: EdgeInsets.fromLTRB(
+        isTablet ? 20 : 8,
+        0,
+        isTablet ? 20 : 8,
+        isTablet ? 20 : 8,
+      ),
       decoration: BoxDecoration(
         color: sheetBg,
         borderRadius: BorderRadius.circular(24),
@@ -1146,7 +1112,12 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
           ),
           // Header with close
           Padding(
-            padding: EdgeInsets.fromLTRB(isTablet ? 24 : 20, 16, isTablet ? 16 : 12, 0),
+            padding: EdgeInsets.fromLTRB(
+              isTablet ? 24 : 20,
+              16,
+              isTablet ? 16 : 12,
+              0,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -1161,7 +1132,9 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
                   ),
                 ),
                 Material(
-                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF0F0F0),
+                  color: isDark
+                      ? const Color(0xFF2C2C2E)
+                      : const Color(0xFFF0F0F0),
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(20),
@@ -1180,7 +1153,12 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(isTablet ? 24 : 20, 8, isTablet ? 24 : 20, 0),
+            padding: EdgeInsets.fromLTRB(
+              isTablet ? 24 : 20,
+              8,
+              isTablet ? 24 : 20,
+              0,
+            ),
             child: Text(
               l.momoPromoDesc,
               style: TextStyle(
@@ -1211,18 +1189,17 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
                 children: [
-                  for (final p in _kPayProviders) ...
-                    [
-                      _MomoProviderCard(
-                        label: p.label,
-                        logoAssetPath: p.asset,
-                        brandColor: p.brandColor,
-                        bgColor: cardBg,
-                        borderColor: cardBorder,
-                        textColor: titleColor,
-                      ),
-                      const SizedBox(width: 10),
-                    ],
+                  for (final p in _kPayProviders) ...[
+                    _MomoProviderCard(
+                      label: p.label,
+                      logoAssetPath: p.asset,
+                      brandColor: p.brandColor,
+                      bgColor: cardBg,
+                      borderColor: cardBorder,
+                      textColor: titleColor,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
                 ],
               ),
             ),
@@ -1230,7 +1207,12 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
           SizedBox(height: isTablet ? 20 : 16),
           // Continue button
           Padding(
-            padding: EdgeInsets.fromLTRB(isTablet ? 24 : 20, 0, isTablet ? 24 : 20, isTablet ? 24 : 20),
+            padding: EdgeInsets.fromLTRB(
+              isTablet ? 24 : 20,
+              0,
+              isTablet ? 24 : 20,
+              isTablet ? 24 : 20,
+            ),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -1238,7 +1220,9 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
                 style: FilledButton.styleFrom(
                   backgroundColor: scheme.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   padding: EdgeInsets.symmetric(vertical: isTablet ? 16 : 14),
                   elevation: 0,
                 ),
@@ -1308,10 +1292,7 @@ class _MomoProviderCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: logoWidget,
-          ),
+          ClipRRect(borderRadius: BorderRadius.circular(12), child: logoWidget),
           const SizedBox(height: 7),
           Text(
             label,
@@ -1371,36 +1352,26 @@ class _CityStayRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleSections = sections.where((entry) => entry.value.isNotEmpty).take(_maxSections).toList();
+    final visibleSections = sections
+        .where((entry) => entry.value.isNotEmpty)
+        .take(_maxSections)
+        .toList();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...List.generate(visibleSections.length, (index) {
-            final entry = visibleSections[index];
-            final isLast = index == visibleSections.length - 1;
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
-                  child: _CityStaySection(
-                    city: entry.key,
-                    items: entry.value,
-                    session: session,
-                    isTablet: isTablet,
-                    gridColumns: gridColumns,
-                    gridAspect: gridAspect,
-                  ),
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...List.generate(visibleSections.length, (index) {
+          final entry = visibleSections[index];
+          return _CityStaySection(
+            city: entry.key,
+            items: entry.value,
+            session: session,
+            isTablet: isTablet,
+            gridColumns: gridColumns,
+            gridAspect: gridAspect,
+          );
+        }),
+      ],
     );
   }
 }
@@ -1429,7 +1400,8 @@ class _CityStaySection extends StatelessWidget {
         final l = AppLocalizations.of(context)!;
         final spacing = 12.0;
         final availableWidth = constraints.maxWidth;
-        final cardWidth = (availableWidth - ((gridColumns - 1) * spacing)) / gridColumns;
+        final cardWidth =
+            (availableWidth - ((gridColumns - 1) * spacing)) / gridColumns;
         final rowHeight = cardWidth / gridAspect;
 
         return Column(
@@ -1443,19 +1415,14 @@ class _CityStaySection extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: AppColors.black,
                     ),
                   ),
                 ),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  ),
-                  onPressed: () {
+                GestureDetector(
+                  onTap: () {
                     showModalBottomSheet<void>(
                       context: context,
                       isScrollControlled: true,
@@ -1473,12 +1440,16 @@ class _CityStaySection extends StatelessWidget {
                   },
                   child: Text(
                     l.seeAll,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.black,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SizedBox(
               height: rowHeight,
               child: ListView.separated(
@@ -1558,7 +1529,11 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
           itemBuilder: (context, index) {
             return StaggeredSlideFade(
               index: index,
-              child: ListingCard(item: visibleItems[index], session: widget.session, compact: true),
+              child: ListingCard(
+                item: visibleItems[index],
+                session: widget.session,
+                compact: true,
+              ),
             );
           },
         ),
@@ -1571,10 +1546,14 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
                 onPressed: () {
                   setState(() {
                     final next = _visibleCount + _pageSize;
-                    _visibleCount = next > widget.items.length ? widget.items.length : next;
+                    _visibleCount = next > widget.items.length
+                        ? widget.items.length
+                        : next;
                   });
                 },
-                child: Text(l.loadMoreLeft(widget.items.length - _visibleCount)),
+                child: Text(
+                  l.loadMoreLeft(widget.items.length - _visibleCount),
+                ),
               ),
             ),
           ),
@@ -1610,23 +1589,61 @@ class _ListingCardState extends State<ListingCard> {
   int _currentPage = 0;
   Timer? _autoRotate;
   bool _disposed = false;
+  bool _isWishlisted = false;
+
+  bool _checkIsWishlisted() {
+    final listingId = widget.item['id']?.toString() ?? '';
+    if (listingId.isEmpty) return false;
+    final all = widget.session.isAuthenticated
+        ? (widget.session.payload?.wishlists ?? [])
+        : widget.session.guestWishlists;
+    return all.any((w) =>
+        w['property_id']?.toString() == listingId ||
+        w['id']?.toString() == listingId);
+  }
+
+  String? _findWishlistEntryId() {
+    final listingId = widget.item['id']?.toString() ?? '';
+    if (listingId.isEmpty) return null;
+    final all = widget.session.isAuthenticated
+        ? (widget.session.payload?.wishlists ?? [])
+        : widget.session.guestWishlists;
+    for (final w in all) {
+      if (w['property_id']?.toString() == listingId ||
+          w['id']?.toString() == listingId) {
+        return w['id']?.toString();
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
+    _isWishlisted = _checkIsWishlisted();
+    widget.session.addListener(_onSessionChanged);
     _autoRotate = Timer.periodic(const Duration(seconds: 8), (_) {
       final images = resolveListingImages(widget.item);
       if (images.length > 1 && mounted && !_disposed) {
         final next = (_currentPage + 1) % images.length;
-        _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+        _pageCtrl.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
       }
     });
+  }
+
+  void _onSessionChanged() {
+    if (mounted) setState(() => _isWishlisted = _checkIsWishlisted());
   }
 
   @override
   void dispose() {
     _disposed = true;
     _autoRotate?.cancel();
+    widget.session.removeListener(_onSessionChanged);
     _pageCtrl.dispose();
     super.dispose();
   }
@@ -1637,7 +1654,8 @@ class _ListingCardState extends State<ListingCard> {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PropertyDetailsScreen(item: widget.item, session: widget.session),
+          builder: (_) =>
+              PropertyDetailsScreen(item: widget.item, session: widget.session),
         ),
       ),
       child: _buildCard(context),
@@ -1646,16 +1664,20 @@ class _ListingCardState extends State<ListingCard> {
 
   Widget _buildCard(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    final title = (widget.item['title'] ?? widget.item['name'] ?? l.listingFallback).toString();
+    final title =
+        (widget.item['title'] ?? widget.item['name'] ?? l.listingFallback)
+            .toString();
     final subtitle = _itemSubtitle(widget.item, l);
     final price = _priceLabel(widget.item, l, widget.session);
-    final ratingValue = double.tryParse((widget.item['rating'] ?? widget.item['average_rating'] ?? '').toString());
+    final ratingValue = double.tryParse(
+      (widget.item['rating'] ?? widget.item['average_rating'] ?? '').toString(),
+    );
     final showRating = ratingValue != null && ratingValue > 0;
     final rating = ratingValue == null
         ? ''
-        : (ratingValue % 1 == 0 ? ratingValue.toStringAsFixed(0) : ratingValue.toStringAsFixed(1));
-    final imageHeight = widget.imageHeightOverride ?? (widget.compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
+        : (ratingValue % 1 == 0
+              ? ratingValue.toStringAsFixed(0)
+              : ratingValue.toStringAsFixed(1));
     final images = resolveListingImages(widget.item);
     final description = (widget.item['description'] ?? '').toString().trim();
 
@@ -1665,85 +1687,68 @@ class _ListingCardState extends State<ListingCard> {
       children: [
         // ── Image carousel with overlays ──
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: SizedBox(
-            height: imageHeight,
-            width: double.infinity,
+          borderRadius: BorderRadius.circular(12),
+          child: AspectRatio(
+            aspectRatio: 4 / 3,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 // Hero shared-element transition
                 Hero(
-                  tag: 'listing_image_${widget.item['id'] ?? widget.item.hashCode}',
+                  tag:
+                      'listing_image_${widget.item['id'] ?? widget.item.hashCode}',
                   child: PageView.builder(
                     controller: _pageCtrl,
                     itemCount: images.isEmpty ? 1 : images.length,
                     onPageChanged: (i) => setState(() => _currentPage = i),
-                    itemBuilder: (_, i) => _ListingImage(imageUrl: images.isEmpty ? null : images[i]),
+                    itemBuilder: (_, i) => _ListingImage(
+                      imageUrl: images.isEmpty ? null : images[i],
+                    ),
                   ),
                 ),
 
-                // Heart / wishlist button
+                // Heart / wishlist button — toggles fill based on wishlist state
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      color: Color(0x66000000),
-                      shape: BoxShape.circle,
-                    ),
-                    child: HeartBurst(
-                      size: 18,
-                      color: Colors.white,
-                      onChanged: (_) async {
-                        await widget.session.addListingToWishlist(widget.item);
-                        if (context.mounted) {
-                          AppSnackBar.success(context, l.savedToWishlist);
+                  child: GestureDetector(
+                    onTap: () async {
+                      if (_isWishlisted) {
+                        final id = _findWishlistEntryId();
+                        if (id != null) {
+                          await widget.session.removeWishlistItem(id);
                         }
-                      },
+                      } else {
+                        await widget.session.addListingToWishlist(widget.item);
+                      }
+                      if (context.mounted) {
+                        AppSnackBar.success(
+                          context,
+                          _isWishlisted
+                              ? l.removedFromWishlistAction
+                              : l.savedToWishlist,
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isWishlisted
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: _isWishlisted
+                            ? const Color(0xFFFF385C)
+                            : Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
-
-                // Left arrow
-                if (images.length > 1 && _currentPage > 0)
-                  Positioned(
-                    left: 6,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
-                          child: const Icon(Icons.chevron_left, size: 18, color: AppColors.black),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Right arrow
-                if (images.length > 1 && _currentPage < images.length - 1)
-                  Positioned(
-                    right: 6,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeInOut),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(color: Color(0xBBFFFFFF), shape: BoxShape.circle),
-                          child: const Icon(Icons.chevron_right, size: 18, color: AppColors.black),
-                        ),
-                      ),
-                    ),
-                  ),
 
                 // Dot indicators - limit to 5 to prevent overflow on properties with many images
                 if (images.length > 1)
@@ -1760,7 +1765,9 @@ class _ListingCardState extends State<ListingCard> {
                           width: _currentPage == i ? 6 : 4,
                           height: _currentPage == i ? 6 : 4,
                           decoration: BoxDecoration(
-                            color: _currentPage == i ? Colors.white : Colors.white54,
+                            color: _currentPage == i
+                                ? Colors.white
+                                : Colors.white54,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -1778,51 +1785,81 @@ class _ListingCardState extends State<ListingCard> {
         Row(
           children: [
             Expanded(
-              child: Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: widget.compact ? 13 : 15, color: AppColors.black),
+                child: Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+              if (showRating) ...[
+                const Icon(Icons.star, size: 12, color: AppColors.black),
+                const SizedBox(width: 2),
+                Text(
+                  rating,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.black,
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 1),
+
+          // ── Title (property name) ──
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF6A6A6A),
+            ),
+          ),
+
+          // ── Description ──
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6A6A6A),
               ),
             ),
-            if (showRating) ...[
-              const Icon(Icons.star, size: 14, color: AppColors.black),
-              const SizedBox(width: 3),
-              Text(rating, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.black)),
-            ],
           ],
-        ),
 
-        const SizedBox(height: 1),
+          const SizedBox(height: 4),
 
-        // ── Title ──
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: widget.compact ? 12 : 13, color: AppColors.foggy),
-        ),
-
-        // ── Description ──
-        if (description.isNotEmpty) ...[
-          const SizedBox(height: 3),
-          Text(
-            description,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: widget.compact ? 11 : 12, color: AppColors.foggy),
+          // ── Price ──
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: price.split(' ').take(2).join(' '),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppColors.black,
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${price.split(' ').skip(2).join(' ')}',
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF6A6A6A)),
+                ),
+              ],
+            ),
           ),
-        ],
-
-        const SizedBox(height: 4),
-
-        // ── Price ──
-        Text.rich(
-          TextSpan(children: [
-            TextSpan(text: price.split(' ').take(2).join(' '), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.black)),
-            TextSpan(text: ' ${price.split(' ').skip(2).join(' ')}', style: const TextStyle(fontSize: 13, color: AppColors.foggy)),
-          ]),
-        ),
       ],
     );
   }
@@ -1842,10 +1879,14 @@ class _CategoryChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final inactiveChipColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF0F0F3);
-    final activeChipColor = isDark ? AppColors.rausch : const Color(0xFFFFE8E9);
-    final inactiveTextColor = isDark ? const Color(0xFFD2DAE7) : const Color(0xFF565660);
-    final activeTextColor = isDark ? AppColors.white : AppColors.rausch;
+    final inactiveChipColor = isDark
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFF0F0F3);
+    final activeChipColor = AppColors.black;
+    final inactiveTextColor = isDark
+        ? const Color(0xFFD2DAE7)
+        : const Color(0xFF565660);
+    final activeTextColor = AppColors.white;
     final chips = [l.stays, l.tours, l.cars, l.events];
     return SizedBox(
       height: isTablet ? 44 : 34,
@@ -1861,14 +1902,18 @@ class _CategoryChips extends StatelessWidget {
               if (index == 1) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => ToursScreen(session: session)),
+                  MaterialPageRoute(
+                    builder: (_) => ToursScreen(session: session),
+                  ),
                 );
                 return;
               }
               if (index == 2) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => TransportScreen(session: session)),
+                  MaterialPageRoute(
+                    builder: (_) => TransportScreen(session: session),
+                  ),
                 );
                 return;
               }
@@ -1880,11 +1925,18 @@ class _CategoryChips extends StatelessWidget {
               }
             },
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 12, vertical: isTablet ? 11 : 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 16 : 12,
+                vertical: isTablet ? 11 : 8,
+              ),
               decoration: BoxDecoration(
                 color: active ? activeChipColor : inactiveChipColor,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: isDark && !active ? AppColors.border : Colors.transparent),
+                border: Border.all(
+                  color: isDark && !active
+                      ? AppColors.border
+                      : Colors.transparent,
+                ),
               ),
               child: Text(
                 chips[index],
@@ -1917,16 +1969,24 @@ class _EventsScreen extends StatelessWidget {
         leading: const StageSafeLeadingButton(color: AppColors.black),
         title: Text(
           l.events,
-          style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),
+          style: const TextStyle(
+            color: AppColors.black,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
         centerTitle: false,
       ),
       body: Center(
-        child: Text(l.eventsComingSoon, style: const TextStyle(color: AppColors.foggy)),
+        child: Text(
+          l.eventsComingSoon,
+          style: const TextStyle(color: AppColors.foggy),
+        ),
       ),
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 
@@ -1934,7 +1994,14 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.black));
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: AppColors.black,
+      ),
+    );
   }
 }
 
@@ -1965,7 +2032,9 @@ class _ListingImage extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       color: AppColors.surfaceSubtle,
-      child: const Center(child: Icon(Icons.image_outlined, color: AppColors.hackberry, size: 38)),
+      child: const Center(
+        child: Icon(Icons.image_outlined, color: AppColors.hackberry, size: 38),
+      ),
     );
   }
 
@@ -2019,3 +2088,86 @@ class _ShimmerGrid extends StatelessWidget {
   }
 }
 
+class _NotificationBell extends StatefulWidget {
+  final double size;
+  final double iconSize;
+  final Color color;
+  final Color bgColor;
+  final Color borderColor;
+
+  const _NotificationBell({
+    required this.size,
+    required this.iconSize,
+    required this.color,
+    required this.bgColor,
+    required this.borderColor,
+  });
+
+  @override
+  State<_NotificationBell> createState() => _NotificationBellState();
+}
+
+class _NotificationBellState extends State<_NotificationBell> {
+  final NotificationService _service = NotificationService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _service.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _service.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _service.unreadCount;
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: widget.bgColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: widget.borderColor, width: 1),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Center(
+            child: Icon(Icons.notifications_outlined,
+                size: widget.iconSize, color: widget.color),
+          ),
+          if (count > 0)
+            Positioned(
+              right: 2,
+              top: 2,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  color: AppColors.rausch,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text(
+                  count > 9 ? '9+' : '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

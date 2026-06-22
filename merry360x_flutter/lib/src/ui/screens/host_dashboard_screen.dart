@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -3224,6 +3225,11 @@ class _BookingsTabState extends State<_BookingsTab> {
   String _filter = 'all';
   final Set<String> _busyIds = <String>{};
 
+  Widget get _imagePlaceholder => Container(
+    color: const Color(0xFFE0E0E0),
+    child: const Icon(Icons.image_outlined, size: 18, color: Color(0xFF9E9E9E)),
+  );
+
   List<Map<String, dynamic>> get _filtered => _filter == 'all'
       ? widget.bookings
       : widget.bookings.where((b) => b['status'] == _filter).toList();
@@ -3301,6 +3307,23 @@ class _BookingsTabState extends State<_BookingsTab> {
     }
   }
 
+  Color _payStatusBg(String s) {
+    switch (s) {
+      case 'paid' || 'completed': return const Color(0xFFE8F5E9);
+      case 'failed' || 'rejected': return const Color(0xFFFFF0F1);
+      case 'refunded': return const Color(0xFFE3F2FD);
+      default: return const Color(0xFFFFF8E1);
+    }
+  }
+  Color _payStatusFg(String s) {
+    switch (s) {
+      case 'paid' || 'completed': return const Color(0xFF2E7D32);
+      case 'failed' || 'rejected': return AppColors.rausch;
+      case 'refunded': return const Color(0xFF1565C0);
+      default: return const Color(0xFFFF8F00);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
@@ -3356,11 +3379,12 @@ class _BookingsTabState extends State<_BookingsTab> {
                   itemBuilder: (ctx, i) {
                     final b = _filtered[i];
                     final status = b['status'] as String? ?? 'pending';
+                    final paymentStatus = (b['payment_status'] ?? 'pending').toString();
                     final actionKey = (b['order_id'] ?? b['id']).toString();
                     final isBusy = _busyIds.contains(actionKey);
                     final guestName = (b['guest_name'] ?? b['user_name'] ?? '?').toString();
-                    final initial = guestName.isNotEmpty ? guestName[0].toUpperCase() : '?';
                     final listingTitle = (b['listing_title'] ?? b['item_title'] ?? 'Booking').toString();
+                    final mainImage = b['main_image']?.toString() ?? '';
                     final checkIn  = (b['check_in']  ?? '').toString();
                     final checkOut = (b['check_out'] ?? '').toString();
                     final amount   = ((b['total_amount'] ?? b['total_price']) as num?) ?? 0;
@@ -3387,22 +3411,15 @@ class _BookingsTabState extends State<_BookingsTab> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Guest avatar
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppColors.rausch.withValues(alpha: 0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.rausch,
-                                  ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  width: 48, height: 36,
+                                  child: mainImage.isNotEmpty
+                                      ? CachedNetworkImage(imageUrl: mainImage, fit: BoxFit.cover,
+                                          errorWidget: (_, __, ___) => _imagePlaceholder,
+                                          placeholder: (_, __) => const SizedBox())
+                                      : _imagePlaceholder,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -3428,22 +3445,40 @@ class _BookingsTabState extends State<_BookingsTab> {
                                   ],
                                 ),
                               ),
-                              // Status badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: _statusBg(status),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${status[0].toUpperCase()}${status.substring(1)}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: _statusFg(status),
+                              const SizedBox(width: 6),
+                              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _statusBg(status),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${status[0].toUpperCase()}${status.substring(1)}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: _statusFg(status),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _payStatusBg(paymentStatus),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${paymentStatus[0].toUpperCase()}${paymentStatus.substring(1)}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: _payStatusFg(paymentStatus),
+                                    ),
+                                  ),
+                                ),
+                              ]),
                             ],
                           ),
                           const SizedBox(height: 10),

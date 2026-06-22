@@ -15,6 +15,9 @@ import '../../session_controller.dart';
 import 'package:merry360x_flutter/src/lib/fees.dart';
 import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
+import '../widgets/slide_to_confirm_button.dart';
+
+enum _SubmitState { idle, processing, success, failed }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Payment method definitions (mirrors web Checkout.tsx)
@@ -44,54 +47,318 @@ class _PayMethod {
 
 const _kPayMethods = <_PayMethod>[
   // Rwanda (+250) — RWF
-  _PayMethod(id: 'MTN_MOMO_RWA', name: 'MTN MoMo', country: 'Rwanda', countryCode: '+250', currency: 'RWF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_RWA', name: 'Airtel Money', country: 'Rwanda', countryCode: '+250', currency: 'RWF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_RWA',
+    name: 'MTN MoMo',
+    country: 'Rwanda',
+    countryCode: '+250',
+    currency: 'RWF',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'AIRTEL_RWA',
+    name: 'Airtel Money',
+    country: 'Rwanda',
+    countryCode: '+250',
+    currency: 'RWF',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
   // Kenya (+254) — KES
-  _PayMethod(id: 'MPESA_KEN', name: 'M-Pesa', country: 'Kenya', countryCode: '+254', currency: 'KES', color: Color(0xFF4CAF50), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MPESA_KEN',
+    name: 'M-Pesa',
+    country: 'Kenya',
+    countryCode: '+254',
+    currency: 'KES',
+    color: Color(0xFF4CAF50),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Uganda (+256) — UGX
-  _PayMethod(id: 'MTN_MOMO_UGA', name: 'MTN MoMo', country: 'Uganda', countryCode: '+256', currency: 'UGX', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_OAPI_UGA', name: 'Airtel Money', country: 'Uganda', countryCode: '+256', currency: 'UGX', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_UGA',
+    name: 'MTN MoMo',
+    country: 'Uganda',
+    countryCode: '+256',
+    currency: 'UGX',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'AIRTEL_OAPI_UGA',
+    name: 'Airtel Money',
+    country: 'Uganda',
+    countryCode: '+256',
+    currency: 'UGX',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
   // Zambia (+260) — ZMW
-  _PayMethod(id: 'MTN_MOMO_ZMB', name: 'MTN MoMo', country: 'Zambia', countryCode: '+260', currency: 'ZMW', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ZAMTEL_ZMB', name: 'Zamtel', country: 'Zambia', countryCode: '+260', currency: 'ZMW', color: Color(0xFF388E3C), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_ZMB',
+    name: 'MTN MoMo',
+    country: 'Zambia',
+    countryCode: '+260',
+    currency: 'ZMW',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'ZAMTEL_ZMB',
+    name: 'Zamtel',
+    country: 'Zambia',
+    countryCode: '+260',
+    currency: 'ZMW',
+    color: Color(0xFF388E3C),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Tanzania (+255) — TZS
-  _PayMethod(id: 'VODACOM_TZN', name: 'Vodacom M-Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'TIGO_TZN', name: 'Tigo Pesa', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'AIRTEL_TZN', name: 'Airtel Money', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
-  _PayMethod(id: 'HALOTEL_TZN', name: 'Halotel', country: 'Tanzania', countryCode: '+255', currency: 'TZS', color: Color(0xFF4CAF50), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'VODACOM_TZN',
+    name: 'Vodacom M-Pesa',
+    country: 'Tanzania',
+    countryCode: '+255',
+    currency: 'TZS',
+    color: Color(0xFFD32F2F),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
+  _PayMethod(
+    id: 'TIGO_TZN',
+    name: 'Tigo Pesa',
+    country: 'Tanzania',
+    countryCode: '+255',
+    currency: 'TZS',
+    color: Color(0xFF1565C0),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
+  _PayMethod(
+    id: 'AIRTEL_TZN',
+    name: 'Airtel Money',
+    country: 'Tanzania',
+    countryCode: '+255',
+    currency: 'TZS',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
+  _PayMethod(
+    id: 'HALOTEL_TZN',
+    name: 'Halotel',
+    country: 'Tanzania',
+    countryCode: '+255',
+    currency: 'TZS',
+    color: Color(0xFF4CAF50),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Ghana (+233) — GHS
-  _PayMethod(id: 'MTN_MOMO_GHA', name: 'MTN MoMo', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'VODAFONE_GHA', name: 'Vodafone Cash', country: 'Ghana', countryCode: '+233', currency: 'GHS', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_GHA',
+    name: 'MTN MoMo',
+    country: 'Ghana',
+    countryCode: '+233',
+    currency: 'GHS',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'VODAFONE_GHA',
+    name: 'Vodafone Cash',
+    country: 'Ghana',
+    countryCode: '+233',
+    currency: 'GHS',
+    color: Color(0xFFD32F2F),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // DR Congo (+243) — CDF
-  _PayMethod(id: 'VODACOM_MPESA_COD', name: 'Vodacom M-Pesa', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'AIRTEL_COD', name: 'Airtel Money', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
-  _PayMethod(id: 'ORANGE_COD', name: 'Orange Money', country: 'DR Congo', countryCode: '+243', currency: 'CDF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'VODACOM_MPESA_COD',
+    name: 'Vodacom M-Pesa',
+    country: 'DR Congo',
+    countryCode: '+243',
+    currency: 'CDF',
+    color: Color(0xFFD32F2F),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
+  _PayMethod(
+    id: 'AIRTEL_COD',
+    name: 'Airtel Money',
+    country: 'DR Congo',
+    countryCode: '+243',
+    currency: 'CDF',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
+  _PayMethod(
+    id: 'ORANGE_COD',
+    name: 'Orange Money',
+    country: 'DR Congo',
+    countryCode: '+243',
+    currency: 'CDF',
+    color: Color(0xFFFF9800),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Cameroon (+237) — XAF
-  _PayMethod(id: 'MTN_MOMO_CMR', name: 'MTN MoMo', country: 'Cameroon', countryCode: '+237', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ORANGE_CMR', name: 'Orange Money', country: 'Cameroon', countryCode: '+237', currency: 'XAF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_CMR',
+    name: 'MTN MoMo',
+    country: 'Cameroon',
+    countryCode: '+237',
+    currency: 'XAF',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'ORANGE_CMR',
+    name: 'Orange Money',
+    country: 'Cameroon',
+    countryCode: '+237',
+    currency: 'XAF',
+    color: Color(0xFFFF9800),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Senegal (+221) — XOF
-  _PayMethod(id: 'ORANGE_SEN', name: 'Orange Money', country: 'Senegal', countryCode: '+221', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
-  _PayMethod(id: 'FREE_SEN', name: 'Free Money', country: 'Senegal', countryCode: '+221', currency: 'XOF', color: Color(0xFF00897B), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'ORANGE_SEN',
+    name: 'Orange Money',
+    country: 'Senegal',
+    countryCode: '+221',
+    currency: 'XOF',
+    color: Color(0xFFFF9800),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
+  _PayMethod(
+    id: 'FREE_SEN',
+    name: 'Free Money',
+    country: 'Senegal',
+    countryCode: '+221',
+    currency: 'XOF',
+    color: Color(0xFF00897B),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Ivory Coast (+225) — XOF
-  _PayMethod(id: 'MTN_MOMO_CIV', name: 'MTN MoMo', country: 'Ivory Coast', countryCode: '+225', currency: 'XOF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'ORANGE_CIV', name: 'Orange Money', country: 'Ivory Coast', countryCode: '+225', currency: 'XOF', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_CIV',
+    name: 'MTN MoMo',
+    country: 'Ivory Coast',
+    countryCode: '+225',
+    currency: 'XOF',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'ORANGE_CIV',
+    name: 'Orange Money',
+    country: 'Ivory Coast',
+    countryCode: '+225',
+    currency: 'XOF',
+    color: Color(0xFFFF9800),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Mozambique (+258) — MZN
-  _PayMethod(id: 'VODACOM_MOZ', name: 'Vodacom M-Pesa', country: 'Mozambique', countryCode: '+258', currency: 'MZN', color: Color(0xFFD32F2F), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'VODACOM_MOZ',
+    name: 'Vodacom M-Pesa',
+    country: 'Mozambique',
+    countryCode: '+258',
+    currency: 'MZN',
+    color: Color(0xFFD32F2F),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Malawi (+265) — MWK
-  _PayMethod(id: 'AIRTEL_MWI', name: 'Airtel Money', country: 'Malawi', countryCode: '+265', currency: 'MWK', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
-  _PayMethod(id: 'TNM_MWI', name: 'TNM Mpamba', country: 'Malawi', countryCode: '+265', currency: 'MWK', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'AIRTEL_MWI',
+    name: 'Airtel Money',
+    country: 'Malawi',
+    countryCode: '+265',
+    currency: 'MWK',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
+  _PayMethod(
+    id: 'TNM_MWI',
+    name: 'TNM Mpamba',
+    country: 'Malawi',
+    countryCode: '+265',
+    currency: 'MWK',
+    color: Color(0xFF1976D2),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Burundi (+257) — BIF
-  _PayMethod(id: 'ECONET_BDI', name: 'Econet Leo', country: 'Burundi', countryCode: '+257', currency: 'BIF', color: Color(0xFF1565C0), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'ECONET_BDI',
+    name: 'Econet Leo',
+    country: 'Burundi',
+    countryCode: '+257',
+    currency: 'BIF',
+    color: Color(0xFF1565C0),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Benin (+229) — XOF
-  _PayMethod(id: 'MTN_MOMO_BEN', name: 'MTN MoMo', country: 'Benin', countryCode: '+229', currency: 'XOF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'MOOV_BEN', name: 'Moov Money', country: 'Benin', countryCode: '+229', currency: 'XOF', color: Color(0xFF1976D2), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_BEN',
+    name: 'MTN MoMo',
+    country: 'Benin',
+    countryCode: '+229',
+    currency: 'XOF',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'MOOV_BEN',
+    name: 'Moov Money',
+    country: 'Benin',
+    countryCode: '+229',
+    currency: 'XOF',
+    color: Color(0xFF1976D2),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Gabon (+241) — XAF
-  _PayMethod(id: 'AIRTEL_GAB', name: 'Airtel Money', country: 'Gabon', countryCode: '+241', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(
+    id: 'AIRTEL_GAB',
+    name: 'Airtel Money',
+    country: 'Gabon',
+    countryCode: '+241',
+    currency: 'XAF',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
   // Sierra Leone (+232) — SLE
-  _PayMethod(id: 'ORANGE_SLE', name: 'Orange Money', country: 'Sierra Leone', countryCode: '+232', currency: 'SLE', color: Color(0xFFFF9800), asset: 'assets/payment/mtn-momo.png'),
+  _PayMethod(
+    id: 'ORANGE_SLE',
+    name: 'Orange Money',
+    country: 'Sierra Leone',
+    countryCode: '+232',
+    currency: 'SLE',
+    color: Color(0xFFFF9800),
+    asset: 'assets/payment/mtn-momo.png',
+  ),
   // Congo-Brazzaville (+242) — XAF
-  _PayMethod(id: 'MTN_MOMO_COG', name: 'MTN MoMo', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFFFC107), asset: 'assets/payment/mtn-momo.png', textLight: false),
-  _PayMethod(id: 'AIRTEL_COG', name: 'Airtel Money', country: 'Congo', countryCode: '+242', currency: 'XAF', color: Color(0xFFEF5350), asset: 'assets/payment/airtel-money.png'),
+  _PayMethod(
+    id: 'MTN_MOMO_COG',
+    name: 'MTN MoMo',
+    country: 'Congo',
+    countryCode: '+242',
+    currency: 'XAF',
+    color: Color(0xFFFFC107),
+    asset: 'assets/payment/mtn-momo.png',
+    textLight: false,
+  ),
+  _PayMethod(
+    id: 'AIRTEL_COG',
+    name: 'Airtel Money',
+    country: 'Congo',
+    countryCode: '+242',
+    currency: 'XAF',
+    color: Color(0xFFEF5350),
+    asset: 'assets/payment/airtel-money.png',
+  ),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +383,7 @@ class CheckoutScreen extends StatefulWidget {
   final DateTime? checkOut;
   final int guests;
   final SessionController session;
+
   /// When set, this is a multi-item cart checkout. All service fees and host
   /// earnings are computed per-item using their respective service types.
   final List<Map<String, dynamic>>? allCartItems;
@@ -142,13 +410,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _showMobileMoney = true; // hidden for non-African regions
   String? _detectedCountryISO; // 2-letter ISO e.g. 'RW', 'US'
 
-  bool _submitting = false;
+  _SubmitState _submitState = _SubmitState.idle;
+  int _resetCounter = 0;
   String? _bookingId;
   String? _paymentMethod; // 'mobile_money', 'card', 'bank_transfer'
 
   // Editable dates — start from widget values; null means user must pick.
   DateTime? _checkIn;
   DateTime? _checkOut;
+  int _guests = 1;
 
   // Promo code
   final _promoCtrl = TextEditingController();
@@ -167,7 +437,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Pre-fill with user data
     final profile = widget.session.payload?.profile;
     final guestInfo = widget.session.guestInfo;
-    _nameCtrl.text = (profile?['full_name'] ?? guestInfo?['name'] ?? '').toString();
+    _nameCtrl.text = (profile?['full_name'] ?? guestInfo?['name'] ?? '')
+        .toString();
     _emailCtrl.text = widget.session.userEmail ?? guestInfo?['email'] ?? '';
     if (guestInfo?['phone'] != null && guestInfo!['phone']!.isNotEmpty) {
       _phoneCtrl.text = guestInfo['phone']!;
@@ -175,6 +446,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Seed dates from widget (may be null when coming from trip cart).
     _checkIn = widget.checkIn;
     _checkOut = widget.checkOut;
+    _guests = _guests;
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
     _phoneCtrl.clear();
@@ -203,18 +475,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // African countries with PawaPay mobile money support (ISO 3166-1 alpha-2)
   static const _africanPawapayCountries = {
-    'RW', 'KE', 'UG', 'ZM', 'TZ', 'GH', 'CD', 'CM',
-    'SN', 'CI', 'MZ', 'MW', 'BI', 'CG',
+    'RW',
+    'KE',
+    'UG',
+    'ZM',
+    'TZ',
+    'GH',
+    'CD',
+    'CM',
+    'SN',
+    'CI',
+    'MZ',
+    'MW',
+    'BI',
+    'CG',
   };
 
   // Map ISO code \u2192 default PawaPay method ID
   static const _geoDefaultMethod = <String, String>{
-    'RW': 'MTN_MOMO_RWA', 'KE': 'MPESA_KEN', 'UG': 'MTN_MOMO_UGA',
-    'ZM': 'MTN_MOMO_ZMB', 'TZ': 'VODACOM_TZN', 'GH': 'MTN_MOMO_GHA',
-    'CD': 'VODACOM_MPESA_COD', 'CM': 'MTN_MOMO_CMR', 'SN': 'ORANGE_SEN',
-    'CI': 'MTN_MOMO_CIV', 'MZ': 'VODACOM_MOZ', 'MW': 'AIRTEL_MWI',
-    'BI': 'ECONET_BDI', 'CG': 'MTN_MOMO_COG',
-    'BJ': 'MTN_MOMO_BEN', 'GA': 'AIRTEL_GAB', 'SL': 'ORANGE_SLE',
+    'RW': 'MTN_MOMO_RWA',
+    'KE': 'MPESA_KEN',
+    'UG': 'MTN_MOMO_UGA',
+    'ZM': 'MTN_MOMO_ZMB',
+    'TZ': 'VODACOM_TZN',
+    'GH': 'MTN_MOMO_GHA',
+    'CD': 'VODACOM_MPESA_COD',
+    'CM': 'MTN_MOMO_CMR',
+    'SN': 'ORANGE_SEN',
+    'CI': 'MTN_MOMO_CIV',
+    'MZ': 'VODACOM_MOZ',
+    'MW': 'AIRTEL_MWI',
+    'BI': 'ECONET_BDI',
+    'CG': 'MTN_MOMO_COG',
+    'BJ': 'MTN_MOMO_BEN',
+    'GA': 'AIRTEL_GAB',
+    'SL': 'ORANGE_SLE',
   };
 
   static const _geoCountryName = <String, String>{
@@ -242,13 +537,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (iso != null) {
       final countryName = _geoCountryName[iso.toUpperCase()];
       if (countryName != null) {
-        final methods = _kPayMethods.where((m) => m.country == countryName).toList();
+        final methods = _kPayMethods
+            .where((m) => m.country == countryName)
+            .toList();
         if (methods.isNotEmpty) return methods;
       }
     }
 
     if (_selectedMethod != null) {
-      final methods = _kPayMethods.where((m) => m.country == _selectedMethod!.country).toList();
+      final methods = _kPayMethods
+          .where((m) => m.country == _selectedMethod!.country)
+          .toList();
       if (methods.isNotEmpty) return methods;
     }
 
@@ -259,9 +558,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // 1. Try IP-based geolocation (fast, 3s timeout)
     String? iso;
     try {
-      final res = await http.get(
-        Uri.parse('https://ipapi.co/json/'),
-      ).timeout(const Duration(seconds: 3));
+      final res = await http
+          .get(Uri.parse('https://ipapi.co/json/'))
+          .timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         iso = (data['country_code'] as String?)?.toUpperCase();
@@ -273,9 +572,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // 2. Fallback to secondary IP API
     if (iso == null || iso.isEmpty) {
       try {
-        final res = await http.get(
-          Uri.parse('https://ipinfo.io/json'),
-        ).timeout(const Duration(seconds: 3));
+        final res = await http
+            .get(Uri.parse('https://ipinfo.io/json'))
+            .timeout(const Duration(seconds: 3));
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
           iso = (data['country'] as String?)?.toUpperCase();
@@ -288,9 +587,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // 3. Fallback to Cloudflare trace endpoint
     if (iso == null || iso.isEmpty) {
       try {
-        final res = await http.get(
-          Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'),
-        ).timeout(const Duration(seconds: 3));
+        final res = await http
+            .get(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
+            .timeout(const Duration(seconds: 3));
         if (res.statusCode == 200) {
           final line = res.body
               .split('\n')
@@ -317,7 +616,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (isAfrican) {
         // Select the local default method
         final defaultId = _geoDefaultMethod[iso!];
-        final localMethod = _kPayMethods.where((m) => m.id == defaultId).firstOrNull;
+        final localMethod = _kPayMethods
+            .where((m) => m.id == defaultId)
+            .firstOrNull;
         if (localMethod != null) {
           _selectedMethod = localMethod;
           _phoneCtrl.clear();
@@ -368,10 +669,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _pickDate({required bool isCheckIn}) async {
     final now = DateTime.now();
-    final minDate = isCheckIn ? now : (_checkIn ?? now).add(const Duration(days: 1));
-    final initialDate = isCheckIn
-        ? (_checkIn ?? now)
-        : (_checkOut ?? minDate);
+    final minDate = isCheckIn
+        ? now
+        : (_checkIn ?? now).add(const Duration(days: 1));
+    final initialDate = isCheckIn ? (_checkIn ?? now) : (_checkOut ?? minDate);
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate.isBefore(minDate) ? minDate : initialDate,
@@ -396,15 +697,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     switch (itemType) {
       case 'tour':
       case 'tour_package':
-        return _pricePerUnit * widget.guests;
+        return _pricePerUnit * _guests;
       default:
         return _pricePerUnit * _nights;
     }
   }
 
   BookingFinancials get _financials {
-    final discountedListingSubtotal =
-        (_subtotal - _discountAmount).clamp(0.0, double.infinity).toDouble();
+    final discountedListingSubtotal = (_subtotal - _discountAmount)
+        .clamp(0.0, double.infinity)
+        .toDouble();
     return calculateBookingFinancialsFromDiscountedListing(
       discountedListingSubtotal: discountedListingSubtotal,
       serviceType: _serviceType,
@@ -460,7 +762,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .clamp(0.0, double.infinity);
       final financials = calculateBookingFinancialsFromDiscountedListing(
         discountedListingSubtotal: base,
-        serviceType: _serviceTypeFor((ci['item_type'] ?? 'property').toString()),
+        serviceType: _serviceTypeFor(
+          (ci['item_type'] ?? 'property').toString(),
+        ),
       );
       total += financials.guestTotal;
     }
@@ -477,7 +781,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .clamp(0.0, double.infinity);
       final financials = calculateBookingFinancialsFromDiscountedListing(
         discountedListingSubtotal: base,
-        serviceType: _serviceTypeFor((ci['item_type'] ?? 'property').toString()),
+        serviceType: _serviceTypeFor(
+          (ci['item_type'] ?? 'property').toString(),
+        ),
       );
       fee += financials.guestFee;
     }
@@ -495,8 +801,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return base;
   }
 
-  double get _serviceFee => widget.allCartItems != null ? _cartServiceFee : _financials.guestFee;
-  double get _total => widget.allCartItems != null ? _cartTotal : _financials.guestTotal;
+  double get _serviceFee =>
+      widget.allCartItems != null ? _cartServiceFee : _financials.guestFee;
+  double get _total =>
+      widget.allCartItems != null ? _cartTotal : _financials.guestTotal;
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
@@ -538,7 +846,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     final type = (_appliedDiscount!['discount_type'] ?? 'fixed').toString();
-    final value = ((_appliedDiscount!['discount_value'] ?? 0) as num).toDouble();
+    final value = ((_appliedDiscount!['discount_value'] ?? 0) as num)
+        .toDouble();
     if (type == 'percentage') {
       _discountAmount = _subtotal * value / 100;
     } else {
@@ -552,7 +861,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _applyPromo({bool autoTriggered = false}) async {
     final code = _promoCtrl.text.trim();
     if (code.isEmpty) return;
-    setState(() { _applyingPromo = true; _promoMsg = null; _promoSuccess = false; });
+    setState(() {
+      _applyingPromo = true;
+      _promoMsg = null;
+      _promoSuccess = false;
+    });
     try {
       final api = AppDatabase();
       final result = await api.validatePromoCode(
@@ -566,7 +879,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() {
           _appliedDiscount = null;
           _discountAmount = 0;
-          _promoMsg = autoTriggered ? null : (result.error ?? 'Invalid or expired promo code.');
+          _promoMsg = autoTriggered
+              ? null
+              : (result.error ?? 'Invalid or expired promo code.');
           _promoSuccess = false;
         });
       } else {
@@ -576,7 +891,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _promoCtrl.text = normalizedCode;
         await clearPendingPromoCode();
         setState(() {
-          _promoMsg = 'Code applied! You save $_currency ${_discountAmount.toStringAsFixed(0)}';
+          _promoMsg =
+              'Code applied! You save $_currency ${_discountAmount.toStringAsFixed(0)}';
           _promoSuccess = true;
         });
       }
@@ -607,7 +923,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     switch (itemType) {
       case 'tour':
       case 'tour_package':
-        return '${widget.guests} guest${widget.guests > 1 ? 's' : ''}';
+        return '$_guests guest${_guests > 1 ? 's' : ''}';
       case 'transport':
         return '$_nights day${_nights > 1 ? 's' : ''}';
       default:
@@ -615,9 +931,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  /// Extract the best-available main image URL from a listing/cart item.
+  String? _itemMainImage(Map<String, dynamic> item) {
+    final images = item['images'];
+    if (images is List && images.isNotEmpty) return images.first.toString();
+    final img = item['main_image']?.toString() ?? item['image']?.toString();
+    if (img != null && img.isNotEmpty) return img;
+    final cover = item['cover_image']?.toString();
+    if (cover != null && cover.isNotEmpty) return cover;
+    return null;
+  }
+
   Future<void> _confirmAndPay() async {
     HapticFeedback.mediumImpact();
-    setState(() => _submitting = true);
+    setState(() => _submitState = _SubmitState.processing);
     try {
       // For guest users, persist form details into the session so the auth
       // guard in SessionController.createBooking() passes.
@@ -625,7 +952,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final name = _nameCtrl.text.trim();
         if (name.isEmpty) {
           _showSnack(_l.enterFullName);
-          setState(() => _submitting = false);
+          setState(() => _submitState = _SubmitState.idle);
           return;
         }
         widget.session.setGuestInfo(
@@ -639,14 +966,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── Mobile Money (PawaPay) ──
         if (_selectedMethod == null) {
           _showSnack(_l.selectMomoProvider);
-          setState(() => _submitting = false);
+          setState(() => _submitState = _SubmitState.idle);
           return;
         }
         final localPhone = _phoneCtrl.text.trim();
         final phone = _normalizedMobileMoneyPhone(localPhone);
         if (localPhone.isEmpty || phone.isEmpty) {
           _showSnack(_l.enterMomoNumber);
-          setState(() => _submitting = false);
+          setState(() => _submitState = _SubmitState.idle);
           return;
         }
 
@@ -660,13 +987,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 final t = (ci['item_type'] ?? 'property').toString();
                 final base = _baseForCartItem(ci);
                 final fin = calculateBookingFinancialsFromDiscountedListing(
-                  discountedListingSubtotal: (base - _discountAmount / allItems.length).clamp(0.0, double.infinity),
+                  discountedListingSubtotal:
+                      (base - _discountAmount / allItems.length).clamp(
+                        0.0,
+                        double.infinity,
+                      ),
                   serviceType: _serviceTypeFor(t),
                 );
                 return {
                   'item_type': t,
-                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '').toString(),
+                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '')
+                      .toString(),
                   'title': (ci['title'] ?? ci['name'] ?? 'Listing').toString(),
+                  'main_image': _itemMainImage(ci),
                   'quantity': int.tryParse('${ci['quantity'] ?? 1}') ?? 1,
                   'amount': fin.discountedListingSubtotal,
                   'calculated_price': fin.guestTotal,
@@ -682,7 +1015,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 {
                   'item_type': itemType,
                   'reference_id': (item['id'] ?? '').toString(),
-                  'title': (item['title'] ?? item['name'] ?? 'Listing').toString(),
+                  'title': (item['title'] ?? item['name'] ?? 'Listing')
+                      .toString(),
                   'quantity': 1,
                   'amount': _subtotal,
                   'calculated_price': _total,
@@ -691,8 +1025,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'host_fee_amount': _financials.hostFee,
                   'guest_fee_percent': _financials.guestFeePercent,
                   'host_fee_percent': _financials.hostFeePercent,
+                  'main_image': _itemMainImage(item),
                   'currency': _currency,
-                }
+                },
               ];
 
         // Always use checkout_request for PawaPay so the webhook can process it.
@@ -708,42 +1043,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           paymentMethod: 'mobile_money',
           paymentProvider: _selectedMethod!.id,
           items: checkoutItems,
-          specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          specialRequests: _notesCtrl.text.trim().isEmpty
+              ? null
+              : _notesCtrl.text.trim(),
           metadata: {
-            if (_appliedDiscount != null) 'discount_code': _appliedDiscount!['code'],
+            if (_appliedDiscount != null)
+              'discount_code': _appliedDiscount!['code'],
             if (_discountAmount > 0) 'discount_amount': _discountAmount,
             'booking_details': {
               'check_in': _checkIn?.toIso8601String().split('T').first,
               'check_out': _checkOut?.toIso8601String().split('T').first,
-              'guests': widget.guests,
+              'guests': _guests,
             },
           },
         );
         if (_appliedDiscount != null && _discountAmount > 0) {
-          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+          AppDatabase().incrementPromoCodeUsage(
+            codeId: _appliedDiscount!['id'].toString(),
+          );
         }
+
+        // ── Currency conversion: PawaPay expects RWF ──
+        String payCurrency = _currency;
+        double payAmount = _total;
+        double? exchangeRate;
+
+        if (_currency != 'RWF') {
+          exchangeRate = await api.fetchExchangeRate();
+          if (exchangeRate != null && exchangeRate > 0) {
+            payAmount = _total * exchangeRate;
+            payCurrency = 'RWF';
+            // Store conversion details in the checkout request metadata
+            await api.updateCheckoutRequestMetadata(
+              checkoutId: checkoutId,
+              metadata: {
+                'priceUSD': _total,
+                'exchangeRateUsed': exchangeRate,
+                'totalAmountRWF': payAmount,
+              },
+            );
+          }
+        }
+
         final pawaPayResult = await api.initiatePawaPayDeposit(
           bookingId: checkoutId,
-          amount: _total,
-          currency: _currency,
+          amount: payAmount,
+          currency: payCurrency,
           phoneNumber: phone,
-          payerName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : null,
-          payerEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+          payerName: _nameCtrl.text.trim().isNotEmpty
+              ? _nameCtrl.text.trim()
+              : null,
+          payerEmail: _emailCtrl.text.trim().isNotEmpty
+              ? _emailCtrl.text.trim()
+              : null,
           provider: _selectedMethod!.id,
         );
         // Check if PawaPay immediately rejected the payment (insufficient funds, invalid number, etc.)
         final pawaSuccess = pawaPayResult['success'];
-        final pawaStatus = pawaPayResult['status']?.toString().toUpperCase().trim() ?? '';
-        final validInitiationStatuses = {'SUBMITTED', 'ACCEPTED', 'PENDING', 'ENQUEUED', 'CREATED', 'QUEUED'};
+        final pawaStatus =
+            pawaPayResult['status']?.toString().toUpperCase().trim() ?? '';
+        final validInitiationStatuses = {
+          'SUBMITTED',
+          'ACCEPTED',
+          'PENDING',
+          'ENQUEUED',
+          'CREATED',
+          'QUEUED',
+        };
 
-        if (pawaSuccess == false || (pawaStatus.isNotEmpty && !validInitiationStatuses.contains(pawaStatus))) {
-          final msg = pawaPayResult['message']?.toString()
-              ?? pawaPayResult['error']?.toString()
-              ?? (pawaStatus.isEmpty
+        if (pawaSuccess == false ||
+            (pawaStatus.isNotEmpty &&
+                !validInitiationStatuses.contains(pawaStatus))) {
+          final msg =
+              pawaPayResult['message']?.toString() ??
+              pawaPayResult['error']?.toString() ??
+              (pawaStatus.isEmpty
                   ? 'Payment was not initiated. The payment provider returned an empty status.'
                   : 'Payment failed with status: $pawaStatus. Please try again.');
           _showSnack(msg);
-          setState(() => _submitting = false);
+          setState(() => _submitState = _SubmitState.idle);
           return;
         }
         _paymentMethod = 'mobile_money';
@@ -751,19 +1129,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Poll the PawaPay webhook to confirm the payment actually completed.
         // PawaPay is async — the initial response just means the deposit was queued.
         // We wait up to 15 s for the status to reach 'paid' before showing success.
-        final depositId = pawaPayResult['depositId']?.toString() ?? pawaPayResult['data']?['depositId']?.toString();
-        final confirmed = await _pollCheckoutStatus(checkoutId, 'paid', depositId: depositId);
-        if (!confirmed) {
-          // Payment may still be pending on the network side; offer to retry.
+        final depositId =
+            pawaPayResult['depositId']?.toString() ??
+            pawaPayResult['data']?['depositId']?.toString();
+        final pollResult = await _pollCheckoutStatus(
+          checkoutId,
+          'paid',
+          depositId: depositId,
+        );
+        if (pollResult == 'paid') {
+          setState(() {
+            _bookingId = checkoutId;
+            _submitState = _SubmitState.success;
+          });
+          await Future.delayed(const Duration(milliseconds: 1500));
+          if (!mounted) return;
+          setState(() => _step = 2);
+        } else if (pollResult != null) {
+          // Explicit failure (failed / rejected / cancelled)
+          if (!mounted) return;
+          setState(() {
+            _bookingId = checkoutId;
+            _submitState = _SubmitState.idle;
+            _step = 3;
+          });
+        } else {
+          // Timed out — payment may still be pending on the network side.
           if (!mounted) return;
           _showPawaPayPendingDialog(checkoutId, phone);
           setState(() {
             _bookingId = checkoutId;
-            _step = 2;
           });
-          return;
         }
-        setState(() { _bookingId = checkoutId; _step = 2; });
       } else if (_payTab == 1) {
         // ── Card (Flutterwave) ──
         final api = AppDatabase();
@@ -775,13 +1172,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 final t = (ci['item_type'] ?? 'property').toString();
                 final base = _baseForCartItem(ci);
                 final fin = calculateBookingFinancialsFromDiscountedListing(
-                  discountedListingSubtotal: (base - _discountAmount / allItems.length).clamp(0.0, double.infinity),
+                  discountedListingSubtotal:
+                      (base - _discountAmount / allItems.length).clamp(
+                        0.0,
+                        double.infinity,
+                      ),
                   serviceType: _serviceTypeFor(t),
                 );
                 return {
                   'item_type': t,
-                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '').toString(),
+                  'reference_id': (ci['id'] ?? ci['reference_id'] ?? '')
+                      .toString(),
                   'title': (ci['title'] ?? ci['name'] ?? 'Listing').toString(),
+                  'main_image': _itemMainImage(ci),
                   'quantity': int.tryParse('${ci['quantity'] ?? 1}') ?? 1,
                   'amount': fin.discountedListingSubtotal,
                   'calculated_price': fin.guestTotal,
@@ -797,7 +1200,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 {
                   'item_type': itemType,
                   'reference_id': (item['id'] ?? '').toString(),
-                  'title': (item['title'] ?? item['name'] ?? 'Listing').toString(),
+                  'title': (item['title'] ?? item['name'] ?? 'Listing')
+                      .toString(),
                   'quantity': 1,
                   'amount': _subtotal,
                   'calculated_price': _total,
@@ -806,8 +1210,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'host_fee_amount': _financials.hostFee,
                   'guest_fee_percent': _financials.guestFeePercent,
                   'host_fee_percent': _financials.hostFeePercent,
+                  'main_image': _itemMainImage(item),
                   'currency': _currency,
-                }
+                },
               ];
 
         final checkoutId = await api.createCheckoutRequest(
@@ -822,9 +1227,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           paymentMethod: 'card',
           paymentProvider: 'FLUTTERWAVE',
           items: checkoutItems,
-          specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          specialRequests: _notesCtrl.text.trim().isEmpty
+              ? null
+              : _notesCtrl.text.trim(),
           metadata: {
-            if (_appliedDiscount != null) 'discount_code': _appliedDiscount!['code'],
+            if (_appliedDiscount != null)
+              'discount_code': _appliedDiscount!['code'],
             if (_discountAmount > 0) 'discount_amount': _discountAmount,
           },
         );
@@ -836,12 +1244,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           payerEmail: _emailCtrl.text.trim(),
           description: 'Merry360x Booking',
         );
-        final redirectUrl = flwResult['redirectUrl']?.toString() ?? flwResult['link']?.toString();
+        final redirectUrl =
+            flwResult['redirectUrl']?.toString() ??
+            flwResult['link']?.toString();
         if (redirectUrl == null || redirectUrl.isEmpty) {
           throw Exception('No payment URL received');
         }
         if (_appliedDiscount != null && _discountAmount > 0) {
-          api.incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+          api.incrementPromoCodeUsage(
+            codeId: _appliedDiscount!['id'].toString(),
+          );
         }
         _paymentMethod = 'card';
         _bookingId = checkoutId;
@@ -852,26 +1264,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           // Verify payment actually completed via server-side check
           final status = await api.checkFlutterwaveStatus(checkoutId);
           if (!mounted) return;
-          if (status.toLowerCase() == 'paid' || status.toLowerCase() == 'successful') {
-            setState(() => _step = 2);
-          } else if (status.toLowerCase() == 'failed' || status.toLowerCase() == 'rejected') {
-            _showSnack(_l.paymentFailed);
+          if (status.toLowerCase() == 'paid' ||
+              status.toLowerCase() == 'successful') {
+            setState(() => _submitState = _SubmitState.success);
+            await Future.delayed(const Duration(milliseconds: 1500));
+            if (mounted) setState(() => _step = 2);
+          } else if (status.toLowerCase() == 'failed' ||
+              status.toLowerCase() == 'rejected') {
+            if (mounted) setState(() {
+              _submitState = _SubmitState.idle;
+              _step = 3;
+            });
           } else {
             // Payment still pending on Flutterwave side — poll briefly
-            final confirmed = await _pollCheckoutStatus(
+            final pollResult = await _pollCheckoutStatus(
               checkoutId,
               'paid',
-              statusChecker: (id, {depositId}) => api.checkFlutterwaveStatus(id),
+              statusChecker: (id, {depositId}) =>
+                  api.checkFlutterwaveStatus(id),
             );
-            if (confirmed && mounted) {
-              setState(() => _step = 2);
+            if (pollResult == 'paid' && mounted) {
+              setState(() => _submitState = _SubmitState.success);
+              await Future.delayed(const Duration(milliseconds: 1500));
+              if (mounted) setState(() => _step = 2);
+            } else if (pollResult != null && mounted) {
+              // Explicit failure
+              setState(() {
+                _submitState = _SubmitState.idle;
+                _step = 3;
+              });
             } else if (mounted) {
-              _showSnack('Payment is being processed. Please check your bookings.');
-              setState(() { _bookingId = checkoutId; _step = 2; });
+              _showSnack(
+                'Payment is being processed. Please check your bookings.',
+              );
             }
           }
         } else if (payResult == 'failed') {
-          _showSnack(_l.paymentFailed);
+          if (mounted) setState(() {
+            _submitState = _SubmitState.idle;
+            _step = 3;
+          });
         }
         // 'cancelled' or null: user closed the sheet, stay on payment step
       } else {
@@ -880,24 +1312,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           item: item,
           checkIn: _checkIn?.toIso8601String().split('T').first,
           checkOut: _checkOut?.toIso8601String().split('T').first,
-          guests: widget.guests,
+          guests: _guests,
           totalAmount: _total,
           currency: _currency,
           paymentProvider: 'bank_transfer',
-          specialRequests: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          specialRequests: _notesCtrl.text.trim().isEmpty
+              ? null
+              : _notesCtrl.text.trim(),
           discountCode: _appliedDiscount?['code']?.toString(),
           discountAmount: _discountAmount > 0 ? _discountAmount : null,
         );
         if (_appliedDiscount != null && _discountAmount > 0) {
-          AppDatabase().incrementPromoCodeUsage(codeId: _appliedDiscount!['id'].toString());
+          AppDatabase().incrementPromoCodeUsage(
+            codeId: _appliedDiscount!['id'].toString(),
+          );
         }
         _paymentMethod = 'bank_transfer';
-        setState(() { _bookingId = id; _step = 2; });
+        setState(() {
+          _bookingId = id;
+          _step = 2;
+        });
       }
     } catch (e) {
-      _showSnack('Booking failed: ${e.toString().replaceAll('Exception: ', '')}');
+      _showSnack(
+        'Booking failed: ${e.toString().replaceAll('Exception: ', '')}',
+      );
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) setState(() => _submitState = _SubmitState.idle);
     }
   }
 
@@ -920,25 +1361,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   /// Poll the checkout status until it reaches the expected value or timeout.
   /// Returns true if the status reached [expected], false otherwise.
-  Future<bool> _pollCheckoutStatus(
+  /// Poll checkout status until it reaches [expected] or a terminal state.
+  /// Returns `'paid'` (or [expected]) on success,
+  /// `'failed'`/`'rejected'`/`'cancelled'` on explicit failure,
+  /// or `null` if the poll timed out (still pending).
+  Future<String?> _pollCheckoutStatus(
     String checkoutId,
     String expected, {
     String? depositId,
-    Future<String> Function(String checkoutId, {String? depositId})? statusChecker,
+    Future<String> Function(String checkoutId, {String? depositId})?
+    statusChecker,
     int maxAttempts = 5,
     Duration delay = const Duration(seconds: 3),
   }) async {
     final api = AppDatabase();
-    final checker = statusChecker ?? ((id, {depositId}) => api.checkPawaPayStatus(id, depositId: depositId));
+    final checker =
+        statusChecker ??
+        ((id, {depositId}) => api.checkPawaPayStatus(id, depositId: depositId));
     for (int i = 0; i < maxAttempts; i++) {
-      if (!mounted) return false;
+      if (!mounted) return null;
       await Future.delayed(delay);
-      if (!mounted) return false;
+      if (!mounted) return null;
       final status = await checker(checkoutId, depositId: depositId);
-      if (status.toLowerCase() == expected.toLowerCase()) return true;
-      if (status == 'failed' || status == 'rejected' || status == 'cancelled') return false;
+      final s = status.toLowerCase();
+      if (s == expected.toLowerCase()) return expected;
+      if (s == 'failed' || s == 'rejected' || s == 'cancelled') return s;
     }
-    return false;
+    return null;
   }
 
   /// Show dialog when PawaPay payment is pending (webhook hasn't confirmed yet).
@@ -948,8 +1397,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(_l.paymentInitiated,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(
+          _l.paymentInitiated,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -958,7 +1409,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 16),
             Text(
               'Awaiting confirmation from $phone',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.black),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -970,7 +1425,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             GestureDetector(
               onTap: () => Clipboard.setData(ClipboardData(text: checkoutId)),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(8),
@@ -979,10 +1437,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.copy, size: 12, color: AppColors.hackberry),
+                    const Icon(
+                      Icons.copy,
+                      size: 12,
+                      color: AppColors.hackberry,
+                    ),
                     const SizedBox(width: 6),
-                    Text('Ref: ${checkoutId.substring(0, 8)}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.hackberry, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Ref: ${checkoutId.substring(0, 8)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.hackberry,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1005,94 +1473,111 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
         leading: StageSafeLeadingButton(
           color: AppColors.black,
-          onPressed: () => _step > 0 && _step < 2
-              ? setState(() => _step--)
-              : Navigator.pop(context),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          _step == 0
-              ? _l.reviewBooking
-              : _step == 1
-                  ? _l.payment
-                  : _l.bookingConfirmed,
-          style: const TextStyle(color: AppColors.black, fontWeight: FontWeight.w800, fontSize: 18),
+          _step == 2
+              ? _l.bookingConfirmed
+              : _step == 3
+              ? 'Booking Failed'
+              : 'Review & Pay',
+          style: const TextStyle(
+            color: AppColors.black,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
       ),
-      body: _step == 2 ? _buildSuccess() : _buildCheckoutBody(),
+      body: _step == 2
+          ? _buildSuccess()
+          : _step == 3
+          ? _buildFailed()
+          : _buildCombinedBody(),
     );
   }
 
-  Widget _buildCheckoutBody() {
+  Widget _buildCombinedBody() {
     return Column(
       children: [
-        // ── Step indicator ──
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          child: _StepBar(current: _step),
-        ),
-
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 160),
-            child: _step == 0 ? _buildDetailsStep() : _buildPaymentStep(),
+            child: Column(
+              children: [
+                _buildDetailsStep(),
+                const SizedBox(height: 24),
+                _buildPaymentStep(),
+              ],
+            ),
           ),
         ),
 
-        // ── Bottom CTA ──
+        // ── Sticky bottom bar: Total + Slide to pay ──
         Container(
-          padding: EdgeInsets.fromLTRB(18, 14, 18, MediaQuery.of(context).padding.bottom + 14),
+          padding: EdgeInsets.fromLTRB(
+            18,
+            14,
+            18,
+            MediaQuery.of(context).padding.bottom + 14,
+          ),
           decoration: BoxDecoration(
             color: AppColors.surface,
             boxShadow: [
-              BoxShadow(color: AppColors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -4)),
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -4),
+              ),
             ],
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (_step == 1) ...[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_l.total, style: const TextStyle(fontSize: 12, color: AppColors.foggy)),
-                      const SizedBox(height: 2),
-                      Text('$_currency ${_total.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-              ],
-              Expanded(
-                flex: _step == 1 ? 2 : 1,
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _submitting ? null : (_step == 0 ? _goToPayment : _confirmAndPay),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.rausch,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _submitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(
-                            _step == 0
-                                ? _l.continueToPay
-                                : _payTab == 1
-                                    ? _l.payByCard
-                                    : _payTab == 2
-                                        ? _l.confirmBooking
-                                        : _l.confirmAndPay,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _l.total,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.foggy,
+                            ),
                           ),
-                  ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$_currency ${_total.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              SlideToConfirmButton(
+                key: ValueKey(_resetCounter),
+                label: _l.confirmAndPay,
+                onConfirmed: _confirmAndPay,
+                disabled: _submitState != _SubmitState.idle,
+                confirmed: _submitState == _SubmitState.processing ||
+                    _submitState == _SubmitState.success,
+                isProcessing: _submitState == _SubmitState.processing,
+                showSuccess: _submitState == _SubmitState.success,
               ),
             ],
           ),
@@ -1101,32 +1586,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _goToPayment() {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      _showSnack(_l.enterFullName);
-      return;
-    }
-    if (_checkIn == null) {
-      _showSnack('Please select a check-in date');
-      return;
-    }
-    if (itemType == 'property' && _checkOut == null) {
-      _showSnack('Please select a check-out date');
-      return;
-    }
-    HapticFeedback.selectionClick();
-    setState(() => _step = 1);
+  Widget _buildGuestCounter() {
+    final maxGuests = int.tryParse('${item['max_guests'] ?? 1}') ?? 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.people_outline, size: 20, color: AppColors.hackberry),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _l.guests,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+          _buildCounterRow(_guests, 1, maxGuests, (v) => setState(() => _guests = v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCounterRow(int value, int min, int max, ValueChanged<int> onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: value > min ? () => onChanged(value - 1) : null,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: value > min ? AppColors.hackberry : AppColors.border,
+              ),
+            ),
+            child: Icon(Icons.remove, size: 16, color: value > min ? AppColors.black : AppColors.hackberry),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text('$value', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        ),
+        GestureDetector(
+          onTap: value < max ? () => onChanged(value + 1) : null,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: value < max ? AppColors.hackberry : AppColors.border,
+              ),
+            ),
+            child: Icon(Icons.add, size: 16, color: value < max ? AppColors.black : AppColors.hackberry),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDetailsStep() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final placeholderColor = AppColors.surfaceSubtle;
     final placeholderIconColor = AppColors.hackberry;
-    final totalStripColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFF0F2);
-    final promoAppliedBg = isDark ? const Color(0x1A4CAF50) : const Color(0xFFE8F5E9);
-    final promoAppliedBorder = isDark ? const Color(0x554CAF50) : const Color(0x4D4CAF50);
-    final promoAppliedText = isDark ? const Color(0xFF93DFA6) : const Color(0xFF2E7D32);
+    final totalStripColor = isDark
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFFFF0F2);
+    final promoAppliedBg = isDark
+        ? const Color(0x1A4CAF50)
+        : const Color(0xFFE8F5E9);
+    final promoAppliedBorder = isDark
+        ? const Color(0x554CAF50)
+        : const Color(0x4D4CAF50);
+    final promoAppliedText = isDark
+        ? const Color(0xFF93DFA6)
+        : const Color(0xFF2E7D32);
 
     final imageUrl = resolveListingImageUrl(item);
     final title = (item['title'] ?? item['name'] ?? 'Listing').toString();
@@ -1141,7 +1681,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             borderRadius: BorderRadius.circular(16),
             color: AppColors.surface,
             boxShadow: [
-              BoxShadow(color: AppColors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.07),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: ClipRRect(
@@ -1155,10 +1699,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     fit: StackFit.expand,
                     children: [
                       if (imageUrl != null)
-                        Image.network(imageUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(color: placeholderColor))
+                        Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              Container(color: placeholderColor),
+                        )
                       else
-                        Container(color: placeholderColor, child: Icon(Icons.image_outlined, size: 32, color: placeholderIconColor)),
+                        Container(
+                          color: placeholderColor,
+                          child: Icon(
+                            Icons.image_outlined,
+                            size: 32,
+                            color: placeholderIconColor,
+                          ),
+                        ),
                       // Gradient overlay
                       Positioned.fill(
                         child: DecoratedBox(
@@ -1166,26 +1721,53 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, AppColors.black.withValues(alpha: 0.55)],
+                              colors: [
+                                Colors.transparent,
+                                AppColors.black.withValues(alpha: 0.55),
+                              ],
                             ),
                           ),
                         ),
                       ),
                       Positioned(
-                        left: 14, bottom: 12, right: 14,
+                        left: 14,
+                        bottom: 12,
+                        right: 14,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
+                            ),
                             if (location.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 3),
-                                child: Row(children: [
-                                  const Icon(Icons.location_on_outlined, size: 13, color: Colors.white70),
-                                  const SizedBox(width: 3),
-                                  Expanded(child: Text(location, style: const TextStyle(fontSize: 12, color: Colors.white70))),
-                                ]),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 13,
+                                      color: Colors.white70,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(
+                                        location,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                           ],
                         ),
@@ -1194,20 +1776,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   color: AppColors.surface,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('$_currency ${_pricePerUnit.toStringAsFixed(0)} · $_unitLabel',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.black)),
+                      Text(
+                        '$_currency ${_pricePerUnit.toStringAsFixed(0)} · $_unitLabel',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.black,
+                        ),
+                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(_l.instantConfirm, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                        child: Text(
+                          _l.instantConfirm,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1235,7 +1836,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
             ),
-            if (itemType != 'tour' && itemType != 'tour_package') ...[             
+            if (itemType != 'tour' && itemType != 'tour_package') ...[
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
@@ -1243,7 +1844,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   child: _InfoTile(
                     icon: Icons.calendar_today_outlined,
                     label: _l.checkOut,
-                    value: _checkOut != null ? _fmtDate(_checkOut!) : 'Select date',
+                    value: _checkOut != null
+                        ? _fmtDate(_checkOut!)
+                        : 'Select date',
                     highlight: _checkOut == null,
                   ),
                 ),
@@ -1252,7 +1855,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        _InfoTile(icon: Icons.people_outline, label: _l.guests, value: '${widget.guests} guest${widget.guests > 1 ? 's' : ''}'),
+        _buildGuestCounter(),
         const SizedBox(height: 18),
 
         // ── Price breakdown ──
@@ -1270,16 +1873,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   children: [
                     _PriceRow(
-                      label: '$_currency ${_pricePerUnit.toStringAsFixed(0)} × $_unitLabel',
+                      label:
+                          '$_currency ${_pricePerUnit.toStringAsFixed(0)} × $_unitLabel',
                       value: '$_currency ${_subtotal.toStringAsFixed(0)}',
                     ),
                     const SizedBox(height: 10),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: () => setState(() => _showPriceDetails = !_showPriceDetails),
+                        onTap: () => setState(
+                          () => _showPriceDetails = !_showPriceDetails,
+                        ),
                         child: Text(
-                          _showPriceDetails ? _l.hidePriceDetails : _l.showPriceDetails,
+                          _showPriceDetails
+                              ? _l.hidePriceDetails
+                              : _l.showPriceDetails,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -1291,7 +1899,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     if (_showPriceDetails) ...[
                       const SizedBox(height: 10),
                       _PriceRow(
-                        label: 'Platform fee (${_financials.guestFeePercent.toStringAsFixed(0)}%)',
+                        label:
+                            'Platform fee (${_financials.guestFeePercent.toStringAsFixed(0)}%)',
                         value: '$_currency ${_serviceFee.toStringAsFixed(0)}',
                       ),
                     ],
@@ -1300,14 +1909,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(children: [
-                            const Icon(Icons.local_offer, size: 14, color: Color(0xFF4CAF50)),
-                            const SizedBox(width: 6),
-                            Text('Promo: ${_appliedDiscount?['code'] ?? ''}',
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-                          ]),
-                          Text('- $_currency ${_discountAmount.toStringAsFixed(0)}',
-                              style: const TextStyle(fontSize: 13, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.local_offer,
+                                size: 14,
+                                color: Color(0xFF4CAF50),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Promo: ${_appliedDiscount?['code'] ?? ''}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF4CAF50),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '- $_currency ${_discountAmount.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF4CAF50),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -1315,7 +1942,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: totalStripColor,
                   borderRadius: BorderRadius.only(
@@ -1326,9 +1956,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_l.total, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.black)),
-                    Text('$_currency ${_total.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.rausch)),
+                    Text(
+                      _l.total,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: AppColors.black,
+                      ),
+                    ),
+                    Text(
+                      '$_currency ${_total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: AppColors.rausch,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1349,12 +1992,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_l.promoCode, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(
+                _l.promoCode,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               if (_promoSuccess && _appliedDiscount != null) ...[
                 // Applied state — show chip with remove
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: promoAppliedBg,
                     borderRadius: BorderRadius.circular(8),
@@ -1362,60 +2014,112 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle, size: 16, color: Color(0xFF4CAF50)),
+                      const Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: Color(0xFF4CAF50),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '${_appliedDiscount!['code']}  •  -$_currency ${_discountAmount.toStringAsFixed(0)} off',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: promoAppliedText),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: promoAppliedText,
+                          ),
                         ),
                       ),
                       GestureDetector(
                         onTap: _removePromo,
-                        child: const Icon(Icons.close, size: 16, color: AppColors.hackberry),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: AppColors.hackberry,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ] else ...[
                 // Input state
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _promoCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        hintText: _l.enterCode,
-                        hintStyle: const TextStyle(fontSize: 13),
-                        filled: true, fillColor: AppColors.surface,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _promoCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: _l.enterCode,
+                          hintStyle: const TextStyle(fontSize: 13),
+                          filled: true,
+                          fillColor: AppColors.surface,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
+                          ),
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                      style: const TextStyle(fontSize: 13, letterSpacing: 1.2),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ElevatedButton(
-                      onPressed: _applyingPromo ? null : _applyPromo,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.rausch,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        elevation: 0,
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: _applyingPromo ? null : _applyPromo,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.rausch,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          elevation: 0,
+                        ),
+                        child: _applyingPromo
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _l.apply,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
-                      child: _applyingPromo
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text(_l.apply, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 if (_promoMsg != null && !_promoSuccess) ...[
                   const SizedBox(height: 6),
-                  Text(_promoMsg!, style: const TextStyle(fontSize: 12, color: AppColors.rausch)),
+                  Text(
+                    _promoMsg!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.rausch,
+                    ),
+                  ),
                 ],
               ],
             ],
@@ -1427,10 +2131,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── Guest details form ──
         _SectionTitle(label: _l.guestDetails),
         const SizedBox(height: 10),
-        _InputField(label: _l.fullName, controller: _nameCtrl, icon: Icons.person_outline),
+        _InputField(
+          label: _l.fullName,
+          controller: _nameCtrl,
+          icon: Icons.person_outline,
+        ),
         const SizedBox(height: 10),
-        _InputField(label: _l.email, controller: _emailCtrl, icon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress),
+        _InputField(
+          label: _l.email,
+          controller: _emailCtrl,
+          icon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
+        ),
         const SizedBox(height: 10),
         _InputField(
           label: _l.specialRequests,
@@ -1461,7 +2173,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Expanded(
                 child: Text(
                   'Total: $_currency ${_total.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -1481,9 +2196,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Row(
             children: [
               if (_showMobileMoney)
-                _PayTabButton(label: _l.mobileMoney, assetPath: 'assets/payment/mtn-momo.png', selected: _payTab == 0, onTap: () => setState(() => _payTab = 0)),
-              _PayTabButton(label: _l.card, assetPath: 'assets/payment/card.png', selected: _payTab == 1, onTap: () => setState(() => _payTab = 1)),
-              _PayTabButton(label: _l.bankTransfer, assetPath: 'assets/payment/bank-transfer.png', selected: _payTab == 2, onTap: () => setState(() => _payTab = 2)),
+                _PayTabButton(
+                  label: _l.mobileMoney,
+                  assetPath: 'assets/payment/mtn-momo.png',
+                  selected: _payTab == 0,
+                  onTap: () => setState(() => _payTab = 0),
+                ),
+              _PayTabButton(
+                label: _l.card,
+                assetPath: 'assets/payment/card.png',
+                selected: _payTab == 1,
+                onTap: () => setState(() => _payTab = 1),
+              ),
+              _PayTabButton(
+                label: _l.bankTransfer,
+                assetPath: 'assets/payment/bank-transfer.png',
+                selected: _payTab == 2,
+                onTap: () => setState(() => _payTab = 2),
+              ),
             ],
           ),
         ),
@@ -1518,22 +2248,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             country,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.hof),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.hof,
+            ),
           ),
         ),
         Wrap(
           spacing: 10,
           runSpacing: 8,
-          children: regionMethods.map((m) => _MethodChip(
-                method: m,
-                selected: _selectedMethod?.id == m.id,
-                onTap: () {
-                  setState(() {
-                    _selectedMethod = m;
-                    _phoneCtrl.clear();
-                  });
-                },
-              )).toList(),
+          children: regionMethods
+              .map(
+                (m) => _MethodChip(
+                  method: m,
+                  selected: _selectedMethod?.id == m.id,
+                  onTap: () {
+                    setState(() {
+                      _selectedMethod = m;
+                      _phoneCtrl.clear();
+                    });
+                  },
+                ),
+              )
+              .toList(),
         ),
         const SizedBox(height: 16),
 
@@ -1543,18 +2281,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         TextFormField(
           controller: _phoneCtrl,
           keyboardType: TextInputType.phone,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\s+]'))],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[\d\s+]')),
+          ],
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
-            prefixText: _selectedMethod != null ? '${_selectedMethod!.countryCode} ' : '',
-            prefixStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black),
+            prefixText: _selectedMethod != null
+                ? '${_selectedMethod!.countryCode} '
+                : '',
+            prefixStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.black,
+            ),
             hintText: _l.momoPlaceholder,
             filled: true,
             fillColor: AppColors.surface,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.black, width: 1.5)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.black, width: 1.5),
+            ),
           ),
         ),
 
@@ -1567,26 +2325,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // ── Card Tab ──
   Widget _buildCardSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardInfoBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F9FF);
-    final cardInfoBorder = isDark ? const Color(0xFF2A3342) : const Color(0xFFDDE2F5);
-    final cardInfoText = isDark ? const Color(0xFFD8E1F2) : const Color(0xFF3D3D3D);
+    final cardInfoBg = isDark
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFF8F9FF);
+    final cardInfoBorder = isDark
+        ? const Color(0xFF2A3342)
+        : const Color(0xFFDDE2F5);
+    final cardInfoText = isDark
+        ? const Color(0xFFD8E1F2)
+        : const Color(0xFF3D3D3D);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 4),
 
         // Card logos
-        Row(children: [
-          _visaLogo(),
-          const SizedBox(width: 8),
-          _mastercardLogo(),
-          const SizedBox(width: 8),
-          _amexLogo(),
-          const Spacer(),
-          const Icon(Icons.lock_outline, size: 14, color: AppColors.foggy),
-          const SizedBox(width: 4),
-          const Text('Secure', style: TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w600)),
-        ]),
+        Row(
+          children: [
+            _visaLogo(),
+            const SizedBox(width: 8),
+            _mastercardLogo(),
+            const SizedBox(width: 8),
+            _amexLogo(),
+            const Spacer(),
+            const Icon(Icons.lock_outline, size: 14, color: AppColors.foggy),
+            const SizedBox(width: 4),
+            const Text(
+              'Secure',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.foggy,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
 
         const SizedBox(height: 20),
         Container(
@@ -1599,12 +2372,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.credit_card_outlined, size: 18, color: Color(0xFF3D5AFE)),
+              const Icon(
+                Icons.credit_card_outlined,
+                size: 18,
+                color: Color(0xFF3D5AFE),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   _l.cardSecureDesc,
-                  style: TextStyle(fontSize: 13, color: cardInfoText, height: 1.45),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: cardInfoText,
+                    height: 1.45,
+                  ),
                 ),
               ),
             ],
@@ -1637,7 +2418,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Expanded(
                 child: Text(
                   _l.bankTransferDesc,
-                  style: const TextStyle(fontSize: 13, color: AppColors.hof, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.hof,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ],
@@ -1654,7 +2439,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _visaLogo() {
     return Container(
-      width: 52, height: 34,
+      width: 52,
+      height: 34,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
@@ -1677,7 +2463,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _mastercardLogo() {
     return Container(
-      width: 52, height: 34,
+      width: 52,
+      height: 34,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(6),
@@ -1689,14 +2476,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Positioned(
             left: 12,
             child: Container(
-              width: 18, height: 18,
-              decoration: const BoxDecoration(color: Color(0xFFEB001B), shape: BoxShape.circle),
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEB001B),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
           Positioned(
             left: 22,
             child: Container(
-              width: 18, height: 18,
+              width: 18,
+              height: 18,
               decoration: BoxDecoration(
                 color: const Color(0xFFF79E1B).withValues(alpha: 0.9),
                 shape: BoxShape.circle,
@@ -1710,7 +2502,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _amexLogo() {
     return Container(
-      width: 52, height: 34,
+      width: 52,
+      height: 34,
       decoration: BoxDecoration(
         color: const Color(0xFF2E77BC),
         borderRadius: BorderRadius.circular(6),
@@ -1736,7 +2529,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const Icon(Icons.shield_outlined, size: 16, color: AppColors.foggy),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 12, color: AppColors.foggy, height: 1.5)),
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.foggy,
+              height: 1.5,
+            ),
+          ),
         ),
       ],
     );
@@ -1748,7 +2548,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       bookingId: _bookingId,
       selectedMethodName: _selectedMethod?.name,
       onHome: () => Navigator.of(context).popUntil((route) => route.isFirst),
-      onViewBookings: () => Navigator.of(context).popUntil((route) => route.isFirst),
+      onViewBookings: () =>
+          Navigator.of(context).popUntil((route) => route.isFirst),
+    );
+  }
+
+  Widget _buildFailed() {
+    return _FailedPage(
+      paymentMethod: _paymentMethod,
+      selectedMethodName: _selectedMethod?.name,
+      onRetry: () => setState(() {
+        _step = 0;
+        _resetCounter++;
+        _submitState = _SubmitState.idle;
+      }),
+      onHome: () => Navigator.of(context).popUntil((route) => route.isFirst),
     );
   }
 }
@@ -1757,56 +2571,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StepBar extends StatelessWidget {
-  const _StepBar({required this.current});
-
-  final int current;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final steps = [l.details, l.payment];
-    return Row(
-      children: List.generate(steps.length, (i) {
-        final active = i <= current;
-        final done = i < current;
-        return Expanded(
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: active ? AppColors.rausch : AppColors.surfaceSubtle,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: done
-                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                      : Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: active ? Colors.white : AppColors.foggy)),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(steps[i], style: TextStyle(fontSize: 13, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.black : AppColors.foggy)),
-              if (i < steps.length - 1)
-                Expanded(
-                  child: Container(
-                    height: 2,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(1),
-                      color: done ? AppColors.rausch : AppColors.border,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      }),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.label});
 
@@ -1814,12 +2578,24 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black));
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.black,
+      ),
+    );
   }
 }
 
 class _InfoTile extends StatelessWidget {
-  const _InfoTile({required this.icon, required this.label, required this.value, this.highlight = false});
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
 
   final IconData icon;
   final String label;
@@ -1828,7 +2604,9 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = highlight ? AppColors.rausch.withValues(alpha: 0.6) : AppColors.border;
+    final borderColor = highlight
+        ? AppColors.rausch.withValues(alpha: 0.6)
+        : AppColors.border;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1836,7 +2614,11 @@ class _InfoTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
         boxShadow: [
-          BoxShadow(color: AppColors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -1855,7 +2637,14 @@ class _InfoTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: AppColors.foggy, fontWeight: FontWeight.w500)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.foggy,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   value,
@@ -1868,7 +2657,12 @@ class _InfoTile extends StatelessWidget {
               ],
             ),
           ),
-          if (highlight) const Icon(Icons.edit_calendar_outlined, size: 16, color: AppColors.rausch),
+          if (highlight)
+            const Icon(
+              Icons.edit_calendar_outlined,
+              size: 16,
+              color: AppColors.rausch,
+            ),
         ],
       ),
     );
@@ -1886,7 +2680,10 @@ class _PriceRow extends StatelessWidget {
     const style = TextStyle(fontSize: 14, color: AppColors.hof);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label, style: style), Text(value, style: style)],
+      children: [
+        Text(label, style: style),
+        Text(value, style: style),
+      ],
     );
   }
 }
@@ -1918,7 +2715,10 @@ class _InputField extends StatelessWidget {
         prefixIcon: Icon(icon, size: 20),
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.border),
@@ -1937,7 +2737,11 @@ class _InputField extends StatelessWidget {
 }
 
 class _MethodChip extends StatelessWidget {
-  const _MethodChip({required this.method, required this.selected, required this.onTap});
+  const _MethodChip({
+    required this.method,
+    required this.selected,
+    required this.onTap,
+  });
 
   final _PayMethod method;
   final bool selected;
@@ -1970,9 +2774,24 @@ class _MethodChip extends StatelessWidget {
                 height: 30,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(color: method.color, borderRadius: BorderRadius.circular(6)),
-                  child: Center(child: Text(method.id.split('_').first, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: method.textLight ? Colors.white : AppColors.black))),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: method.color,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text(
+                      method.id.split('_').first,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: method.textLight
+                            ? Colors.white
+                            : AppColors.black,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1997,7 +2816,12 @@ class _MethodChip extends StatelessWidget {
 }
 
 class _PayTabButton extends StatelessWidget {
-  const _PayTabButton({required this.label, required this.assetPath, required this.selected, required this.onTap});
+  const _PayTabButton({
+    required this.label,
+    required this.assetPath,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final String assetPath;
@@ -2007,7 +2831,9 @@ class _PayTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedBg = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF7F7F8);
+    final selectedBg = isDark
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFF7F7F8);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -2031,7 +2857,11 @@ class _PayTabButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? AppColors.black : AppColors.foggy),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? AppColors.black : AppColors.foggy,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -2063,22 +2893,24 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _loading = true),
-        onPageFinished: (_) => setState(() => _loading = false),
-        onNavigationRequest: (request) {
-          final url = request.url;
-          if (url.contains('merry360x.com/payment-pending')) {
-            Navigator.of(context).pop('success');
-            return NavigationDecision.prevent;
-          }
-          if (url.contains('merry360x.com/payment-failed')) {
-            Navigator.of(context).pop('failed');
-            return NavigationDecision.prevent;
-          }
-          return NavigationDecision.navigate;
-        },
-      ))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) => setState(() => _loading = true),
+          onPageFinished: (_) => setState(() => _loading = false),
+          onNavigationRequest: (request) {
+            final url = request.url;
+            if (url.contains('merry360x.com/payment-pending')) {
+              Navigator.of(context).pop('success');
+              return NavigationDecision.prevent;
+            }
+            if (url.contains('merry360x.com/payment-failed')) {
+              Navigator.of(context).pop('failed');
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
       ..loadRequest(Uri.parse(widget.url));
   }
 
@@ -2096,28 +2928,48 @@ class _PaymentWebSheetState extends State<_PaymentWebSheet> {
               padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+                border: Border(
+                  bottom: BorderSide(color: AppColors.border, width: 0.5),
+                ),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                        color: AppColors.border,
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.lock_outline, size: 15, color: AppColors.foggy),
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 15,
+                    color: AppColors.foggy,
+                  ),
                   const SizedBox(width: 5),
-                  const Text('Secure Payment',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.black)),
+                  const Text(
+                    'Secure Payment',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppColors.black,
+                    ),
+                  ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 20, color: AppColors.black),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: AppColors.black,
+                    ),
                     onPressed: () => Navigator.of(context).pop('cancelled'),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
                   ),
                 ],
               ),
@@ -2202,13 +3054,21 @@ class _SuccessPageState extends State<_SuccessPage>
     );
 
     // ── Content ──
-    _contentCtrl = AnimationController(vsync: this, duration: _kContentDuration);
-    _contentSlide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _contentCtrl, curve: Curves.easeOutCubic));
+    _contentCtrl = AnimationController(
+      vsync: this,
+      duration: _kContentDuration,
+    );
+    _contentSlide =
+        Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero).animate(
+          CurvedAnimation(parent: _contentCtrl, curve: Curves.easeOutCubic),
+        );
     _contentFade = CurvedAnimation(parent: _contentCtrl, curve: Curves.easeOut);
 
     // ── Confetti ──
-    _confettiCtrl = AnimationController(vsync: this, duration: _kConfettiDuration);
+    _confettiCtrl = AnimationController(
+      vsync: this,
+      duration: _kConfettiDuration,
+    );
 
     _runSequence();
   }
@@ -2252,35 +3112,38 @@ class _SuccessPageState extends State<_SuccessPage>
   Color get _accentColor => _isPending
       ? const Color(0xFFE65100)
       : _isCard
-          ? const Color(0xFF3B5BDB)
-          : const Color(0xFF2E7D32);
+      ? const Color(0xFF3B5BDB)
+      : const Color(0xFF2E7D32);
 
   Color get _ringBgLight => _isPending
       ? const Color(0xFFFFF3C4)
       : _isCard
-          ? const Color(0xFFDBE4FF)
-          : const Color(0xFFD4EDDA);
+      ? const Color(0xFFDBE4FF)
+      : const Color(0xFFD4EDDA);
 
   Color get _ringBgDark => _isPending
       ? const Color(0xFF3A3116)
       : _isCard
-          ? const Color(0xFF243359)
-          : const Color(0xFF1E3625);
+      ? const Color(0xFF243359)
+      : const Color(0xFF1E3625);
 
   IconData get _icon => _isPending
       ? Icons.schedule_rounded
       : _isCard
-          ? Icons.open_in_browser_rounded
-          : Icons.check_rounded;
+      ? Icons.open_in_browser_rounded
+      : Icons.check_rounded;
 
-  String _title(AppLocalizations l) =>
-      _isCard ? l.paymentInitiated : _isPending ? l.bookingPending : l.bookingConfirmed;
+  String _title(AppLocalizations l) => _isCard
+      ? l.paymentInitiated
+      : _isPending
+      ? l.bookingPending
+      : l.bookingConfirmed;
 
   String _subtitle(AppLocalizations l) => _isCard
       ? l.completeCardPayment
       : _isPending
-          ? l.bankTransferPending
-          : "You'll receive an SMS to confirm payment\nvia ${widget.selectedMethodName ?? 'mobile money'}.";
+      ? l.bankTransferPending
+      : "You'll receive an SMS to confirm payment\nvia ${widget.selectedMethodName ?? 'mobile money'}.";
 
   @override
   Widget build(BuildContext context) {
@@ -2288,8 +3151,16 @@ class _SuccessPageState extends State<_SuccessPage>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final topTone = isDark
-        ? (_isPending ? const Color(0xFF2A2412) : _isCard ? const Color(0xFF18223A) : const Color(0xFF15261A))
-        : (_isPending ? const Color(0xFFFFF8E1) : _isCard ? const Color(0xFFF0F4FF) : const Color(0xFFEDF7ED));
+        ? (_isPending
+              ? const Color(0xFF2A2412)
+              : _isCard
+              ? const Color(0xFF18223A)
+              : const Color(0xFF15261A))
+        : (_isPending
+              ? const Color(0xFFFFF8E1)
+              : _isCard
+              ? const Color(0xFFF0F4FF)
+              : const Color(0xFFEDF7ED));
     final bottomTone = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final ringBg = isDark ? _ringBgDark : _ringBgLight;
     final ringGlow = _accentColor.withValues(alpha: isDark ? 0.28 : 0.18);
@@ -2328,7 +3199,10 @@ class _SuccessPageState extends State<_SuccessPage>
             builder: (ctx, constraints) {
               return SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
-                  24, 0, 24, 24 + MediaQuery.of(context).padding.bottom,
+                  24,
+                  0,
+                  24,
+                  24 + MediaQuery.of(context).padding.bottom,
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -2348,7 +3222,11 @@ class _SuccessPageState extends State<_SuccessPage>
                               shape: BoxShape.circle,
                               color: ringBg,
                               boxShadow: [
-                                BoxShadow(color: ringGlow, blurRadius: 36, spreadRadius: 8),
+                                BoxShadow(
+                                  color: ringGlow,
+                                  blurRadius: 36,
+                                  spreadRadius: 8,
+                                ),
                               ],
                             ),
                             child: FadeTransition(
@@ -2383,7 +3261,9 @@ class _SuccessPageState extends State<_SuccessPage>
                                 _subtitle(l),
                                 style: TextStyle(
                                   fontSize: 15,
-                                  color: isDark ? AppColors.hof : AppColors.foggy,
+                                  color: isDark
+                                      ? AppColors.hof
+                                      : AppColors.foggy,
                                   height: 1.6,
                                 ),
                                 textAlign: TextAlign.center,
@@ -2391,7 +3271,10 @@ class _SuccessPageState extends State<_SuccessPage>
                               if (widget.bookingId != null) ...[
                                 const SizedBox(height: 24),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.surface,
                                     borderRadius: BorderRadius.circular(10),
@@ -2400,7 +3283,11 @@ class _SuccessPageState extends State<_SuccessPage>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.foggy),
+                                      const Icon(
+                                        Icons.confirmation_number_outlined,
+                                        size: 16,
+                                        color: AppColors.foggy,
+                                      ),
                                       const SizedBox(width: 8),
                                       Flexible(
                                         child: Text(
@@ -2426,11 +3313,16 @@ class _SuccessPageState extends State<_SuccessPage>
                                   onPressed: widget.onHome,
                                   style: FilledButton.styleFrom(
                                     backgroundColor: AppColors.rausch,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   child: Text(
                                     l.backToHome,
-                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2441,17 +3333,202 @@ class _SuccessPageState extends State<_SuccessPage>
                                 child: OutlinedButton(
                                   onPressed: widget.onViewBookings,
                                   style: OutlinedButton.styleFrom(
-                                    backgroundColor: isDark ? AppColors.surfaceSubtle : AppColors.surface,
-                                    side: const BorderSide(color: AppColors.border),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    backgroundColor: isDark
+                                        ? AppColors.surfaceSubtle
+                                        : AppColors.surface,
+                                    side: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   child: Text(
                                     l.viewMyBookings,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.black),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.black,
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _FailedPage — shown when payment is explicitly rejected / failed
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FailedPage extends StatelessWidget {
+  const _FailedPage({
+    required this.paymentMethod,
+    required this.selectedMethodName,
+    required this.onRetry,
+    required this.onHome,
+  });
+
+  final String? paymentMethod;
+  final String? selectedMethodName;
+  final VoidCallback onRetry;
+  final VoidCallback onHome;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Stack(
+      children: [
+        // ── Subtle gradient ──
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  isDark ? const Color(0xFF2A1215) : const Color(0xFFFFF0F0),
+                  isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                ],
+                stops: const [0.0, 0.55],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Body ──
+        SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (ctx, constraints) {
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  0,
+                  24,
+                  24 + MediaQuery.of(context).padding.bottom,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 72),
+
+                      // ── X mark circle ──
+                      Container(
+                        width: 108,
+                        height: 108,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark
+                              ? const Color(0xFF3A1A1E)
+                              : const Color(0xFFFFE5E5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFE53935,
+                              ).withValues(alpha: isDark ? 0.28 : 0.18),
+                              blurRadius: 36,
+                              spreadRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 52,
+                          color: Color(0xFFE53935),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // ── Title ──
+                      Text(
+                        'Payment Failed',
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: AppColors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ── Subtitle ──
+                      Text(
+                        'Your payment could not be processed.\n'
+                        'Please check your mobile money balance\n'
+                        'and try again.',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: isDark ? AppColors.hof : AppColors.foggy,
+                          height: 1.6,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // ── Try Again ──
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: onRetry,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.rausch,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Try Again',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ── Back to Home ──
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: onHome,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: isDark
+                                ? AppColors.surfaceSubtle
+                                : AppColors.surface,
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            l.backToHome,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.black,
+                            ),
                           ),
                         ),
                       ),
@@ -2487,35 +3564,45 @@ class _ConfettiPainter extends CustomPainter {
       // halton base 2 and 3 for x/y spread
       double h2 = 0, b2 = 0.5;
       var n2 = i + 1;
-      while (n2 > 0) { h2 += (n2 % 2) * b2; n2 ~/= 2; b2 /= 2; }
+      while (n2 > 0) {
+        h2 += (n2 % 2) * b2;
+        n2 ~/= 2;
+        b2 /= 2;
+      }
       double h3 = 0, b3 = 1 / 3;
       var n3 = i + 1;
-      while (n3 > 0) { h3 += (n3 % 3) * b3; n3 ~/= 3; b3 /= 3; }
+      while (n3 > 0) {
+        h3 += (n3 % 3) * b3;
+        n3 ~/= 3;
+        b3 /= 3;
+      }
 
-      list.add(_Particle(
-        startX: h2,
-        startY: 0.05 + (t * 0.35),
-        velocityX: (h2 - 0.5) * 1.4,
-        velocityY: 0.5 + h3 * 1.8,
-        size: 4.0 + (h2 * 8),
-        color: _kConfettiColors[i % _kConfettiColors.length],
-        rotationSpeed: (h3 - 0.5) * 14,
-        shape: i % 3,           // 0=rect, 1=circle, 2=line
-        delay: t * 0.35,
-      ));
+      list.add(
+        _Particle(
+          startX: h2,
+          startY: 0.05 + (t * 0.35),
+          velocityX: (h2 - 0.5) * 1.4,
+          velocityY: 0.5 + h3 * 1.8,
+          size: 4.0 + (h2 * 8),
+          color: _kConfettiColors[i % _kConfettiColors.length],
+          rotationSpeed: (h3 - 0.5) * 14,
+          shape: i % 3, // 0=rect, 1=circle, 2=line
+          delay: t * 0.35,
+        ),
+      );
     }
     return list;
   }
 
   static const _kConfettiColors = [
-    Color(0xFFFF385C),  // rausch
-    Color(0xFF00A699),  // babu
-    Color(0xFFFC642D),  // arches
-    Color(0xFFFFD700),  // gold
-    Color(0xFF4CAF50),  // green
-    Color(0xFF3B5BDB),  // blue
-    Color(0xFFE040FB),  // purple
-    Color(0xFFFFFFFF),  // white
+    Color(0xFFFF385C), // rausch
+    Color(0xFF00A699), // babu
+    Color(0xFFFC642D), // arches
+    Color(0xFFFFD700), // gold
+    Color(0xFF4CAF50), // green
+    Color(0xFF3B5BDB), // blue
+    Color(0xFFE040FB), // purple
+    Color(0xFFFFFFFF), // white
   ];
 
   @override
@@ -2546,7 +3633,11 @@ class _ConfettiPainter extends CustomPainter {
       switch (p.shape) {
         case 0:
           canvas.drawRect(
-            Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: p.size,
+              height: p.size * 0.5,
+            ),
             paint,
           );
         case 1:
@@ -2554,7 +3645,11 @@ class _ConfettiPainter extends CustomPainter {
         default:
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromCenter(center: Offset.zero, width: p.size * 0.25, height: p.size),
+              Rect.fromCenter(
+                center: Offset.zero,
+                width: p.size * 0.25,
+                height: p.size,
+              ),
               const Radius.circular(2),
             ),
             paint,
@@ -2592,4 +3687,3 @@ class _Particle {
   final int shape;
   final double delay;
 }
-

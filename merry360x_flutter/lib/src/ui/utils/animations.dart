@@ -86,10 +86,8 @@ class _AnimatedPressableState extends State<AnimatedPressable>
       onLongPress: widget.onLongPress,
       child: AnimatedBuilder(
         animation: _scale,
-        builder: (context, child) => Transform.scale(
-          scale: _scale.value,
-          child: child,
-        ),
+        builder: (context, child) =>
+            Transform.scale(scale: _scale.value, child: child),
         child: widget.child,
       ),
     );
@@ -142,15 +140,20 @@ class _StaggeredSlideFadeState extends State<StaggeredSlideFade>
         curve: Interval(delay / widget.durationMs, 1, curve: Curves.easeOut),
       ),
     );
-    _slide = Tween<Offset>(
-      begin: Offset(widget.offsetX, widget.offsetY),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: Interval(delay / widget.durationMs, 1, curve: Curves.easeOutCubic),
-      ),
-    );
+    _slide =
+        Tween<Offset>(
+          begin: Offset(widget.offsetX, widget.offsetY),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _ctrl,
+            curve: Interval(
+              delay / widget.durationMs,
+              1,
+              curve: Curves.easeOutCubic,
+            ),
+          ),
+        );
     Future.delayed(Duration.zero, () {
       if (mounted) _ctrl.forward();
     });
@@ -205,9 +208,10 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
-    _animation = Tween<double>(begin: -2, end: 2).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine),
-    );
+    _animation = Tween<double>(
+      begin: -2,
+      end: 2,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine));
   }
 
   @override
@@ -221,8 +225,12 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
     if (!widget.isLoading) return widget.child ?? const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = widget.baseColor ?? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE8E8ED));
-    final highlight = widget.highlightColor ?? (isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF2F2F7));
+    final base =
+        widget.baseColor ??
+        (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE8E8ED));
+    final highlight =
+        widget.highlightColor ??
+        (isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF2F2F7));
 
     return widget.child ??
         AnimatedBuilder(
@@ -234,7 +242,11 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [base, highlight, base],
-                stops: [_animation.value - 0.5, _animation.value, _animation.value + 0.5],
+                stops: [
+                  _animation.value - 0.5,
+                  _animation.value,
+                  _animation.value + 0.5,
+                ],
               ).createShader(bounds),
               child: Container(color: base),
             );
@@ -260,7 +272,9 @@ class ShimmerCardPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    final imageHeight = imageHeightOverride ?? (compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
+    final imageHeight =
+        imageHeightOverride ??
+        (compact ? (isTablet ? 150.0 : 132.0) : (isTablet ? 230.0 : 220.0));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,13 +366,22 @@ class _HeartBurstState extends State<HeartBurst>
       duration: const Duration(milliseconds: 400),
     );
     _scale = Tween<double>(begin: 1, end: 1.3).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.3, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0, 0.3, curve: Curves.easeOut),
+      ),
     );
     _particleOpacity = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0.2, 1, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0.2, 1, curve: Curves.easeOut),
+      ),
     );
     _particleScale = Tween<double>(begin: 0.3, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.5, curve: Curves.easeOutBack)),
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0, 0.5, curve: Curves.easeOutBack),
+      ),
     );
   }
 
@@ -385,25 +408,33 @@ class _HeartBurstState extends State<HeartBurst>
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, child) {
-          final particles = List.generate(6, (i) {
-            final angle = (i / 6) * math.pi * 2;
-            final distance = 12 + _rng.nextDouble() * 8;
-            return Positioned(
-              left: widget.size / 2 - 3 + math.cos(angle) * distance * _particleScale.value,
-              top: widget.size / 2 - 3 + math.sin(angle) * distance * _particleScale.value,
-              child: Opacity(
-                opacity: _particleOpacity.value,
-                child: Container(
-                  width: 4 + _rng.nextDouble() * 3,
-                  height: 4 + _rng.nextDouble() * 3,
-                  decoration: BoxDecoration(
-                    color: widget.color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            );
-          });
+          final particles = _ctrl.isAnimating
+              ? List.generate(6, (i) {
+                  final angle = (i / 6) * math.pi * 2;
+                  final distance = 12 + _rng.nextDouble() * 8;
+                  return Positioned(
+                    left:
+                        widget.size / 2 -
+                        3 +
+                        math.cos(angle) * distance * _particleScale.value,
+                    top:
+                        widget.size / 2 -
+                        3 +
+                        math.sin(angle) * distance * _particleScale.value,
+                    child: Opacity(
+                      opacity: _particleOpacity.value,
+                      child: Container(
+                        width: 4 + _rng.nextDouble() * 3,
+                        height: 4 + _rng.nextDouble() * 3,
+                        decoration: BoxDecoration(
+                          color: widget.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  );
+                })
+              : [];
 
           return Transform.scale(
             scale: _scale.value,

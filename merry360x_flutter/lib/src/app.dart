@@ -2,12 +2,14 @@ import 'dart:async' show StreamSubscription, unawaited;
 import 'dart:io' show Platform;
 import 'dart:ui' show ColorSpace, PlatformDispatcher;
 
-import 'package:flutter/cupertino.dart' show DefaultCupertinoLocalizations, CupertinoLocalizations;
+import 'package:flutter/cupertino.dart'
+    show DefaultCupertinoLocalizations, CupertinoLocalizations;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../l10n/app_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/push_notification_service.dart';
@@ -16,6 +18,7 @@ import 'ui/main_shell.dart';
 import 'ui/screens/my_bookings_screen.dart';
 import 'ui/screens/notifications_screen.dart';
 import 'ui/screens/support_screen.dart';
+import 'ui/widgets/draggable_ai_fab.dart';
 
 /// Global route observer — used to hide floating UI (e.g. AI button tooltip)
 /// when a modal/sheet is pushed on top of the main shell.
@@ -126,7 +129,7 @@ class AppColors {
   static const arches = Color(0xFFFC642D);
   static const _surfaceLight = Color(0xFFFFFFFF);
   // Deep near-black — feels premium, avoids the flat greenish cast
-  static const _surfaceDark = Color(0xFF1C1C1E);
+  static const _surfaceDark = Color(0xFF000000);
   static const _surfaceSubtleLight = Color(0xFFF7F7F7);
   // Nav / bottom bars sit slightly darker than content
   static const _surfaceSubtleDark = Color(0xFF111113);
@@ -277,7 +280,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
       scaffoldBackgroundColor: scheme.surface,
       canvasColor: scheme.surface,
       cardColor: scheme.surface,
-      fontFamily: 'SF Pro Text',
+      fontFamily: GoogleFonts.inter().fontFamily,
       dividerColor: outline,
       dividerTheme: DividerThemeData(color: outline, thickness: 1, space: 0),
       appBarTheme: AppBarTheme(
@@ -292,7 +295,6 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: onSurface,
-          fontFamily: 'SF Pro Text',
         ),
       ),
       textTheme: TextTheme(
@@ -361,11 +363,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
           foregroundColor: AppColors.white,
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            fontFamily: 'SF Pro Text',
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -374,11 +372,7 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
           foregroundColor: onSurface,
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            fontFamily: 'SF Pro Text',
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -388,7 +382,6 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
             fontWeight: FontWeight.w600,
             fontSize: 14,
             decoration: TextDecoration.underline,
-            fontFamily: 'SF Pro Text',
           ),
         ),
       ),
@@ -415,7 +408,9 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
       ),
-      dialogTheme: DialogThemeData(backgroundColor: scheme.surfaceContainerHighest),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainerHighest,
+      ),
       popupMenuTheme: PopupMenuThemeData(color: scheme.surfaceContainerHighest),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceElevated,
@@ -449,19 +444,23 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     final type = data['type'] ?? '';
     switch (type) {
       case 'support':
-        nav.push(MaterialPageRoute(
-          builder: (_) => SupportScreen(session: _session),
-        ));
+        nav.push(
+          MaterialPageRoute(builder: (_) => SupportScreen(session: _session)),
+        );
       case 'booking':
       case 'booking_confirmed':
       case 'booking_cancelled':
-        nav.push(MaterialPageRoute(
-          builder: (_) => MyBookingsScreen(session: _session),
-        ));
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => MyBookingsScreen(session: _session),
+          ),
+        );
       default:
-        nav.push(MaterialPageRoute(
-          builder: (_) => NotificationsScreen(session: _session),
-        ));
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => NotificationsScreen(session: _session),
+          ),
+        );
     }
   }
 
@@ -556,9 +555,14 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
             // for Material widgets but keep our custom AppLocalizations
             final locale = locales?.firstOrNull;
             if (locale == null) return const Locale('en');
-            
+
             // Check if Material supports this locale
-            final materialSupported = ['en', 'fr', 'zh', 'sw'].contains(locale.languageCode);
+            final materialSupported = [
+              'en',
+              'fr',
+              'zh',
+              'sw',
+            ].contains(locale.languageCode);
             if (!materialSupported && locale.languageCode == 'rw') {
               // Use English for Material, but the app's own l10n will use rw
               return locale;
@@ -587,12 +591,21 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
               _setThemeMode(mode);
             },
           ),
+          builder: (context, child) {
+            return Stack(
+              children: [
+                if (child != null) child,
+                DraggableAiFab(session: _session),
+              ],
+            );
+          },
           navigatorObservers: [appRouteObserver],
         );
       },
     );
   }
 }
+
 /// Fallback Material localizations for unsupported locales (e.g., rw)
 class _FallbackMaterialLocalizationsDelegate
     extends LocalizationsDelegate<MaterialLocalizations> {

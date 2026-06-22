@@ -27,7 +27,7 @@ abstract class AppSnackBar {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF1C1C1E);
-    final top = MediaQuery.paddingOf(context).top + 12;
+    final top = MediaQuery.paddingOf(context).top + 16;
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -103,11 +103,11 @@ class _ToastWidgetState extends State<_ToastWidget>
       CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.55, curve: Curves.easeOut)),
     );
 
-    // Spring from fully above (behind the notch) into position with a subtle bounce
+    // Slide in from just above the final position
     _slide = Tween<Offset>(
-      begin: const Offset(0, -1.0),
+      begin: const Offset(0, -0.35),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
 
     // Slight scale-up from 0.88 → 1.0 for depth
     _scale = Tween<double>(begin: 0.88, end: 1.0).animate(

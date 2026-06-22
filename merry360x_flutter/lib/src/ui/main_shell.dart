@@ -6,7 +6,6 @@ import '../app.dart';
 import '../../l10n/app_localizations.dart';
 import '../session_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
-import 'screens/ai_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/explore_screen.dart';
 import 'screens/messages_screen.dart';
@@ -16,8 +15,10 @@ import 'screens/wishlists_screen.dart';
 import 'utils/app_snackbar.dart';
 
 // ── Custom nav SVG icons ─────────────────────────────────────────────────────
-const _kSvgExplore = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-const _kSvgWishlists = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.1111 3C19.6333 3 22 6.3525 22 9.48C22 15.8138 12.1778 21 12 21C11.8222 21 2 15.8138 2 9.48C2 6.3525 4.36667 3 7.88889 3C9.91111 3 11.2333 4.02375 12 4.92375C12.7667 4.02375 14.0889 3 16.1111 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const _kSvgExplore =
+    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const _kSvgWishlists =
+    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.1111 3C19.6333 3 22 6.3525 22 9.48C22 15.8138 12.1778 21 12 21C11.8222 21 2 15.8138 2 9.48C2 6.3525 4.36667 3 7.88889 3C9.91111 3 11.2333 4.02375 12 4.92375C12.7667 4.02375 14.0889 3 16.1111 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -80,8 +81,13 @@ class _MainShellState extends State<MainShell> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final profile = widget.session.payload?.profile;
-        final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
-        AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+        final name = (profile?['full_name'] ?? profile?['nickname'] ?? '')
+            .toString()
+            .trim();
+        AppSnackBar.success(
+          context,
+          name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully',
+        );
       });
     } else if (_wasAuthenticated && !isAuth) {
       // Signed out — navigate to Explore and show toast.
@@ -137,8 +143,13 @@ class _MainShellState extends State<MainShell> {
         Future.microtask(() {
           if (!mounted) return;
           final profile = widget.session.payload?.profile;
-          final name = (profile?['full_name'] ?? profile?['nickname'] ?? '').toString().trim();
-          AppSnackBar.success(context, name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully');
+          final name = (profile?['full_name'] ?? profile?['nickname'] ?? '')
+              .toString()
+              .trim();
+          AppSnackBar.success(
+            context,
+            name.isNotEmpty ? 'Welcome, $name! 👋' : 'Signed in successfully',
+          );
         });
       });
       return;
@@ -177,17 +188,6 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  Future<void> _openAiSupport() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AiScreen(
-          session: widget.session,
-          onBack: () => Navigator.of(context).maybePop(),
-        ),
-      ),
-    );
-  }
-
   List<Widget> _buildTabs(SessionController session) => [
     SafeArea(bottom: false, child: ExploreScreen(session: session)),
     SafeArea(bottom: false, child: WishlistsScreen(session: session)),
@@ -222,8 +222,7 @@ class _MainShellState extends State<MainShell> {
         index: _tab,
         children: tabs,
       ),
-      floatingActionButton: _AiTripAdvisorButton(onTap: _openAiSupport),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -276,8 +275,6 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-
-
 // ── Phone bottom nav item ─────────────────────────────────────────────────────
 class _NavItem extends StatelessWidget {
   const _NavItem({
@@ -312,11 +309,7 @@ class _NavItem extends StatelessWidget {
             height: 22,
           )
         : assetPath != null
-            ? ImageIcon(
-                AssetImage(assetPath!),
-                size: 24,
-                color: color,
-              )
+        ? ImageIcon(AssetImage(assetPath!), size: 24, color: color)
         : Icon(icon!, size: 24, color: color);
 
     return Expanded(
@@ -335,7 +328,10 @@ class _NavItem extends StatelessWidget {
                     right: -8,
                     top: -4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.rausch,
                         borderRadius: BorderRadius.circular(10),
@@ -343,7 +339,11 @@ class _NavItem extends StatelessWidget {
                       ),
                       child: Text(
                         badge! > 9 ? '9+' : '$badge',
-                        style: const TextStyle(color: AppColors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -356,187 +356,6 @@ class _NavItem extends StatelessWidget {
                 color: color,
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AiTripAdvisorButton extends StatefulWidget {
-  const _AiTripAdvisorButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  State<_AiTripAdvisorButton> createState() => _AiTripAdvisorButtonState();
-}
-
-class _AiTripAdvisorButtonState extends State<_AiTripAdvisorButton>
-    with TickerProviderStateMixin, RouteAware {
-  OverlayEntry? _tooltip;
-  bool _visible = true;
-  late AnimationController _wave1;
-  late AnimationController _wave2;
-  late AnimationController _wave3;
-
-  @override
-  void initState() {
-    super.initState();
-    _wave1 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
-      ..repeat();
-    _wave2 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
-      ..repeat();
-    _wave3 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
-      ..repeat();
-
-    // Stagger the three rings
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _wave2.value = 0.3;
-    });
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) _wave3.value = 0.6;
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showTooltip());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route != null) {
-      appRouteObserver.subscribe(this, route);
-    }
-  }
-
-  /// A modal/sheet/route was pushed on top — hide the button and tooltip.
-  @override
-  void didPushNext() {
-    _tooltip?.remove();
-    _tooltip = null;
-    if (mounted) setState(() => _visible = false);
-  }
-
-  /// Returned to this route — show the button again.
-  @override
-  void didPopNext() {
-    if (mounted) setState(() => _visible = true);
-  }
-
-  void _showTooltip() {
-    if (!mounted || !_visible) return;
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final pos = box.localToGlobal(Offset.zero);
-
-    _tooltip = OverlayEntry(
-      builder: (_) => Positioned(
-        right: 16,
-        top: pos.dy - 50,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.16),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Text(
-              'Ask our AI ✨',
-              style: TextStyle(color: AppColors.black, fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    Overlay.of(context).insert(_tooltip!);
-
-    Future.delayed(const Duration(seconds: 3), () {
-      _tooltip?.remove();
-      _tooltip = null;
-    });
-  }
-
-  @override
-  void dispose() {
-    appRouteObserver.unsubscribe(this);
-    _wave1.dispose();
-    _wave2.dispose();
-    _wave3.dispose();
-    _tooltip?.remove();
-    _tooltip = null;
-    super.dispose();
-  }
-
-  Widget _ring(AnimationController ctrl, double maxRadius) {
-    return AnimatedBuilder(
-      animation: ctrl,
-      builder: (_, _) {
-        final t = ctrl.value;
-        return Container(
-          width: maxRadius * 2 * t,
-          height: maxRadius * 2 * t,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.rausch.withValues(alpha: (1 - t) * 0.45),
-              width: 1.5,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_visible) return const SizedBox.shrink();
-    const double btnSize = 52;
-    const double iconSize = 24;
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: btnSize + 28,
-        height: btnSize + 28,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Wave rings
-            _ring(_wave1, btnSize * 0.88),
-            _ring(_wave2, btnSize * 0.88),
-            _ring(_wave3, btnSize * 0.88),
-            // Theme-aware pill button
-            Container(
-              width: btnSize,
-              height: btnSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.surface,
-                border: Border.all(
-                  color: AppColors.rausch.withValues(alpha: 0.35),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.rausch.withValues(alpha: 0.25),
-                    blurRadius: 18,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(Icons.auto_awesome, size: iconSize, color: AppColors.rausch),
               ),
             ),
           ],
@@ -581,7 +400,10 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
     );
     if (mounted) {
       Navigator.of(context).pop();
-      AppSnackBar.success(context, 'Welcome, ${_nameCtrl.text.trim()}! Browsing as guest 👋');
+      AppSnackBar.success(
+        context,
+        'Welcome, ${_nameCtrl.text.trim()}! Browsing as guest 👋',
+      );
     }
   }
 
@@ -594,7 +416,9 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
     final border = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: surface,
@@ -645,7 +469,9 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
                     border: border,
                     labelColor: label,
                     hintColor: hint,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your name' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Please enter your name'
+                        : null,
                   ),
                   const SizedBox(height: 14),
                   _buildField(
@@ -659,8 +485,10 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
                     labelColor: label,
                     hintColor: hint,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Please enter your email';
-                      if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+                      if (v == null || v.trim().isEmpty)
+                        return 'Please enter your email';
+                      if (!v.contains('@') || !v.contains('.'))
+                        return 'Enter a valid email';
                       return null;
                     },
                   ),
@@ -675,7 +503,9 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
                     border: border,
                     labelColor: label,
                     hintColor: hint,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your phone number' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Please enter your phone number'
+                        : null,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -686,11 +516,23 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.rausch,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       child: _saving
-                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Text('Continue'),
                     ),
                   ),
@@ -698,7 +540,10 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
                   Center(
                     child: TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('Skip for now', style: TextStyle(color: hint, fontSize: 13)),
+                      child: Text(
+                        'Skip for now',
+                        style: TextStyle(color: hint, fontSize: 13),
+                      ),
                     ),
                   ),
                 ],
@@ -725,7 +570,14 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: labelColor, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            color: labelColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -737,8 +589,13 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
             hintStyle: TextStyle(color: hintColor, fontSize: 15),
             prefixIcon: Icon(icon, color: hintColor, size: 20),
             filled: true,
-            fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9FAFB),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            fillColor: isDark
+                ? const Color(0xFF2C2C2E)
+                : const Color(0xFFF9FAFB),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: border),
@@ -765,5 +622,3 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
     );
   }
 }
-
-
