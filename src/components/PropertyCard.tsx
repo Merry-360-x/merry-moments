@@ -5,6 +5,9 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { useFavorites } from "@/hooks/useFavorites";
+import { usePreferences } from "@/hooks/usePreferences";
+import { useFxRates } from "@/hooks/useFxRates";
+import { convertAmount } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
 import { extractNeighborhood } from "@/lib/location";
 
@@ -47,8 +50,16 @@ const PropertyCard = ({
 }: PropertyCardProps) => {
   const { t } = useTranslation();
   const routerLocation = useLocation();
+  const { currency: preferredCurrency } = usePreferences();
+  const { usdRates } = useFxRates();
   const { toggleFavorite, checkFavorite } = useFavorites();
   const [fav, setFav] = useState(Boolean(isFavorited));
+
+  const originalCurrency = currency || "RWF";
+  const displayMoney = (amount: number, fromCurrency: string) => {
+    const converted = convertAmount(amount, fromCurrency, preferredCurrency, usdRates);
+    return formatMoney(converted ?? amount, converted !== null ? preferredCurrency : fromCurrency);
+  };
 
   const gallery = images?.length ? images : image ? [image] : [];
   const forwardedQuery = useMemo(() => {
@@ -162,7 +173,7 @@ const PropertyCard = ({
         <div className="space-y-0.5 md:space-y-1">
           <div className="flex items-baseline gap-1 md:gap-1">
             <span className="text-base md:text-lg font-bold text-foreground">
-              {formatMoney(price, "RWF")}
+              {displayMoney(price, originalCurrency)}
             </span>
             <span className="text-xs md:text-sm text-muted-foreground">
               / {pricePeriod === "month" ? t("common.perMonth", "month") : t("common.perNight", "night")}
@@ -171,7 +182,7 @@ const PropertyCard = ({
           {pricePerPerson && pricePerPerson > 0 ? (
             <div className="hidden md:flex items-baseline gap-1">
               <span className="text-sm font-semibold text-foreground">
-                {formatMoney(pricePerPerson, "RWF")}
+                {displayMoney(pricePerPerson, originalCurrency)}
               </span>
               <span className="text-xs text-muted-foreground">{t("common.perPerson", "per person")}</span>
             </div>

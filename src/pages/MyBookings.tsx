@@ -370,16 +370,6 @@ const MyBookings = () => {
     }
   }, [isRefreshing]);
 
-  const handleTouchEnd = useCallback(async () => {
-    if (pullDistance >= pullThreshold && !isRefreshing) {
-      setIsRefreshing(true);
-      setPullDistance(pullThreshold);
-      await refetchBookings();
-      setIsRefreshing(false);
-    }
-    setPullDistance(0);
-  }, [pullDistance, isRefreshing, refetchBookings]);
-
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) return;
     setDecisionSeenAt(localStorage.getItem(bookingDecisionSeenKey(user.id)) || "");
@@ -461,6 +451,16 @@ const MyBookings = () => {
     staleTime: 30000, // Cache for 30 seconds
   });
 
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistance >= pullThreshold && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(pullThreshold);
+      await refetchBookings();
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, isRefreshing, refetchBookings]);
+
   // Real-time subscription for bookings
   useEffect(() => {
     if (!user?.id) return;
@@ -476,6 +476,11 @@ const MyBookings = () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id, qc]);
+
+  const cameFromPaymentConfirmation = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("payment") === "confirmed";
+  }, [location.search]);
 
   // Force refetch when arriving from payment confirmation to ensure fresh data
   useEffect(() => {
@@ -1439,11 +1444,6 @@ const MyBookings = () => {
 
     return matchedGroupEntry?.[0] || "";
   }, [groupedBookings, paymentCheckoutId, postBookingOverview.charges]);
-
-  const cameFromPaymentConfirmation = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("payment") === "confirmed";
-  }, [location.search]);
 
   const orderedBookingGroups = useMemo(() => {
     const entries = Object.entries(groupedBookings);
