@@ -5,7 +5,7 @@ import PropertyCard from "@/components/PropertyCard";
 import TourPromoCard from "@/components/TourPromoCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, TrendingUp, Heart } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTourPricingModel } from "@/lib/tour-pricing";
 
@@ -81,30 +81,21 @@ export function PersonalizedRecommendations({
     const isMonthlyOnly = Boolean(item.monthly_only_listing);
 
     return {
-    id: item.id,
-    image: item.images?.[0] || null,
-    images: item.images || null,
-    title: item.title || item.name || '',
-    location: item.location || item.city || '',
-    rating: item.rating || 0,
-    reviews: item.review_count || 0,
-    price: isMonthlyOnly ? (item.price_per_month || 0) : (item.price_per_night || 0),
-    pricePeriod: isMonthlyOnly ? "month" : "night",
-    pricePerPerson: item.price_per_person,
-    currency: item.currency,
-    type: item.property_type || 'Property',
-    bedrooms: item.bedrooms,
-    beds: item.beds,
-    bathrooms: item.bathrooms,
-    maxGuests: item.max_guests,
-    checkInTime: item.check_in_time,
-    checkOutTime: item.check_out_time,
-    smokingAllowed: item.smoking_allowed,
-    eventsAllowed: item.events_allowed,
-    petsAllowed: item.pets_allowed,
-    isFavorited: false,
-    hostId: item.host_id || null,
-    showHostVerifiedBadge: false,
+      id: item.id,
+      image: item.images?.[0] || null,
+      images: item.images || null,
+      title: item.title || item.name || '',
+      location: item.location || item.city || '',
+      rating: item.rating || 0,
+      reviews: item.review_count || 0,
+      price: isMonthlyOnly ? (item.price_per_month || 0) : (item.price_per_night || 0),
+      pricePeriod: isMonthlyOnly ? "month" : "night",
+      pricePerPerson: item.price_per_person,
+      currency: item.currency,
+      type: item.property_type || 'Property',
+      isFavorited: false,
+      hostId: item.host_id || null,
+      showHostVerifiedBadge: false,
     };
   };
 
@@ -162,15 +153,9 @@ export function PersonalizedRecommendations({
       {properties.length > 0 && (
         <div className="mb-12 md:mb-16">
           <div className="mb-4 md:mb-8">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-1 w-12 bg-gradient-to-r from-primary to-primary/50 rounded-full" />
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-primary/80" />
-            </div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                {title || (mode === 'popular' ? 'Popular Stays' : (user ? 'Recommended For You' : 'Popular Stays'))}
-              </h2>
-            </div>
+            <h2 className="text-xl md:text-3xl lg:text-4xl font-bold text-foreground">
+              {title || (mode === 'popular' ? 'Popular Stays' : (user ? 'Recommended For You' : 'Popular Stays'))}
+            </h2>
             {user && mode !== 'popular' && (
               <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Handpicked based on your preferences</p>
             )}
@@ -223,15 +208,9 @@ export function PersonalizedRecommendations({
       {tours.length > 0 && (
         <div>
           <div className="mb-4 md:mb-8">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-1 w-12 bg-gradient-to-r from-rose-500 to-rose-300 rounded-full" />
-              <Heart className="w-4 h-4 md:w-5 md:h-5 text-rose-500/80" />
-            </div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                {mode === 'popular' ? 'Popular Tours' : (user ? 'Tours You Might Love' : 'Popular Tours')}
-              </h2>
-            </div>
+            <h2 className="text-xl md:text-3xl lg:text-4xl font-bold text-foreground">
+              {mode === 'popular' ? 'Popular Tours' : (user ? 'Tours You Might Love' : 'Popular Tours')}
+            </h2>
             {user && mode !== 'popular' && (
               <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Curated adventures just for you</p>
             )}
@@ -325,15 +304,6 @@ export function SimilarItems({ itemId, itemType, limit = 4 }: SimilarItemsProps)
     pricePerPerson: item.price_per_person,
     currency: item.currency,
     type: item.property_type || 'Property',
-    bedrooms: item.bedrooms,
-    beds: item.beds,
-    bathrooms: item.bathrooms,
-    maxGuests: item.max_guests,
-    checkInTime: item.check_in_time,
-    checkOutTime: item.check_out_time,
-    smokingAllowed: item.smoking_allowed,
-    eventsAllowed: item.events_allowed,
-    petsAllowed: item.pets_allowed,
     isFavorited: false,
     hostId: item.host_id || null,
   });

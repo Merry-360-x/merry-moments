@@ -141,9 +141,6 @@ export default function HostAbout() {
                   pricePeriod={Boolean(p.monthly_only_listing) ? "month" : "night"}
                   currency={p.currency}
                   type={p.property_type}
-                  bedrooms={p.bedrooms ?? null}
-                  bathrooms={p.bathrooms ?? null}
-                  beds={p.beds ?? null}
                 />
               ))}
             </div>
