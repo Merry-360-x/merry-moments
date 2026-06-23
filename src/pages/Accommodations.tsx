@@ -84,7 +84,7 @@ const fetchProperties = async (args: {
       .split(/\s+/)
       .filter(Boolean);
     if (trimmed) {
-      query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
+      query = query.ilike("title", `%${trimmed}%`);
     }
 
     if (args.hostId) {
@@ -237,6 +237,7 @@ const Accommodations = () => {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [bedroomFilter, setBedroomFilter] = useState<number | null>(null);
   const [minRating, setMinRating] = useState(0);
+  const [searchText, setSearchText] = useState(() => searchParams.get("q") ?? "");
   const [locationFilter, setLocationFilter] = useState("");
   const [adults, setAdults] = useState(() => Math.max(1, Number(searchParams.get("adults")) || 1));
   const [children, setChildren] = useState(() => Math.max(0, Number(searchParams.get("children")) || 0));
@@ -274,7 +275,8 @@ const Accommodations = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-    
+    setSearchText(searchParams.get("q") ?? "");
+
     // Update guests from URL parameters
     const a = Number(searchParams.get("adults")) || 0;
     const c = Number(searchParams.get("children")) || 0;
@@ -282,7 +284,7 @@ const Accommodations = () => {
       setAdults(Math.max(1, a));
       setChildren(c);
     }
-    
+
     // Update dates from URL parameters
     setStartDate(searchParams.get("start") ?? "");
     setEndDate(searchParams.get("end") ?? "");
@@ -292,14 +294,13 @@ const Accommodations = () => {
   }, [searchParams]);
 
   const handleSearch = () => {
-    const params = new URLSearchParams();
-    if (locationFilter.trim()) params.set("location", locationFilter.trim());
-    if (startDate) params.set("start", startDate);
-    if (endDate) params.set("end", endDate);
-    if (adults > 1) params.set("adults", String(adults));
-    if (children > 0) params.set("children", String(children));
-    const qs = params.toString();
-    navigate(qs ? `/accommodations?${qs}` : "/accommodations");
+    const trimmed = searchText.trim();
+    if (!trimmed) {
+      navigate("/accommodations");
+      return;
+    }
+    const params = new URLSearchParams({ q: trimmed });
+    navigate(`/accommodations?${params.toString()}`);
   };
 
   const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean; position?: GeolocationPosition }) => {
@@ -447,7 +448,7 @@ const Accommodations = () => {
       "accommodations",
       maxPriceUsd,
       preferredCurrency,
-      searchParams.get("q") ?? "",
+      searchText,
       selectedTypes.join("|"),
       selectedAmenities.join("|"),
       bedroomFilter ?? "",
@@ -465,7 +466,7 @@ const Accommodations = () => {
         maxPriceInDisplayCurrency: maxPrice,
         displayCurrency: preferredCurrency,
         usdRates,
-        search: searchParams.get("q") ?? "",
+        search: searchText,
         propertyTypes: selectedTypes,
         amenities: selectedAmenities,
         bedrooms: bedroomFilter,
@@ -553,8 +554,7 @@ const Accommodations = () => {
     (bedroomFilter !== null ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (locationFilter.trim() ? 1 : 0) +
-    (startDate || endDate ? 1 : 0) +
-    (guestCount > 1 ? 1 : 0) +
+    (searchText.trim() ? 1 : 0) +
     (monthlyFilterMode !== "all" ? 1 : 0);
   const totalPages = Math.ceil(properties.length / ITEMS_PER_PAGE);
 
@@ -562,213 +562,20 @@ const Accommodations = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Search Bar - Airbnb Style */}
+      {/* Search Bar - by name */}
       <div className="bg-background border-b border-border">
         <div className="container mx-auto px-4 lg:px-8 py-5 sm:py-8">
-          {/* Desktop */}
-          <div className="hidden sm:flex items-center bg-card rounded-full shadow-search border border-border divide-x divide-border max-w-3xl mx-auto">
-            {/* Location */}
-            <div className="flex-1 min-w-0 px-6 py-3">
-              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Location</label>
+          <div className="max-w-md mx-auto">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Where are you going?"
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
+                placeholder="Search by property name..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm mt-0.5"
+                className="w-full h-12 pl-12 pr-4 bg-card rounded-xl shadow-search border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
               />
-            </div>
-            {/* Check-in */}
-            <div className="min-w-[130px] px-6 py-3">
-              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Check in</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-transparent text-foreground focus:outline-none text-sm mt-0.5 [color-scheme:light]"
-              />
-            </div>
-            {/* Check-out */}
-            <div className="min-w-[130px] px-6 py-3">
-              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Check out</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-transparent text-foreground focus:outline-none text-sm mt-0.5 [color-scheme:light]"
-              />
-            </div>
-            {/* Guests */}
-            <div className="min-w-[130px] px-6 py-3 relative">
-              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Guests</label>
-              <button
-                type="button"
-                onClick={() => setGuestsOpen(!guestsOpen)}
-                className="w-full text-left bg-transparent text-foreground focus:outline-none text-sm mt-0.5"
-              >
-                {guestCount > 0 ? `${guestCount} guest${guestCount !== 1 ? 's' : ''}` : "Add guests"}
-              </button>
-              {guestsOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setGuestsOpen(false)} />
-                  <div className="absolute top-full right-0 mt-2 w-72 bg-card rounded-xl shadow-lg border border-border p-4 z-50">
-                    <div className="flex items-center justify-between py-2">
-                      <div>
-                        <div className="text-sm font-medium">Adults</div>
-                        <div className="text-xs text-muted-foreground">Ages 13+</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setAdults(Math.max(1, adults - 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
-                          disabled={adults <= 1}
-                        >−</button>
-                        <span className="w-6 text-center text-sm">{adults}</span>
-                        <button
-                          type="button"
-                          onClick={() => setAdults(Math.min(20, adults + 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
-                        >+</button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-t border-border">
-                      <div>
-                        <div className="text-sm font-medium">Children</div>
-                        <div className="text-xs text-muted-foreground">Ages 2-12</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setChildren(Math.max(0, children - 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
-                          disabled={children <= 0}
-                        >−</button>
-                        <span className="w-6 text-center text-sm">{children}</span>
-                        <button
-                          type="button"
-                          onClick={() => setChildren(Math.min(10, children + 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
-                        >+</button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            {/* Search button */}
-            <div className="pr-2 pl-4">
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="w-12 h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-colors"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile */}
-          <div className="sm:hidden">
-            <div className="bg-card rounded-2xl shadow-search border border-border p-4 space-y-4">
-              <div>
-                <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Location</label>
-                <input
-                  type="text"
-                  placeholder="Where are you going?"
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Check in</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-transparent text-foreground focus:outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Check out</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-transparent text-foreground focus:outline-none text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Guests</label>
-                  <button
-                    type="button"
-                    onClick={() => setGuestsOpen(!guestsOpen)}
-                    className="text-sm text-primary font-medium"
-                  >
-                    {guestsOpen ? "Done" : "Edit"}
-                  </button>
-                </div>
-                <div className="text-sm text-foreground">
-                  {guestCount > 0 ? `${guestCount} guest${guestCount !== 1 ? 's' : ''}` : "Add guests"}
-                </div>
-                {guestsOpen && (
-                  <div className="space-y-3 pt-3 mt-2 border-t border-border">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium">Adults</div>
-                        <div className="text-xs text-muted-foreground">Ages 13+</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setAdults(Math.max(1, adults - 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30"
-                          disabled={adults <= 1}
-                        >−</button>
-                        <span className="w-6 text-center text-sm">{adults}</span>
-                        <button
-                          type="button"
-                          onClick={() => setAdults(Math.min(20, adults + 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground"
-                        >+</button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium">Children</div>
-                        <div className="text-xs text-muted-foreground">Ages 2-12</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setChildren(Math.max(0, children - 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30"
-                          disabled={children <= 0}
-                        >−</button>
-                        <span className="w-6 text-center text-sm">{children}</span>
-                        <button
-                          type="button"
-                          onClick={() => setChildren(Math.min(10, children + 1))}
-                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground"
-                        >+</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
-              >
-                <Search className="w-4 h-4" />
-                Search
-              </button>
             </div>
           </div>
         </div>
