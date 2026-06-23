@@ -19,9 +19,13 @@ export function formatMoney(amount: number, currency: string): string {
   // Round to proper precision first
   const rounded = roundToCurrency(amount, code);
   
+  // Show decimals only when the amount has a fractional part
+  const isWhole = Math.abs(rounded - Math.round(rounded)) < 0.001;
+  const minFrac = isWhole ? 0 : decimals;
+  
   try {
     const num = new Intl.NumberFormat(undefined, { 
-      minimumFractionDigits: decimals,
+      minimumFractionDigits: minFrac,
       maximumFractionDigits: decimals,
     }).format(rounded);
     
@@ -30,7 +34,7 @@ export function formatMoney(amount: number, currency: string): string {
   } catch {
     // Fallback for unexpected currency codes
     return `${rounded.toLocaleString(undefined, { 
-      minimumFractionDigits: decimals,
+      minimumFractionDigits: minFrac,
       maximumFractionDigits: decimals 
     })} ${code}`;
   }
