@@ -1,11 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { useMemo } from "react";
 import { Car } from "lucide-react";
-import { motion } from "framer-motion";
 import ListingImageCarousel from "@/components/ListingImageCarousel";
 import { formatMoney } from "@/lib/money";
-import { Button } from "@/components/ui/button";
-import { useTripCart } from "@/hooks/useTripCart";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useFxRates } from "@/hooks/useFxRates";
 import { convertAmount } from "@/lib/fx";
@@ -23,7 +20,6 @@ export type TransportPromoCardProps = {
 
 export default function TransportPromoCard(props: TransportPromoCardProps) {
   const routerLocation = useLocation();
-  const { addToCart } = useTripCart();
   const { currency: preferredCurrency } = usePreferences();
   const { usdRates } = useFxRates();
   const gallery = (props.media ?? []).filter(Boolean);
@@ -42,73 +38,47 @@ export default function TransportPromoCard(props: TransportPromoCardProps) {
     }
     return next.toString();
   }, [routerLocation.search]);
-  return (
-    <Link to={`/transport/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
-      <motion.div
-        className="group rounded-lg md:rounded-xl overflow-hidden bg-card shadow-card hover:shadow-lg transition-all duration-300"
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.97 }}
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-50px" }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="relative aspect-[4/3] overflow-hidden">
-          {imgs.length ? (
-            <ListingImageCarousel images={imgs} alt={props.title} className="w-full h-full" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40 flex items-center justify-center">
-              <Car className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground" />
-            </div>
-          )}
-          {/* Desktop: Add to Trip button */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="hidden md:flex absolute top-3 right-3 shadow-sm bg-background/90 hover:bg-background"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void addToCart("transport_vehicle", props.id, 1);
-            }}
-          >
-            Add to Trip
-          </Button>
-          {/* Mobile: Small + button */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="md:hidden absolute top-1.5 right-1.5 w-6 h-6 p-0 shadow-sm bg-background/90 hover:bg-background text-xs"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void addToCart("transport_vehicle", props.id, 1);
-            }}
-          >
-            +
-          </Button>
-          {props.vehicleType ? (
-            <span className="absolute bottom-1.5 md:bottom-3 left-1.5 md:left-3 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-background/90 backdrop-blur-sm text-[8px] md:text-xs font-medium">
-              {props.vehicleType}
-            </span>
-          ) : null}
+
+  const subtitle = props.vehicleType ?? "Vehicle";
+
+  const content = (
+    <div className="group rounded-xl overflow-hidden bg-card">
+      {/* Image */}
+      <div className="relative aspect-[4/3] overflow-hidden rounded-xl">
+        {imgs.length ? (
+          <ListingImageCarousel images={imgs} alt={props.title} className="w-full h-full" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-muted via-muted/70 to-muted/40 flex items-center justify-center">
+            <Car className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="pt-2 px-3">
+        {/* Subtitle (vehicle type) */}
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-semibold text-sm text-foreground truncate">
+            {subtitle}
+            {props.seats ? ` · ${props.seats} seats` : ""}
+          </span>
         </div>
 
-        <div className="p-2 md:p-4">
-          <h3 className="font-semibold text-[10px] md:text-base text-foreground line-clamp-1">{props.title}</h3>
-          <p className="text-[8px] md:text-sm text-muted-foreground mb-1 md:mb-3 line-clamp-1">
-            {props.vehicleType ?? "Vehicle"}
-            {props.seats ? ` · ${props.seats} seats` : ""}
-          </p>
-          <div className="flex items-baseline gap-0.5 md:gap-1">
-            <span className="text-[10px] md:text-lg font-bold text-foreground">{displayPrice}</span>
-            <span className="text-[8px] md:text-sm text-muted-foreground">/ day</span>
-          </div>
+        {/* Title */}
+        <p className="text-[13px] font-normal text-[#6A6A6A] truncate mt-[1px]">{props.title}</p>
+
+        {/* Price */}
+        <div className="flex items-baseline gap-1 mt-1 whitespace-nowrap">
+          <span className="text-sm font-semibold text-foreground">{displayPrice}</span>
+          <span className="text-[13px] text-[#6A6A6A]">/ day</span>
         </div>
-      </motion.div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Link to={`/transport/${props.id}${forwardedQuery ? `?${forwardedQuery}` : ""}`} className="block" aria-label={props.title}>
+      {content}
     </Link>
   );
 }
-
