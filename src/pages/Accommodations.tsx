@@ -238,15 +238,13 @@ const Accommodations = () => {
   const [bedroomFilter, setBedroomFilter] = useState<number | null>(null);
   const [minRating, setMinRating] = useState(0);
   const [locationFilter, setLocationFilter] = useState("");
-  const [guestCount, setGuestCount] = useState(() => {
-    const adults = Number(searchParams.get("adults")) || 0;
-    const children = Number(searchParams.get("children")) || 0;
-    return adults + children || 0; // Changed from 1 to 0
-  });
+  const [adults, setAdults] = useState(() => Math.max(1, Number(searchParams.get("adults")) || 1));
+  const [children, setChildren] = useState(() => Math.max(0, Number(searchParams.get("children")) || 0));
+  const guestCount = adults + children;
   const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
   const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [guestsOpen, setGuestsOpen] = useState(false);
   const [monthlyFilterMode, setMonthlyFilterMode] = useState<MonthlyFilterMode>(() => monthlyModeFromParams(searchParams));
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12; // 3 columns x 4 rows
@@ -275,15 +273,14 @@ const Accommodations = () => {
   }, [maxPriceUsd, selectedTypes.length, selectedAmenities.length, bedroomFilter, minRating, locationFilter, guestCount, monthlyFilterMode, hostId]);
 
   useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    setCurrentPage(1); // Reset page on search
+    setCurrentPage(1);
     
-    // Update guest count from URL parameters
-    const adults = Number(searchParams.get("adults")) || 0;
-    const children = Number(searchParams.get("children")) || 0;
-    const totalGuests = adults + children;
-    if (totalGuests > 0) {
-      setGuestCount(totalGuests);
+    // Update guests from URL parameters
+    const a = Number(searchParams.get("adults")) || 0;
+    const c = Number(searchParams.get("children")) || 0;
+    if (a > 0 || c > 0) {
+      setAdults(Math.max(1, a));
+      setChildren(c);
     }
     
     // Update dates from URL parameters
@@ -294,14 +291,15 @@ const Accommodations = () => {
     setMonthlyFilterMode(monthlyModeFromParams(searchParams));
   }, [searchParams]);
 
-  const runSearch = () => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      navigate("/accommodations");
-      return;
-    }
-    const params = new URLSearchParams({ q: trimmed });
-    navigate(`/accommodations?${params.toString()}`);
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (locationFilter.trim()) params.set("location", locationFilter.trim());
+    if (startDate) params.set("start", startDate);
+    if (endDate) params.set("end", endDate);
+    if (adults > 1) params.set("adults", String(adults));
+    if (children > 0) params.set("children", String(children));
+    const qs = params.toString();
+    navigate(qs ? `/accommodations?${qs}` : "/accommodations");
   };
 
   const requestNearbyRecommendations = useCallback(async (options?: { silent?: boolean; position?: GeolocationPosition }) => {
@@ -555,7 +553,8 @@ const Accommodations = () => {
     (bedroomFilter !== null ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (locationFilter.trim() ? 1 : 0) +
-    (guestCount > 0 ? 1 : 0) +
+    (startDate || endDate ? 1 : 0) +
+    (guestCount > 1 ? 1 : 0) +
     (monthlyFilterMode !== "all" ? 1 : 0);
   const totalPages = Math.ceil(properties.length / ITEMS_PER_PAGE);
 
@@ -563,70 +562,214 @@ const Accommodations = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Search Bar */}
+      {/* Search Bar - Airbnb Style */}
       <div className="bg-background border-b border-border">
         <div className="container mx-auto px-4 lg:px-8 py-5 sm:py-8">
-          {/* Mobile: nicer pill */}
-          <div className="sm:hidden">
-            <div className="bg-card rounded-2xl shadow-search border border-border p-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <Search className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-primary">Merry AI Search</div>
-                  <input
-                    type="text"
-                    placeholder="Ask Merry AI about stays in Rwanda"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") runSearch();
-                    }}
-                    className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center gap-2">
-                {query.trim() ? (
-                  <button
-                    type="button"
-                    className="h-10 px-4 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => setQuery("")}
-                  >
-                    Clear
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="h-10 flex-1 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
-                  onClick={runSearch}
-                >
-                  Search
-                </button>
-              </div>
+          {/* Desktop */}
+          <div className="hidden sm:flex items-center bg-card rounded-full shadow-search border border-border divide-x divide-border max-w-3xl mx-auto">
+            {/* Location */}
+            <div className="flex-1 min-w-0 px-6 py-3">
+              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Location</label>
+              <input
+                type="text"
+                placeholder="Where are you going?"
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm mt-0.5"
+              />
+            </div>
+            {/* Check-in */}
+            <div className="min-w-[130px] px-6 py-3">
+              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Check in</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-transparent text-foreground focus:outline-none text-sm mt-0.5 [color-scheme:light]"
+              />
+            </div>
+            {/* Check-out */}
+            <div className="min-w-[130px] px-6 py-3">
+              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Check out</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-transparent text-foreground focus:outline-none text-sm mt-0.5 [color-scheme:light]"
+              />
+            </div>
+            {/* Guests */}
+            <div className="min-w-[130px] px-6 py-3 relative">
+              <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Guests</label>
+              <button
+                type="button"
+                onClick={() => setGuestsOpen(!guestsOpen)}
+                className="w-full text-left bg-transparent text-foreground focus:outline-none text-sm mt-0.5"
+              >
+                {guestCount > 0 ? `${guestCount} guest${guestCount !== 1 ? 's' : ''}` : "Add guests"}
+              </button>
+              {guestsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setGuestsOpen(false)} />
+                  <div className="absolute top-full right-0 mt-2 w-72 bg-card rounded-xl shadow-lg border border-border p-4 z-50">
+                    <div className="flex items-center justify-between py-2">
+                      <div>
+                        <div className="text-sm font-medium">Adults</div>
+                        <div className="text-xs text-muted-foreground">Ages 13+</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAdults(Math.max(1, adults - 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          disabled={adults <= 1}
+                        >−</button>
+                        <span className="w-6 text-center text-sm">{adults}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAdults(Math.min(20, adults + 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
+                        >+</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-t border-border">
+                      <div>
+                        <div className="text-sm font-medium">Children</div>
+                        <div className="text-xs text-muted-foreground">Ages 2-12</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setChildren(Math.max(0, children - 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          disabled={children <= 0}
+                        >−</button>
+                        <span className="w-6 text-center text-sm">{children}</span>
+                        <button
+                          type="button"
+                          onClick={() => setChildren(Math.min(10, children + 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
+                        >+</button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            {/* Search button */}
+            <div className="pr-2 pl-4">
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="w-12 h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-colors"
+              >
+                <Search className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
-          {/* Desktop/tablet: existing layout */}
-          <div className="hidden sm:flex bg-card rounded-xl shadow-card p-4 flex-col md:flex-row items-stretch md:items-center gap-4 max-w-3xl mx-auto">
-            <div className="flex-1">
-              <label className="block text-xs text-primary mb-1">Merry AI Search</label>
-              <input
-                type="text"
-                placeholder="Ask Merry AI about stays in Rwanda"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") runSearch();
-                }}
-                className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
-              />
+          {/* Mobile */}
+          <div className="sm:hidden">
+            <div className="bg-card rounded-2xl shadow-search border border-border p-4 space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Location</label>
+                <input
+                  type="text"
+                  placeholder="Where are you going?"
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Check in</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-transparent text-foreground focus:outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide mb-1">Check out</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-transparent text-foreground focus:outline-none text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-foreground uppercase tracking-wide">Guests</label>
+                  <button
+                    type="button"
+                    onClick={() => setGuestsOpen(!guestsOpen)}
+                    className="text-sm text-primary font-medium"
+                  >
+                    {guestsOpen ? "Done" : "Edit"}
+                  </button>
+                </div>
+                <div className="text-sm text-foreground">
+                  {guestCount > 0 ? `${guestCount} guest${guestCount !== 1 ? 's' : ''}` : "Add guests"}
+                </div>
+                {guestsOpen && (
+                  <div className="space-y-3 pt-3 mt-2 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Adults</div>
+                        <div className="text-xs text-muted-foreground">Ages 13+</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAdults(Math.max(1, adults - 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30"
+                          disabled={adults <= 1}
+                        >−</button>
+                        <span className="w-6 text-center text-sm">{adults}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAdults(Math.min(20, adults + 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground"
+                        >+</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Children</div>
+                        <div className="text-xs text-muted-foreground">Ages 2-12</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setChildren(Math.max(0, children - 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30"
+                          disabled={children <= 0}
+                        >−</button>
+                        <span className="w-6 text-center text-sm">{children}</span>
+                        <button
+                          type="button"
+                          onClick={() => setChildren(Math.min(10, children + 1))}
+                          className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground"
+                        >+</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                Search
+              </button>
             </div>
-            <Button variant="search" size="icon-lg" type="button" onClick={runSearch}>
-              <Search className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </div>
@@ -806,20 +949,6 @@ const Accommodations = () => {
                     />
                   </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="guests">
-                  <AccordionTrigger>Guest Count</AccordionTrigger>
-                  <AccordionContent>
-                    <Input
-                      type="number"
-                      placeholder="Minimum guests"
-                      value={guestCount || ''}
-                      onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
-                      min="1"
-                      max="20"
-                      className="w-full"
-                    />
-                  </AccordionContent>
-                </AccordionItem>
                 <AccordionItem value="bedrooms">
                   <AccordionTrigger>Bedrooms</AccordionTrigger>
                   <AccordionContent>
@@ -912,22 +1041,27 @@ const Accommodations = () => {
               </Accordion>
             </div>
             <div className="p-4 border-t border-border bg-background flex items-center justify-between gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
-                  setSelectedTypes([]);
-                  setSelectedAmenities([]);
-                  setBedroomFilter(null);
-                  setMinRating(0);
-                  setLocationFilter("");
-                  setGuestCount(0);
-                  setMonthlyFilterMode("all");
-                }}
-              >
-                Clear
-              </Button>
+              {activeFiltersCount > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
+                    setSelectedTypes([]);
+                    setSelectedAmenities([]);
+                    setBedroomFilter(null);
+                    setMinRating(0);
+                    setLocationFilter("");
+                    setAdults(1);
+                    setChildren(0);
+                    setStartDate("");
+                    setEndDate("");
+                    setMonthlyFilterMode("all");
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
               <Button type="button" onClick={() => setFiltersOpen(false)}>
                 Apply
               </Button>
@@ -941,23 +1075,28 @@ const Accommodations = () => {
             <div className="bg-card rounded-xl p-6 shadow-card">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-foreground">{t("accommodations.filters")}</h3>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
-                    setSelectedTypes([]);
-                    setSelectedAmenities([]);
-                    setBedroomFilter(null);
-                    setMinRating(0);
-                    setLocationFilter("");
-                    setGuestCount(0);
-                    setMonthlyFilterMode("all");
-                  }}
-                >
-                  Clear
-                </Button>
+                {activeFiltersCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMaxPriceUsd(PRICE_SLIDER_MAX_USD);
+                      setSelectedTypes([]);
+                      setSelectedAmenities([]);
+                      setBedroomFilter(null);
+                      setMinRating(0);
+                      setLocationFilter("");
+                      setAdults(1);
+                      setChildren(0);
+                      setStartDate("");
+                      setEndDate("");
+                      setMonthlyFilterMode("all");
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
 
               <Accordion type="multiple" defaultValue={["price", "type"]}>
@@ -1068,21 +1207,6 @@ const Accommodations = () => {
                       placeholder="Filter by location..."
                       value={locationFilter}
                       onChange={(e) => setLocationFilter(e.target.value)}
-                      className="w-full"
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="guests">
-                  <AccordionTrigger>Guest Count</AccordionTrigger>
-                  <AccordionContent>
-                    <Input
-                      type="number"
-                      placeholder="Minimum guests"
-                      value={guestCount || ''}
-                      onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
-                      min="1"
-                      max="20"
                       className="w-full"
                     />
                   </AccordionContent>
@@ -1199,13 +1323,6 @@ const Accommodations = () => {
               </div>
             ) : (
               <>
-                {/* Pagination Info */}
-                <div className="col-span-full flex items-center justify-between mb-4">
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, properties.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, properties.length)} of {properties.length} properties
-                  </p>
-                </div>
-
                 <motion.div
                   className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6"
                   initial="hidden"
