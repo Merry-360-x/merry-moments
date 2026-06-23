@@ -13,11 +13,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/push_notification_service.dart';
+import 'ui/widgets/in_app_notification_banner.dart';
 import 'session_controller.dart';
 import 'ui/main_shell.dart';
 import 'ui/screens/my_bookings_screen.dart';
 import 'ui/screens/notifications_screen.dart';
 import 'ui/screens/support_screen.dart';
+import 'ui/screens/explore_screen.dart';
+import 'ui/screens/post_booking_center_screen.dart';
+import 'ui/screens/messages_screen.dart';
+import 'ui/screens/wishlists_screen.dart';
+import 'ui/screens/host_dashboard_screen.dart';
+import 'ui/screens/admin_dashboard_screen.dart';
 import 'ui/widgets/draggable_ai_fab.dart';
 
 /// Global route observer — used to hide floating UI (e.g. AI button tooltip)
@@ -128,13 +135,13 @@ class AppColors {
   static const babu = Color(0xFF00A699);
   static const arches = Color(0xFFFC642D);
   static const _surfaceLight = Color(0xFFFFFFFF);
-  // Deep near-black — feels premium, avoids the flat greenish cast
-  static const _surfaceDark = Color(0xFF000000);
+  // Warm dark gray page background — replaces pure black for depth
+  static const _surfaceDark = Color(0xFF1C1C1E);
   static const _surfaceSubtleLight = Color(0xFFF7F7F7);
-  // Nav / bottom bars sit slightly darker than content
-  static const _surfaceSubtleDark = Color(0xFF111113);
-  // Elevated cards: clearly one step above background
-  static const _surfaceElevatedDark = Color(0xFF2C2C2E);
+  // Card / surface background — lifts off the page
+  static const _surfaceSubtleDark = Color(0xFF2C2C2E);
+  // Elevated surfaces: cards-on-cards, dropdowns, selected pills
+  static const _surfaceElevatedDark = Color(0xFF3A3A3C);
   static const _textLight = Color(0xFF222222);
   static const _textDark = Color(0xFFFFFFFF);
   static const _bodyLight = Color(0xFF484848);
@@ -142,7 +149,8 @@ class AppColors {
   static const _mutedLight = Color(0xFF767676);
   static const _mutedDark = Color(0xFF8E8E93);
   static const _hintLight = Color(0xFFB0B0B0);
-  static const _hintDark = Color(0xFF636366);
+  // Tertiary text / placeholders
+  static const _hintDark = Color(0xFF6C6C70);
   static const _borderLight = Color(0xFFEBEBEB);
   static const _borderDark = Color(0xFF38383A);
 
@@ -442,26 +450,75 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     final nav = _navigatorKey.currentState;
     if (nav == null) return;
     final type = data['type'] ?? '';
+
+    Widget screen;
     switch (type) {
-      case 'support':
-        nav.push(
-          MaterialPageRoute(builder: (_) => SupportScreen(session: _session)),
-        );
-      case 'booking':
+      // ── Guest: booking related ──
       case 'booking_confirmed':
-      case 'booking_cancelled':
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => MyBookingsScreen(session: _session),
-          ),
-        );
+      case 'booking_request_sent':
+      case 'payment_success':
+      case 'refund_issued':
+      case 'check_in_reminder':
+      case 'check_out_reminder':
+      case 'dispute_resolved':
+      case 'tour_starts_soon':
+        screen = MyBookingsScreen(session: _session);
+
+      case 'booking_declined':
+        screen = ExploreScreen(session: _session);
+
+      case 'payment_failed':
+        screen = MyBookingsScreen(session: _session);
+
+      case 'new_charge_added':
+        screen = PostBookingCenterScreen(session: _session);
+
+      case 'new_message':
+        screen = MessagesScreen(session: _session);
+
+      case 'host_review_received':
+      case 'review_reminder':
+        screen = MyBookingsScreen(session: _session);
+
+      case 'price_drop':
+        screen = WishlistsScreen(session: _session);
+
+      // ── Host: dashboard or bookings ──
+      case 'new_booking_request':
+      case 'instant_booking_confirmed':
+      case 'booking_cancelled_by_guest':
+      case 'payment_received':
+      case 'guest_checked_in':
+      case 'guest_checked_out':
+      case 'extra_charge_paid':
+      case 'dispute_opened':
+      case 'new_review':
+      case 'host_review_reply':
+      case 'listing_approved':
+      case 'listing_rejected':
+      case 'payout_sent':
+      case 'payout_failed':
+        screen = HostDashboardScreen(session: _session);
+
+      // ── Admin: all admin notifications navigate to admin dashboard ──
+      case 'listing_submitted':
+      case 'host_registered':
+      case 'user_flagged':
+      case 'dispute_requires_admin':
+      case 'new_support_ticket':
+      case 'high_value_booking':
+      case 'platform_milestone':
+      case 'tour_pending_approval':
+        screen = AdminDashboardScreen(session: _session);
+
+      // ── System ──
+      case 'support':
+        screen = SupportScreen(session: _session);
+
       default:
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => NotificationsScreen(session: _session),
-          ),
-        );
+        screen = NotificationsScreen(session: _session);
     }
+    nav.push(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
@@ -529,11 +586,11 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
               surface: AppColors._surfaceDark,
               onSurface: AppColors._textDark,
               outline: AppColors._borderDark,
-              // Slightly elevated surface for cards/sheets (#3A3F3F)
-              surfaceContainerHighest: AppColors._surfaceElevatedDark,
-              // App bars, nav bar, bottom sheets use the subtle darker tone
+              // #2C2C2E — card / surface background
               surfaceContainerLow: AppColors._surfaceSubtleDark,
-              surfaceContainer: AppColors._surfaceElevatedDark,
+              // #3A3A3C — elevated surfaces (dropdowns, selected pills, popups)
+              surfaceContainerHighest: AppColors._surfaceElevatedDark,
+              surfaceContainer: AppColors._surfaceSubtleDark,
               onSurfaceVariant: AppColors._mutedDark,
             );
 
@@ -595,7 +652,8 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
             return Stack(
               children: [
                 if (child != null) child,
-                DraggableAiFab(session: _session),
+                InAppNotificationBanner(session: _session),
+                DraggableAiFab(session: _session, navigatorKey: _navigatorKey),
               ],
             );
           },

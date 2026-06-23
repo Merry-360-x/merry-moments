@@ -91,14 +91,6 @@ const PropertyCard = ({
     };
   }, [checkFavorite, id, isFavorited]);
 
-  const priceFormatted = displayMoney(price, originalCurrency);
-
-  // Split price into amount and currency for Flutter-style display
-  const priceAmount = priceFormatted.replace(` ${currency.toUpperCase()}`, "").replace(` ${preferredCurrency.toUpperCase()}`, "");
-  const priceCurrency = priceFormatted.includes(preferredCurrency.toUpperCase())
-    ? preferredCurrency.toUpperCase()
-    : currency.toUpperCase();
-
   const content = (
     <div className="group rounded-xl overflow-hidden bg-card">
       {/* Image */}
@@ -145,7 +137,7 @@ const PropertyCard = ({
       </div>
 
       {/* Content */}
-      <div className="pt-2">
+      <div className="pt-2 px-3">
         {/* Subtitle (location/type) + rating - Flutter order */}
         <div className="flex items-start justify-between gap-2">
           <span className="font-semibold text-sm text-foreground truncate">{subtitle}</span>
@@ -160,13 +152,13 @@ const PropertyCard = ({
         {/* Title (property name) - Flutter style: normal weight, gray */}
         <p className="text-[13px] font-normal text-[#6A6A6A] truncate mt-[1px]">{title}</p>
 
-        {/* Price - Flutter style: bold amount + period */}
-        <div className="flex items-baseline gap-1 mt-1">
+        {/* Price - Flutter style: bold amount + period, no slash separator */}
+        <div className="flex items-baseline gap-1 mt-1 whitespace-nowrap">
           <span className="text-sm font-semibold text-foreground">
-            {priceAmount} {priceCurrency}
+            {displayMoney(price, originalCurrency)}
           </span>
           <span className="text-[13px] text-[#6A6A6A]">
-            / {pricePeriod === "month" ? t("common.perMonth", "month") : t("common.perNight", "night")}
+            {pricePeriod === "month" ? t("common.perMonth", "month") : t("common.perNight", "night")}
           </span>
         </div>
       </div>

@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 
 class AiFabButton extends StatefulWidget {
-  const AiFabButton({super.key, required this.onTap});
-
-  final VoidCallback onTap;
+  const AiFabButton({super.key});
 
   @override
   State<AiFabButton> createState() => _AiFabButtonState();
@@ -14,41 +12,27 @@ class AiFabButton extends StatefulWidget {
 class _AiFabButtonState extends State<AiFabButton>
     with TickerProviderStateMixin {
   OverlayEntry? _tooltip;
-  late AnimationController _wave1;
-  late AnimationController _wave2;
-  late AnimationController _wave3;
+  late AnimationController _pulseCtrl;
+
+  static const double _btnSize = 49;
+  static const double _iconSize = 20;
+  static const double _borderRadius = 11;
+  static const double _ringRadius = _btnSize * 0.86;
 
   @override
   void initState() {
     super.initState();
-    _wave1 = AnimationController(
+    _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2400),
     )..repeat();
-    _wave2 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-    _wave3 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _wave2.value = 0.3;
-    });
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) _wave3.value = 0.6;
-    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _showTooltip());
   }
 
   @override
   void dispose() {
-    _wave1.dispose();
-    _wave2.dispose();
-    _wave3.dispose();
+    _pulseCtrl.dispose();
     _tooltip?.remove();
     _tooltip = null;
     super.dispose();
@@ -101,71 +85,66 @@ class _AiFabButtonState extends State<AiFabButton>
     });
   }
 
-  Widget _ring(AnimationController ctrl, double maxRadius) {
-    return AnimatedBuilder(
-      animation: ctrl,
-      builder: (_, _) {
-        final t = ctrl.value;
-        return Container(
-          width: maxRadius * 2 * t,
-          height: maxRadius * 2 * t,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.rausch.withValues(alpha: (1 - t) * 0.45),
-              width: 1.5,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    const double btnSize = 52;
-    const double iconSize = 26;
-    const double totalSize = btnSize;
-    const double borderRadius = 14;
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: totalSize,
-        height: totalSize,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            _ring(_wave1, btnSize * 0.88),
-            _ring(_wave2, btnSize * 0.88),
-            _ring(_wave3, btnSize * 0.88),
-            Container(
-              width: btnSize,
-              height: btnSize,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
-                color: Theme.of(context).colorScheme.surface,
-                border: Border.all(
-                  color: AppColors.rausch.withValues(alpha: 0.35),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x66FF5050),
-                    blurRadius: 10,
-                    spreadRadius: 0,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SizedBox(
+      width: _btnSize,
+      height: _btnSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Subtle pulse ring
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (_, child) {
+              final t = _pulseCtrl.value;
+              final scale = 0.92 + t * 0.20;
+              final opacity = (1.0 - t) * 0.25;
+              return Container(
+                width: _ringRadius * 2 * scale,
+                height: _ringRadius * 2 * scale,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.rausch.withValues(alpha: opacity),
+                    width: 1.2,
                   ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.auto_awesome,
-                  size: iconSize,
-                  color: AppColors.rausch,
                 ),
+              );
+            },
+          ),
+          // Main button body
+          Container(
+            width: _btnSize,
+            height: _btnSize,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_borderRadius),
+              color: isDark
+                  ? const Color(0xFF2A2A2E)
+                  : Colors.white,
+              border: Border.all(
+                color: AppColors.rausch.withValues(alpha: 0.30),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.rausch.withValues(alpha: isDark ? 0.12 : 0.08),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Icon(
+                Icons.auto_awesome,
+                size: _iconSize,
+                color: AppColors.rausch,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

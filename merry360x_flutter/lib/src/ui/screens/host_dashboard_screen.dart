@@ -646,27 +646,38 @@ class _HostHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF121212), Color(0xFF1A1A2E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF121212).withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        border: Border.all(color: isDark ? const Color(0xFF38383A) : const Color(0xFFE8E8E8)),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Stack(
         children: [
-          Positioned(right: -20, top: -20, child: _deco(110, 0.08)),
-          Positioned(right: 30, bottom: -15, child: _deco(70, 0.04)),
+          Positioned(
+            left: 0, right: 0, top: 0,
+            height: 4,
+            child: Container(
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFF385C), Color(0xFFFC642D)],
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: Column(
@@ -674,18 +685,19 @@ class _HostHeroCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _hostBadge(Icons.account_balance_wallet_rounded, 'Earnings', const Color(0xFF1DB954)),
+                    _hostBadge(Icons.account_balance_wallet_rounded, 'Earnings', const Color(0xFF1DB954), isDark),
                     const Spacer(),
-                    _hostPill('${_fmtHostNum(totalBookings)} bookings', _kRed),
+                    _hostPill('${_fmtHostNum(totalBookings)} bookings', _kRed, isDark),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _hostLabel('Net Earnings'),
+                _hostLabel('Net Earnings', isDark),
                 const SizedBox(height: 3),
                 Text(
                   _formatMoney(netEarnings, currency),
-                  style: const TextStyle(
-                    fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white,
+                  style: TextStyle(
+                    fontSize: 34, fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF121212),
                     height: 0.95, letterSpacing: -1.0,
                   ),
                 ),
@@ -695,7 +707,7 @@ class _HostHeroCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('${(payoutBar * 100).toStringAsFixed(0)}% paid out',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
+                        style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF6B7280) : const Color(0xFF767676))),
                       Text('${_formatMoney(availableForPayout, currency)} available',
                         style: const TextStyle(fontSize: 10, color: Color(0xFF1DB954), fontWeight: FontWeight.w700)),
                     ],
@@ -705,13 +717,14 @@ class _HostHeroCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: Stack(
                       children: [
-                        Container(height: 5, width: double.infinity, color: Colors.white.withValues(alpha: 0.1)),
+                        Container(height: 5, width: double.infinity,
+                          color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFEBEBEB)),
                         FractionallySizedBox(
                           widthFactor: payoutBar,
                           child: Container(
                             height: 5,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF1DB954), Color(0xFF16A34A)]),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(colors: [Color(0xFF1DB954), Color(0xFF16A34A)]),
                             ),
                           ),
                         ),
@@ -722,12 +735,12 @@ class _HostHeroCard extends StatelessWidget {
                 ],
                 Row(
                   children: [
-                    Expanded(child: _hostPillCard(label: 'Available', value: _formatMoney(availableForPayout, currency), color: const Color(0xFF1DB954))),
+                    Expanded(child: _hostPillCard(label: 'Available', value: _formatMoney(availableForPayout, currency), color: const Color(0xFF1DB954), isDark: isDark)),
                     const SizedBox(width: 8),
-                    Expanded(child: _hostPillCard(label: 'Paid out', value: _formatMoney(completedPayout, currency), color: const Color(0xFF6C63FF))),
+                    Expanded(child: _hostPillCard(label: 'Paid out', value: _formatMoney(completedPayout, currency), color: const Color(0xFF6C63FF), isDark: isDark)),
                     if (pendingPayout > 0) ...[
                       const SizedBox(width: 8),
-                      Expanded(child: _hostPillCard(label: 'Pending', value: _formatMoney(pendingPayout, currency), color: const Color(0xFFF59E0B))),
+                      Expanded(child: _hostPillCard(label: 'Pending', value: _formatMoney(pendingPayout, currency), color: const Color(0xFFF59E0B), isDark: isDark)),
                     ],
                   ],
                 ),
@@ -739,15 +752,7 @@ class _HostHeroCard extends StatelessWidget {
     );
   }
 
-  Widget _deco(double size, double opacity) => Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.white.withValues(alpha: opacity),
-    ),
-  );
-
-  Widget _hostBadge(IconData icon, String text, Color color) => Container(
+  Widget _hostBadge(IconData icon, String text, Color color, bool isDark) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.15),
@@ -758,31 +763,31 @@ class _HostHeroCard extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+        Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF222222))),
       ],
     ),
   );
 
-  Widget _hostPill(String text, Color color) => Container(
+  Widget _hostPill(String text, Color color, bool isDark) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(20),
     ),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF222222))),
   );
 
-  Widget _hostLabel(String text) => Text(
+  Widget _hostLabel(String text, bool isDark) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF6B7280), letterSpacing: 0.5),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? const Color(0xFF6B7280) : const Color(0xFF767676), letterSpacing: 0.5),
   );
 
-  Widget _hostPillCard({required String label, required String value, required Color color}) => Container(
+  Widget _hostPillCard({required String label, required String value, required Color color, required bool isDark}) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.07),
+      color: isDark ? Colors.white.withValues(alpha: 0.07) : const Color(0xFFF7F7F7),
       borderRadius: BorderRadius.circular(11),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFEBEBEB)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -791,12 +796,12 @@ class _HostHeroCard extends StatelessWidget {
           children: [
             Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 5),
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w500)),
+            Text(label, style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF767676), fontWeight: FontWeight.w500)),
           ],
         ),
         const SizedBox(height: 3),
         Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isDark ? Colors.white : const Color(0xFF222222))),
       ],
     ),
   );
@@ -6783,8 +6788,11 @@ class _IconTextBtn extends StatelessWidget {
 }
 
 String _formatMoney(num amount, String currency) {
-  final needsDecimals = currency != 'RWF' && amount % 1 != 0;
-  return '$currency ${needsDecimals ? amount.toStringAsFixed(2) : amount.toStringAsFixed(0)}';
+  if (currency.toUpperCase() == 'RWF') {
+    return 'RWF ${fmtInt(amount)}';
+  }
+  final isWhole = (amount - amount.roundToDouble()).abs() < 0.001;
+  return '$currency ${isWhole ? fmtInt(amount) : fmtDecimal(amount)}';
 }
 
 class _StatCard extends StatelessWidget {
@@ -7056,7 +7064,7 @@ class _PayoutRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$currency ${amount.toStringAsFixed(2)}',
+                  _formatMoney(amount, currency),
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,

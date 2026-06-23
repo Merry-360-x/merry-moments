@@ -963,27 +963,38 @@ class _HeroRevenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF121212), Color(0xFF1A1A2E)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF121212).withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        border: Border.all(color: isDark ? const Color(0xFF38383A) : const Color(0xFFE8E8E8)),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Stack(
         children: [
-          Positioned(right: -24, top: -24, child: _decoCircle(140, 0.04)),
-          Positioned(right: 32, bottom: -20, child: _decoCircle(80, 0.08)),
+          Positioned(
+            left: 0, right: 0, top: 0,
+            height: 4,
+            child: Container(
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFF385C), Color(0xFFFC642D)],
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: Column(
@@ -991,25 +1002,25 @@ class _HeroRevenueCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _badge(Icons.trending_up_rounded, 'Revenue', const Color(0xFF1DB954)),
+                    _badge(Icons.trending_up_rounded, 'Revenue', const Color(0xFF1DB954), isDark),
                     const Spacer(),
-                    _pillBadge('${_fmtShort(totalBookings)} bookings', AppColors.rausch),
+                    _pillBadge('${_fmtShort(totalBookings)} bookings', AppColors.rausch, isDark),
                   ],
                 ),
                 const SizedBox(height: 18),
-                _label('Net Revenue'),
+                _label('Net Revenue', isDark),
                 const SizedBox(height: 2),
                 Text(
                   'RWF ${_fmtNum(netRevenue)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 36, height: 0.95, fontWeight: FontWeight.w900,
-                    letterSpacing: -1.0, color: Colors.white,
+                    letterSpacing: -1.0, color: isDark ? Colors.white : const Color(0xFF121212),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Gross RWF ${_fmtNum(totalRevenue)}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF6B7280) : const Color(0xFF767676)),
                 ),
                 if (barTotal > 0) ...[
                   const SizedBox(height: 16),
@@ -1023,11 +1034,11 @@ class _HeroRevenueCard extends StatelessWidget {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(child: _heroPill(dot: const Color(0xFF1DB954), label: 'Platform', value: 'RWF ${_fmtNum(platformEarnings)}')),
+                      Expanded(child: _heroPill(dot: const Color(0xFF1DB954), label: 'Platform', value: 'RWF ${_fmtNum(platformEarnings)}', isDark: isDark)),
                       const SizedBox(width: 8),
-                      Expanded(child: _heroPill(dot: AppColors.rausch, label: 'PawaPay', value: 'RWF ${_fmtNum(pawaPayFees)}')),
+                      Expanded(child: _heroPill(dot: AppColors.rausch, label: 'PawaPay', value: 'RWF ${_fmtNum(pawaPayFees)}', isDark: isDark)),
                       const SizedBox(width: 8),
-                      Expanded(child: _heroPill(dot: const Color(0xFF6C63FF), label: 'Host payout', value: 'RWF ${_fmtNum(hostEarnings)}')),
+                      Expanded(child: _heroPill(dot: const Color(0xFF6C63FF), label: 'Host payout', value: 'RWF ${_fmtNum(hostEarnings)}', isDark: isDark)),
                     ],
                   ),
                 ],
@@ -1039,15 +1050,7 @@ class _HeroRevenueCard extends StatelessWidget {
     );
   }
 
-  Widget _decoCircle(double size, double opacity) => Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.white.withValues(alpha: opacity),
-    ),
-  );
-
-  Widget _badge(IconData icon, String text, Color color) => Container(
+  Widget _badge(IconData icon, String text, Color color, bool isDark) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.15),
@@ -1058,23 +1061,23 @@ class _HeroRevenueCard extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: color),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+        Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF222222))),
       ],
     ),
   );
 
-  Widget _pillBadge(String text, Color color) => Container(
+  Widget _pillBadge(String text, Color color, bool isDark) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(20),
     ),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF222222))),
   );
 
-  Widget _label(String text) => Text(
+  Widget _label(String text, bool isDark) => Text(
     text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF6B7280), letterSpacing: 0.5),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? const Color(0xFF6B7280) : const Color(0xFF767676), letterSpacing: 0.5),
   );
 
   Widget _proportionBar({required List<_BarSegment> segments}) => ClipRRect(
@@ -1090,12 +1093,12 @@ class _HeroRevenueCard extends StatelessWidget {
     ),
   );
 
-  Widget _heroPill({required Color dot, required String label, required String value}) => Container(
+  Widget _heroPill({required Color dot, required String label, required String value, required bool isDark}) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.07),
+      color: isDark ? Colors.white.withValues(alpha: 0.07) : const Color(0xFFF7F7F7),
       borderRadius: BorderRadius.circular(11),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFEBEBEB)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1104,12 +1107,12 @@ class _HeroRevenueCard extends StatelessWidget {
           children: [
             Container(width: 6, height: 6, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
             const SizedBox(width: 5),
-            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF9CA3AF))),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF767676))),
           ],
         ),
         const SizedBox(height: 4),
         Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isDark ? Colors.white : const Color(0xFF222222))),
       ],
     ),
   );

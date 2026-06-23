@@ -842,6 +842,7 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
   Widget build(BuildContext context) {
     final height = 180.0;
     final radius = widget.fullWidth ? 5.0 : (widget.isTablet ? 20.0 : 16.0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(
@@ -871,17 +872,22 @@ class _HeroVideoSectionState extends State<_HeroVideoSection> {
                   borderRadius: BorderRadius.circular(radius),
                 ),
               ),
-            // Gradient overlay
+            // Gradient overlay — blends into page background
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(radius),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.05),
-                    Colors.black.withValues(alpha: 0.55),
-                  ],
+                  colors: isDark
+                      ? [
+                          const Color(0xFF1C1C1E).withValues(alpha: 0.0),
+                          const Color(0xFF1C1C1E).withValues(alpha: 0.6),
+                        ]
+                      : [
+                          Colors.black.withValues(alpha: 0.05),
+                          Colors.black.withValues(alpha: 0.55),
+                        ],
                 ),
               ),
             ),
@@ -1065,16 +1071,16 @@ class _ExploreMomoBottomSheetState extends State<_ExploreMomoBottomSheet> {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final titleColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final titleColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF1A1A1A);
     final subtitleColor = isDark
-        ? const Color(0xFFB0B0B0)
+        ? const Color(0xFF8E8E93)
         : const Color(0xFF666666);
     final handleColor = isDark
-        ? const Color(0xFF48484A)
+        ? const Color(0xFF38383A)
         : const Color(0xFFDDDDDD);
     final cardBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF8F8F8);
     final cardBorder = isDark
-        ? const Color(0xFF3A3A3C)
+        ? const Color(0xFF38383A)
         : const Color(0xFFE8E8E8);
 
     return Container(
@@ -1415,8 +1421,8 @@ class _CityStaySection extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.black,
                     ),
                   ),
@@ -1513,7 +1519,7 @@ class _CityStaysSheetState extends State<_CityStaysSheet> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             l.staysInCity(widget.city),
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
           ),
         ),
         GridView.builder(
@@ -1880,13 +1886,15 @@ class _CategoryChips extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final inactiveChipColor = isDark
-        ? const Color(0xFF1C1C1E)
+        ? const Color(0xFF2C2C2E)
         : const Color(0xFFF0F0F3);
-    final activeChipColor = AppColors.black;
+    final activeChipColor = isDark
+        ? const Color(0xFF3A3A3C)
+        : const Color(0xFF222222);
     final inactiveTextColor = isDark
-        ? const Color(0xFFD2DAE7)
+        ? const Color(0xFF8E8E93)
         : const Color(0xFF565660);
-    final activeTextColor = AppColors.white;
+    final activeTextColor = const Color(0xFFFFFFFF);
     final chips = [l.stays, l.tours, l.cars, l.events];
     return SizedBox(
       height: isTablet ? 44 : 34,

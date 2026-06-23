@@ -411,9 +411,9 @@ class _GuestInfoSheetState extends State<_GuestInfoSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final label = isDark ? const Color(0xFFEFF3FA) : const Color(0xFF1A1A1A);
-    final hint = isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF);
-    final border = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB);
+    final label = isDark ? const Color(0xFFEBEBF5) : const Color(0xFF1A1A1A);
+    final hint = isDark ? const Color(0xFF8E8E93) : const Color(0xFF9CA3AF);
+    final border = isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB);
 
     return Padding(
       padding: EdgeInsets.only(

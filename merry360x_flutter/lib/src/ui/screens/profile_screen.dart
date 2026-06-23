@@ -198,9 +198,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final cardDecoration = BoxDecoration(
-      color: isDark ? const Color(0xFF1C1C1E) : AppColors.surface,
+      color: isDark ? const Color(0xFF2C2C2E) : AppColors.surface,
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: AppColors.border.withValues(alpha: isDark ? 0.86 : 1.0)),
+      border: Border.all(color: AppColors.border),
       boxShadow: [
         BoxShadow(
           color: isDark ? Colors.transparent : const Color(0x0C000000),
@@ -372,30 +372,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark
-                            ? const [Color(0xFF6B1D2E), Color(0xFF3A1B26)]
-                            : const [AppColors.rausch, Color(0xFFFF8A70)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
+                      color: isDark ? const Color(0xFF2C2C2E) : AppColors.rausch,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.stars_rounded, color: Colors.white, size: 20),
+                        Icon(
+                          Icons.stars_rounded,
+                          color: isDark ? AppColors.rausch : Colors.white,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '$_loyaltyPoints loyalty points',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFFFFFFFF) : Colors.white,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        Text(l.earnMore, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(
+                          l.earnMore,
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFF8E8E93) : Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -618,14 +622,14 @@ class _ThemeModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedBg = isDark ? AppColors.rausch.withValues(alpha: 0.25) : AppColors.rausch.withValues(alpha: 0.12);
-    final unselectedBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF5F5F7);
+    final selectedBg = isDark ? const Color(0xFF2C2C2E) : AppColors.rausch.withValues(alpha: 0.12);
+    final unselectedBg = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF5F5F7);
     final selectedBorder = AppColors.rausch;
     final unselectedBorder = isDark ? const Color(0xFF38383A) : const Color(0xFFE0E0E0);
     final selectedIcon = AppColors.rausch;
-    final unselectedIcon = isDark ? Colors.white54 : Colors.black45;
-    final selectedText = isDark ? Colors.white : Colors.black87;
-    final unselectedText = isDark ? Colors.white60 : Colors.black54;
+    final unselectedIcon = isDark ? const Color(0xFF8E8E93) : Colors.black45;
+    final selectedText = isDark ? const Color(0xFFFFFFFF) : Colors.black87;
+    final unselectedText = isDark ? const Color(0xFF8E8E93) : Colors.black54;
 
     return Expanded(
       child: GestureDetector(
@@ -917,16 +921,9 @@ class _QuickAccessSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : AppColors.surface,
+        color: isDark ? const Color(0xFF2C2C2E) : AppColors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border.withValues(alpha: isDark ? 0.86 : 1.0)),
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? Colors.transparent : const Color(0x0C000000),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1075,8 +1072,8 @@ class _QuickAccessTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tileBackground = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8FA);
-    final tileBorder = isDark ? const Color(0xFF2A3342) : const Color(0xFFECECF1);
+    final tileBackground = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF8F8FA);
+    final tileBorder = isDark ? const Color(0xFF38383A) : const Color(0xFFECECF1);
     final iconBackground = accentColor.withValues(alpha: isDark ? 0.22 : 0.10);
     final iconBorder = accentColor.withValues(alpha: isDark ? 0.45 : 0.20);
 
@@ -1091,7 +1088,6 @@ class _QuickAccessTile extends StatelessWidget {
           color: tileBackground,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: tileBorder),
-          boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1280,7 +1276,6 @@ class _NotificationSettingsTileState extends State<_NotificationSettingsTile> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -1333,7 +1328,6 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

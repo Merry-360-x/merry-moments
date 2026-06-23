@@ -3,7 +3,7 @@ SELECT cron.schedule(
   'hourly-reminders',
   '0 * * * *',
   $$
-  SELECT extensions.net_http_post(
+  SELECT net.http_post(
     url := 'https://uwgiostcetoxotfnulfm.supabase.co/functions/v1/cron-reminders',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
@@ -12,7 +12,9 @@ SELECT cron.schedule(
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
       )
     ),
-    body := '{}'
+    body := '{}'::jsonb,
+    params := '{}'::jsonb,
+    timeout_milliseconds := 5000
   );
   $$
 );

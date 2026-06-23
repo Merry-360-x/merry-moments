@@ -644,6 +644,26 @@ class AppDatabase {
     }
   }
 
+  Future<List<Map<String, String>>> fetchBookedDateRanges(String listingId) async {
+    try {
+      final data = await _sb
+          .from('bookings')
+          .select('check_in, check_out')
+          .eq('property_id', listingId)
+          .inFilter('status', ['confirmed', 'pending']);
+      final ranges = <Map<String, String>>[];
+      for (final row in data) {
+        final checkIn = row['check_in']?.toString();
+        final checkOut = row['check_out']?.toString();
+        if (checkIn == null || checkOut == null) continue;
+        ranges.add({'start': checkIn, 'end': checkOut});
+      }
+      return ranges;
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ── Auth helpers ──
 
   Future<void> forgotPassword(String email) async {
@@ -1283,7 +1303,7 @@ class AppDatabase {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('*, properties(title, price_per_night, currency)')
+              .select('*, properties(title, price_per_night, currency, main_image, images)')
               .eq('booking_type', 'property')
               .inFilter('property_id', propertyIds)
               .order('created_at', ascending: false),
@@ -1293,7 +1313,7 @@ class AppDatabase {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('*, tour_packages(title, price_per_adult, currency)')
+              .select('*, tour_packages(title, price_per_adult, currency, main_image, images)')
               .eq('booking_type', 'tour')
               .inFilter('tour_id', allTourIds)
               .order('created_at', ascending: false),
@@ -1303,7 +1323,7 @@ class AppDatabase {
         bookingQueries.add(
           _sb
               .from('bookings')
-              .select('*, transport_vehicles(title, currency)')
+              .select('*, transport_vehicles(title, currency, main_image, images)')
               .eq('booking_type', 'transport')
               .inFilter('transport_id', transportIds)
               .order('created_at', ascending: false),
@@ -1380,10 +1400,26 @@ class AppDatabase {
             : (row['total_price'] as num?)?.toDouble();
         final currency = checkout?['currency'] ?? row['currency'];
 
+        final mainImage = switch (bookingType) {
+          'property' => property?['main_image']?.toString(),
+          'tour' => tourPackage?['main_image']?.toString(),
+          'transport' => transport?['main_image']?.toString(),
+          _ => null,
+        } ?? row['main_image']?.toString() ?? '';
+
+        final images = switch (bookingType) {
+          'property' => property?['images'],
+          'tour' => tourPackage?['images'],
+          'transport' => transport?['images'],
+          _ => null,
+        } ?? row['images'];
+
         return {
           ...row,
           'listing_title': listingTitle,
           'item_title': listingTitle,
+          'main_image': mainImage,
+          'images': images,
           'guest_name': row['guest_name'] ?? guestProfile?['full_name'],
           'guest_email': row['guest_email'] ?? guestProfile?['email'],
           'guest_phone': row['guest_phone'] ?? guestProfile?['phone'],

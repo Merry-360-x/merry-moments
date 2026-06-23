@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
-
 class AppNotification {
   final String id;
   final String type;
@@ -62,6 +60,13 @@ class NotificationService extends ChangeNotifier {
   bool _loading = false;
   RealtimeChannel? _realtimeSub;
 
+  /// Stream controller that emits new notifications in real time
+  /// for the in-app banner overlay widget.
+  final StreamController<AppNotification> _onNotification =
+      StreamController<AppNotification>.broadcast();
+
+  Stream<AppNotification> get onNotification => _onNotification.stream;
+
   List<AppNotification> get notifications => List.unmodifiable(_notifications);
   int get unreadCount => _unreadCount;
   bool get loading => _loading;
@@ -75,6 +80,7 @@ class NotificationService extends ChangeNotifier {
   @override
   void dispose() {
     _realtimeSub?.unsubscribe();
+    _onNotification.close();
     super.dispose();
   }
 
@@ -90,7 +96,11 @@ class NotificationService extends ChangeNotifier {
             column: 'user_id',
             value: userId,
           ),
-          callback: (_) {
+          callback: (payload) {
+            // Emit the new notification for in-app banner
+            final newNotif = AppNotification.fromMap(payload.newRecord);
+            _onNotification.add(newNotif);
+            // Reload full list
             loadNotifications(userId: userId);
           },
         )
@@ -161,6 +171,21 @@ class NotificationService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('[NotificationService] markAllAsRead failed: $e');
+    }
+  }
+
+  Future<void> deleteNotification({required String notificationId}) async {
+    try {
+      final userId = _sb.auth.currentUser?.id ?? '';
+      await _sb.rpc('delete_notification', params: {
+        'p_id': notificationId,
+        'p_user_id': userId,
+      });
+      _notifications.removeWhere((n) => n.id == notificationId);
+      _unreadCount = _notifications.where((n) => !n.isRead).length;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[NotificationService] deleteNotification failed: $e');
     }
   }
 }

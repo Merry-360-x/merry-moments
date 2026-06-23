@@ -17,14 +17,16 @@ BEGIN
   IF edge_url IS NULL OR edge_url = '/functions/v1/send-notification' THEN
     edge_url := 'https://uwgiostcetoxotfnulfm.supabase.co/functions/v1/send-notification';
   END IF;
-  PERFORM extensions.net_http_post(
+  PERFORM net.http_post(
     url := edge_url,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || COALESCE(anon_key, current_setting('app.settings.supabase_anon_key', TRUE)),
       'apikey', COALESCE(anon_key, current_setting('app.settings.supabase_anon_key', TRUE))
     ),
-    body := payload::text
+    body := payload,
+    params := '{}'::jsonb,
+    timeout_milliseconds := 5000
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

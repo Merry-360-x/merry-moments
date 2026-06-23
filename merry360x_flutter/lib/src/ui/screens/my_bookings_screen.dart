@@ -6,6 +6,7 @@ import '../utils/app_snackbar.dart';
 import '../../session_controller.dart';
 import 'post_booking_center_screen.dart';
 import '../../../l10n/app_localizations.dart';
+import 'explore_screen.dart' show resolveListingImageUrl;
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key, required this.session});
@@ -126,6 +127,23 @@ class _BookingList extends StatelessWidget {
   }
 }
 
+String? _resolveBookingImage(Map<String, dynamic> booking, List<Map<String, dynamic>> listings) {
+  final direct = booking['main_image']?.toString();
+  if (direct != null && direct.isNotEmpty) return direct;
+
+  final ref = (booking['property_id'] ?? booking['tour_id'] ?? booking['transport_id'] ?? '').toString();
+  if (ref.isEmpty) return null;
+
+  final type = (booking['booking_type'] ?? '').toString();
+  final matched = listings.firstWhere(
+    (l) => l['id']?.toString() == ref && (type.isEmpty || l['item_type']?.toString() == type),
+    orElse: () => const {},
+  );
+  if (matched.isEmpty) return null;
+
+  return resolveListingImageUrl(matched);
+}
+
 class _BookingTile extends StatelessWidget {
   const _BookingTile({required this.booking, required this.session, required this.isPast, required this.onRefresh});
   final Map<String, dynamic> booking;
@@ -136,8 +154,9 @@ class _BookingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final listings = session.payload?.homeListings ?? const <Map<String, dynamic>>[];
+    final imageUrl = _resolveBookingImage(booking, listings);
     final title = (booking['title'] ?? 'Booking').toString();
-    final mainImage = booking['main_image']?.toString() ?? '';
     final checkIn = booking['check_in']?.toString() ?? '';
     final checkOut = booking['check_out']?.toString() ?? '';
     final amount = (booking['total_amount'] as num?)?.toDouble() ??
@@ -178,10 +197,10 @@ class _BookingTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: 56, height: 42,
-                child: mainImage.isNotEmpty
-                    ? CachedNetworkImage(imageUrl: mainImage, fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _imagePlaceholder,
-                        placeholder: (_, __) => const SizedBox())
+                child: imageUrl != null
+                    ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+                        errorWidget: (_, _, _) => _imagePlaceholder,
+                        placeholder: (_, _) => _imagePlaceholder)
                     : _imagePlaceholder,
               ),
             ),

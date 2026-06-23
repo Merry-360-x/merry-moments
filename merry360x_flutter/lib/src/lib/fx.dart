@@ -17,12 +17,7 @@ const Map<String, double> kFxRates = {
   'AED': 396.323917,
 };
 
-/// Currencies that display with 0 decimal places.
-const Set<String> _zeroDec = {'RWF', 'TZS', 'KES', 'UGX', 'BIF'};
-
-/// Returns the number of decimal places standard for [currency].
-int getCurrencyDecimals(String currency) =>
-    _zeroDec.contains(currency.toUpperCase()) ? 0 : 2;
+int getCurrencyDecimals(String _) => 0;
 
 /// Convert [amount] from [from] currency to [to] currency via RWF,
 /// using the provided [rates] map (defaults to [kFxRates]).

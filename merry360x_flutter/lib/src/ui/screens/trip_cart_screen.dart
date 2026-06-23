@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../app.dart';
 import '../../../l10n/app_localizations.dart';
@@ -131,7 +132,7 @@ class _TripCartScreenState extends State<TripCartScreen> {
                   subtitle: l.exploreToAdd,
                 )
               else ...[
-                ...enriched.map((ci) => _CartItemTile(cartItem: ci, session: session)),
+                ...enriched.map((ci) => _CartItemTile(cartItem: ci, session: session, listings: listings)),
                 const SizedBox(height: 8),
                 _TotalBar(
                   items: enriched,
@@ -193,11 +194,29 @@ class _TripCartScreenState extends State<TripCartScreen> {
   }
 }
 
+String? _resolveCartImage(Map<String, dynamic> cartItem, List<Map<String, dynamic>> listings) {
+  final direct = resolveListingImageUrl(cartItem);
+  if (direct != null) return direct;
+
+  final ref = (cartItem['reference_id'] ?? cartItem['property_id'] ?? cartItem['tour_id'] ?? cartItem['transport_id'] ?? '').toString();
+  if (ref.isEmpty) return null;
+
+  final type = (cartItem['item_type'] ?? 'property').toString();
+  final matched = listings.firstWhere(
+    (l) => l['id']?.toString() == ref && (type.isEmpty || l['item_type']?.toString() == type),
+    orElse: () => const {},
+  );
+  if (matched.isEmpty) return null;
+
+  return resolveListingImageUrl(matched);
+}
+
 class _CartItemTile extends StatelessWidget {
-  const _CartItemTile({required this.cartItem, required this.session});
+  const _CartItemTile({required this.cartItem, required this.session, required this.listings});
 
   final Map<String, dynamic> cartItem;
   final SessionController session;
+  final List<Map<String, dynamic>> listings;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +224,7 @@ class _CartItemTile extends StatelessWidget {
     final type = (cartItem['item_type'] ?? 'property').toString();
     final quantity = int.tryParse('${cartItem['quantity'] ?? 1}') ?? 1;
     final id = (cartItem['id'] ?? '').toString();
-    final imageUrl = resolveListingImageUrl(cartItem);
+    final imageUrl = _resolveCartImage(cartItem, listings);
 
     String priceStr;
     switch (type) {
@@ -263,11 +282,12 @@ class _CartItemTile extends StatelessWidget {
                 width: 90,
                 height: 90,
                 child: imageUrl != null
-                    ? Image.network(imageUrl, fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
+                    ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+                        errorWidget: (_, _, _) => Container(
                           color: AppColors.linnen,
                           child: const Icon(Icons.image_outlined, color: AppColors.hackberry),
-                        ))
+                        ),
+                        placeholder: (_, _) => _imagePlaceholder)
                     : Container(
                         color: AppColors.linnen,
                         child: const Icon(Icons.image_outlined, color: AppColors.hackberry),
@@ -318,6 +338,11 @@ class _CartItemTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget get _imagePlaceholder => Container(
+    color: AppColors.linnen,
+    child: const Icon(Icons.image_outlined, size: 20, color: AppColors.hackberry),
+  );
 }
 
 class _TotalBar extends StatefulWidget {

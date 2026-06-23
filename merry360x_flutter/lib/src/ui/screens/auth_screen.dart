@@ -853,7 +853,7 @@ class _AuthScreenState extends State<AuthScreen>
   InputDecoration _inputDecoration(String label) {
     final isDark = AppColors.effectiveBrightness == Brightness.dark;
     final fill = isDark ? const Color(0xFF1C1C1E) : AppColors.surfaceSubtle;
-    final border = isDark ? const Color(0xFF2E2E2E) : const Color(0xFFD4D4D8);
+    final border = isDark ? const Color(0xFF38383A) : const Color(0xFFD4D4D8);
 
     return InputDecoration(
       labelText: label,
@@ -940,7 +940,7 @@ class _SocialSquareButton extends StatelessWidget {
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? const Color(0xFF2E2E2E) : AppColors.border,
+              color: isDark ? const Color(0xFF38383A) : AppColors.border,
               width: 1.2,
             ),
           ),

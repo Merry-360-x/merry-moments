@@ -412,6 +412,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   _SubmitState _submitState = _SubmitState.idle;
   int _resetCounter = 0;
+  String? _slideErrorText;
   String? _bookingId;
   String? _paymentMethod; // 'mobile_money', 'card', 'bank_transfer'
 
@@ -450,6 +451,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Auto-select first method
     _selectedMethod = _kPayMethods.first;
     _phoneCtrl.clear();
+    // Listen for text edits to clear slide error
+    _nameCtrl.addListener(_onFieldChanged);
+    _phoneCtrl.addListener(_onFieldChanged);
     // Detect user region
     _detectRegion();
     // Load discount passed from trip cart
@@ -465,9 +469,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    _nameCtrl.removeListener(_onFieldChanged);
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _notesCtrl.dispose();
+    _phoneCtrl.removeListener(_onFieldChanged);
     _phoneCtrl.dispose();
     _promoCtrl.dispose();
     super.dispose();
@@ -944,19 +950,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _confirmAndPay() async {
     HapticFeedback.mediumImpact();
-    setState(() => _submitState = _SubmitState.processing);
+    String? validationError;
+    if (!widget.session.isAuthenticated) {
+      final name = _nameCtrl.text.trim();
+      if (name.isEmpty) {
+        validationError = _l.enterFullName;
+      }
+    }
+    String? validationPhone;
+    if (validationError == null && _payTab == 0) {
+      if (_selectedMethod == null) {
+        validationError = _l.selectMomoProvider;
+      } else {
+        final localPhone = _phoneCtrl.text.trim();
+        validationPhone = _normalizedMobileMoneyPhone(localPhone);
+        if (localPhone.isEmpty || validationPhone == null || validationPhone.isEmpty) {
+          validationError = _l.enterMomoNumber;
+        }
+      }
+    }
+    if (validationError != null) {
+      setState(() {
+        _submitState = _SubmitState.idle;
+        _slideErrorText = validationError;
+      });
+      return;
+    }
+    setState(() {
+      _slideErrorText = null;
+      _submitState = _SubmitState.processing;
+    });
     try {
       // For guest users, persist form details into the session so the auth
       // guard in SessionController.createBooking() passes.
       if (!widget.session.isAuthenticated) {
-        final name = _nameCtrl.text.trim();
-        if (name.isEmpty) {
-          _showSnack(_l.enterFullName);
-          setState(() => _submitState = _SubmitState.idle);
-          return;
-        }
         widget.session.setGuestInfo(
-          name: name,
+          name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim(),
         );
@@ -964,21 +993,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (_payTab == 0) {
         // ── Mobile Money (PawaPay) ──
-        if (_selectedMethod == null) {
-          _showSnack(_l.selectMomoProvider);
-          setState(() => _submitState = _SubmitState.idle);
-          return;
-        }
-        final localPhone = _phoneCtrl.text.trim();
-        final phone = _normalizedMobileMoneyPhone(localPhone);
-        if (localPhone.isEmpty || phone.isEmpty) {
-          _showSnack(_l.enterMomoNumber);
-          setState(() => _submitState = _SubmitState.idle);
-          return;
-        }
+        final phone = validationPhone ?? _normalizedMobileMoneyPhone(_phoneCtrl.text);
 
         final api = AppDatabase();
-        final checkoutPhone = _normalizedMobileMoneyPhone(_phoneCtrl.text);
+        final checkoutPhone = phone;
         final allItems = widget.allCartItems;
 
         // Build per-item list with correct financials for each service type.
@@ -1121,7 +1139,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ? 'Payment was not initiated. The payment provider returned an empty status.'
                   : 'Payment failed with status: $pawaStatus. Please try again.');
           _showSnack(msg);
-          setState(() => _submitState = _SubmitState.idle);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = msg;
+          });
           return;
         }
         _paymentMethod = 'mobile_money';
@@ -1159,6 +1180,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _showPawaPayPendingDialog(checkoutId, phone);
           setState(() {
             _bookingId = checkoutId;
+            _slideErrorText = 'Payment is pending. Confirm on your phone to complete.';
           });
         }
       } else if (_payTab == 1) {
@@ -1333,13 +1355,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _step = 2;
         });
       }
-    } catch (e) {
-      _showSnack(
-        'Booking failed: ${e.toString().replaceAll('Exception: ', '')}',
-      );
-    } finally {
-      if (mounted) setState(() => _submitState = _SubmitState.idle);
-    }
+      } catch (e) {
+        final msg = 'Booking failed: ${e.toString().replaceAll('Exception: ', '')}';
+        _showSnack(msg);
+        setState(() => _slideErrorText = msg);
+      } finally {
+        if (mounted) {
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _resetCounter++;
+          });
+        }
+      }
   }
 
   Future<String?> _showPaymentWebView(String url) {
@@ -1355,6 +1382,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: _PaymentWebSheet(url: url),
       ),
     );
+  }
+
+  void _onFieldChanged() {
+    if (_slideErrorText != null) {
+      setState(() => _slideErrorText = null);
+    }
   }
 
   void _showSnack(String msg) => AppSnackBar.error(context, msg);
@@ -1578,6 +1611,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     _submitState == _SubmitState.success,
                 isProcessing: _submitState == _SubmitState.processing,
                 showSuccess: _submitState == _SubmitState.success,
+                hasError: _slideErrorText != null,
+                errorText: _slideErrorText,
               ),
             ],
           ),
@@ -2196,23 +2231,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Row(
             children: [
               if (_showMobileMoney)
-                _PayTabButton(
-                  label: _l.mobileMoney,
-                  assetPath: 'assets/payment/mtn-momo.png',
-                  selected: _payTab == 0,
-                  onTap: () => setState(() => _payTab = 0),
-                ),
+              _PayTabButton(
+                label: _l.mobileMoney,
+                assetPath: 'assets/payment/mtn-momo.png',
+                selected: _payTab == 0,
+                onTap: () => setState(() {
+                  _payTab = 0;
+                  _slideErrorText = null;
+                }),
+              ),
               _PayTabButton(
                 label: _l.card,
                 assetPath: 'assets/payment/card.png',
                 selected: _payTab == 1,
-                onTap: () => setState(() => _payTab = 1),
+                onTap: () => setState(() {
+                  _payTab = 1;
+                  _slideErrorText = null;
+                }),
               ),
               _PayTabButton(
                 label: _l.bankTransfer,
                 assetPath: 'assets/payment/bank-transfer.png',
                 selected: _payTab == 2,
-                onTap: () => setState(() => _payTab = 2),
+                onTap: () => setState(() {
+                  _payTab = 2;
+                  _slideErrorText = null;
+                }),
               ),
             ],
           ),
@@ -2267,6 +2311,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     setState(() {
                       _selectedMethod = m;
                       _phoneCtrl.clear();
+                      _slideErrorText = null;
                     });
                   },
                 ),
@@ -2329,7 +2374,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ? const Color(0xFF1C1C1E)
         : const Color(0xFFF8F9FF);
     final cardInfoBorder = isDark
-        ? const Color(0xFF2A3342)
+        ? const Color(0xFF38383A)
         : const Color(0xFFDDE2F5);
     final cardInfoText = isDark
         ? const Color(0xFFD8E1F2)

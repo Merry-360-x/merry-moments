@@ -27,7 +27,6 @@ class PushNotificationService {
 
   bool _initialized = false;
   bool _firebaseReady = false;
-  bool _apnsPendingLogged = false;
   String? _cachedToken;
   StreamSubscription<String>? _tokenRefreshSub;
   StreamSubscription<RemoteMessage>? _foregroundSub;
@@ -117,39 +116,6 @@ class PushNotificationService {
         ?.createNotificationChannel(channel);
   }
 
-  void _showForegroundNotification(RemoteMessage message) {
-    final notification = message.notification;
-    if (notification == null) return;
-
-    final title = notification.title ?? '';
-    final body = notification.body ?? '';
-    final type = message.data['type'] ?? 'general';
-
-    if (title.isEmpty && body.isEmpty) return;
-
-    _localNotifications.show(
-      message.hashCode,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _kAndroidChannelId,
-          _kAndroidChannelName,
-          channelDescription: _kAndroidChannelDesc,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: type,
-    );
-  }
-
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -157,10 +123,11 @@ class PushNotificationService {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       final messaging = FirebaseMessaging.instance;
+      // Suppress system push in foreground — we show a custom in-app banner instead
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
-        sound: true,
+        sound: false,
       );
 
       await _initLocalNotifications();
@@ -172,14 +139,10 @@ class PushNotificationService {
         sound: true,
       );
 
-      // Foreground messages — show a local notification on Android
-      // (iOS is handled natively via setForegroundNotificationPresentationOptions)
+      // Foreground messages — suppress system push, emit for in-app banner
       _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
-        if (!_isIos) {
-          _showForegroundNotification(message);
-        }
-        // Emit tap event in case the app wants to react in-app too
-        // (not auto-navigating here — only on explicit tap)
+        // Emit data so the in-app banner overlay can show it
+        onNotificationTap.add(Map<String, String>.from(message.data));
       });
 
       // Background → foreground tap

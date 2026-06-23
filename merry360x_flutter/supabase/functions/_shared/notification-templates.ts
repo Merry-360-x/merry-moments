@@ -43,6 +43,41 @@ export interface MessageInfo {
   sender_name?: string
 }
 
+export interface ChargeInfo {
+  id: string
+  booking_id: string
+  host_id: string
+  guest_id: string
+  amount: number
+  currency: string
+  reason: string
+  status: string
+}
+
+export interface DisputeInfo {
+  id: string
+  booking_id: string
+  opened_by: string
+  guest_id: string
+  host_id: string
+  reason: string
+}
+
+export interface TicketInfo {
+  id: string
+  user_id: string
+  user_name: string
+  subject: string
+}
+
+export interface PropertyInfo {
+  id: string
+  host_id: string
+  host_name: string
+  title: string
+  location: string
+}
+
 function fmtDate(d: string): string {
   if (!d) return ''
   try {
@@ -51,8 +86,9 @@ function fmtDate(d: string): string {
   } catch { return d }
 }
 
-function formatRWF(amount: number): string {
-  return `RWF ${amount.toLocaleString('en-RW', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+function formatAmount(amount: number, currency: string = 'RWF'): string {
+  const sym = currency === 'RWF' ? 'RWF ' : currency === 'USD' ? '$' : currency + ' '
+  return sym + amount.toLocaleString('en-RW', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
 // ── Guest notification builders ──
@@ -62,18 +98,18 @@ export function bookingRequestSent(booking: BookingInfo, propertyName: string): 
     userId: booking.guest_id!,
     type: 'booking_request_sent',
     title: 'Booking Request Sent',
-    body: `Your booking request for ${propertyName} has been sent. Awaiting host confirmation.`,
+    body: `Your request to book ${propertyName} has been sent to the host. You will be notified once they respond.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function bookingConfirmedByHost(booking: BookingInfo, propertyName: string): NotificationPayload {
+export function bookingConfirmed(booking: BookingInfo, propertyName: string, location: string): NotificationPayload {
   return {
     userId: booking.guest_id!,
     type: 'booking_confirmed',
-    title: 'Booking Confirmed!',
-    body: `${propertyName} is confirmed! Check-in: ${fmtDate(booking.check_in!)}, Check-out: ${fmtDate(booking.check_out!)}.`,
+    title: 'Booking Confirmed 🎉',
+    body: `Your booking for ${propertyName} in ${location} from ${fmtDate(booking.check_in!)} to ${fmtDate(booking.check_out!)} has been confirmed. Get ready for your stay.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
@@ -83,54 +119,65 @@ export function bookingDeclinedByHost(booking: BookingInfo, propertyName: string
   return {
     userId: booking.guest_id!,
     type: 'booking_declined',
-    title: 'Booking Declined',
-    body: `Unfortunately, ${propertyName} declined your booking request. Browse other listings.`,
-    screenRoute: '/my-bookings',
+    title: 'Booking Not Approved',
+    body: `Unfortunately your booking request for ${propertyName} was not approved by the host. Consider exploring similar stays nearby.`,
+    screenRoute: '/explore',
     data: { booking_id: booking.id },
   }
 }
 
-export function bookingCancelledByHost(booking: BookingInfo, propertyName: string): NotificationPayload {
-  return {
-    userId: booking.guest_id!,
-    type: 'booking_cancelled',
-    title: 'Booking Cancelled',
-    body: `Your booking at ${propertyName} was cancelled by the host.`,
-    screenRoute: '/my-bookings',
-    data: { booking_id: booking.id },
-  }
-}
-
-export function paymentSuccessful(booking: BookingInfo, amountRWF: number): NotificationPayload {
+export function paymentSuccessful(booking: BookingInfo, amount: number, currency: string, reference: string): NotificationPayload {
   return {
     userId: booking.guest_id!,
     type: 'payment_success',
-    title: 'Payment Successful',
-    body: `Payment of ${formatRWF(amountRWF)} received. Your booking is confirmed!`,
+    title: 'Payment Successful ✅',
+    body: `Your payment of ${formatAmount(amount, currency)} for booking ${reference} was processed successfully.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function paymentFailed(booking: BookingInfo): NotificationPayload {
+export function paymentFailed(booking: BookingInfo, amount: number, currency: string, propertyName: string): NotificationPayload {
   return {
     userId: booking.guest_id!,
     type: 'payment_failed',
     title: 'Payment Failed',
-    body: `Payment for ${booking.title ?? 'your booking'} failed. Please try again with a different payment method.`,
+    body: `We could not process your payment of ${formatAmount(amount, currency)} for ${propertyName}. Please update your payment method and try again.`,
     screenRoute: `/checkout?booking_id=${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function refundIssued(booking: BookingInfo, amountRWF: number): NotificationPayload {
+export function newChargeAdded(charge: ChargeInfo, booking: BookingInfo): NotificationPayload {
   return {
-    userId: booking.guest_id!,
-    type: 'refund_issued',
-    title: 'Refund Issued',
-    body: `A refund of ${formatRWF(amountRWF)} has been issued for booking at ${booking.title ?? ''}.`,
+    userId: charge.guest_id,
+    type: 'new_charge_added',
+    title: 'New Charge Added',
+    body: `Your host has added an extra charge of ${formatAmount(charge.amount, charge.currency)} to booking ${charge.booking_id}. Tap to review and respond.`,
+    screenRoute: `/post-booking/${booking.id}`,
+    data: { charge_id: charge.id, booking_id: charge.booking_id },
+  }
+}
+
+export function disputeResolvedInFavor(booking: BookingInfo, guestId: string): NotificationPayload {
+  return {
+    userId: guestId,
+    type: 'dispute_resolved',
+    title: 'Dispute Resolved in Your Favor',
+    body: `Your dispute for booking ${booking.id} has been reviewed and resolved. No additional charge will be applied.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
+  }
+}
+
+export function newMessageFromHost(msg: MessageInfo, hostName: string, propertyName: string): NotificationPayload {
+  return {
+    userId: msg.receiver_id,
+    type: 'new_message',
+    title: 'New Message from Your Host',
+    body: `${hostName} sent you a message about your upcoming stay at ${propertyName}.`,
+    screenRoute: `/messages/${msg.booking_id ?? msg.id}`,
+    data: { message_id: msg.id, booking_id: msg.booking_id ?? '' },
   }
 }
 
@@ -138,8 +185,8 @@ export function checkInReminder(booking: BookingInfo, propertyName: string): Not
   return {
     userId: booking.guest_id!,
     type: 'check_in_reminder',
-    title: 'Check-in Tomorrow!',
-    body: `You check into ${propertyName} tomorrow (${fmtDate(booking.check_in!)}). Have a great stay!`,
+    title: 'Check-In Tomorrow 🏠',
+    body: `Reminder: Your stay at ${propertyName} begins tomorrow. Check your booking for host instructions and directions.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
@@ -149,65 +196,54 @@ export function checkOutReminder(booking: BookingInfo, propertyName: string): No
   return {
     userId: booking.guest_id!,
     type: 'check_out_reminder',
-    title: 'Check-out Tomorrow',
-    body: `Check-out from ${propertyName} is tomorrow (${fmtDate(booking.check_out!)}). We hope you enjoyed your stay!`,
+    title: 'Checkout Today',
+    body: `Today is your checkout day from ${propertyName}. Please follow the host's checkout instructions.`,
     screenRoute: `/my-bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function reviewReminder(booking: BookingInfo, propertyName: string): NotificationPayload {
+export function hostLeftReview(booking: BookingInfo, hostName: string, propertyName: string): NotificationPayload {
   return {
     userId: booking.guest_id!,
-    type: 'review_reminder',
-    title: 'How was your stay?',
-    body: `Leave a review for ${propertyName} and help other travelers.`,
+    type: 'host_review_received',
+    title: 'Your Host Left You a Review',
+    body: `${hostName} has reviewed your stay at ${propertyName}. Tap to see what they said and leave your own review.`,
     screenRoute: `/review?booking_id=${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function hostRepliedToReview(review: ReviewInfo, propertyName: string): NotificationPayload {
-  return {
-    userId: review.reviewer_id,
-    type: 'host_review_reply',
-    title: 'Host Replied to Your Review',
-    body: `The host of ${propertyName} replied to your review.`,
-    screenRoute: `/property/${review.booking_id}/reviews`,
-    data: { review_id: review.id, booking_id: review.booking_id },
-  }
-}
-
-export function priceDrop(propertyName: string, userId: string, newPriceRWF: number): NotificationPayload {
+export function priceDropWishlist(propertyName: string, userId: string, newPrice: number, currency: string): NotificationPayload {
   return {
     userId,
     type: 'price_drop',
-    title: 'Price Dropped!',
-    body: `${propertyName} is now ${formatRWF(newPriceRWF)}/night. Check it out before it's booked!`,
+    title: 'Price Drop on Your Wishlist 🔥',
+    body: `${propertyName} in your wishlist just dropped its price to ${formatAmount(newPrice, currency)} per night. Book before it fills up.`,
     screenRoute: '/wishlists',
-    data: {},
+    data: { property_name: propertyName },
   }
 }
 
-export function propertyAvailable(propertyName: string, userId: string): NotificationPayload {
+export function tourStartsSoon(tourName: string, userId: string, bookingId: string): NotificationPayload {
   return {
     userId,
-    type: 'property_available',
-    title: 'Property Available!',
-    body: `Good news! ${propertyName} is now available for your saved dates.`,
-    screenRoute: '/wishlists',
-    data: {},
+    type: 'tour_starts_soon',
+    title: 'Your Tour Starts Soon',
+    body: `${tourName} is coming up in 2 days. Make sure you're prepared and review the meeting point details.`,
+    screenRoute: `/my-bookings/${bookingId}`,
+    data: { booking_id: bookingId },
   }
 }
 
-export function newMessageFromHost(msg: MessageInfo): NotificationPayload {
+export function refundIssued(booking: BookingInfo, amountRWF: number): NotificationPayload {
   return {
-    userId: msg.receiver_id,
-    type: 'new_message',
-    title: `Message from ${msg.sender_name ?? 'Host'}`,
-    body: msg.content?.substring(0, 120) ?? 'You have a new message.',
-    screenRoute: `/messages/${msg.booking_id ?? msg.id}`,
-    data: { message_id: msg.id, booking_id: msg.booking_id ?? '' },
+    userId: booking.guest_id!,
+    type: 'refund_issued',
+    title: 'Refund Issued',
+    body: `A refund of ${formatAmount(amountRWF, 'RWF')} has been issued for booking ${booking.id}.`,
+    screenRoute: `/my-bookings/${booking.id}`,
+    data: { booking_id: booking.id },
   }
 }
 
@@ -217,8 +253,8 @@ export function newBookingRequest(booking: BookingInfo, guestName: string, prope
   return {
     userId: booking.host_id!,
     type: 'new_booking_request',
-    title: 'New Booking Request',
-    body: `${guestName} wants to book ${propertyName} (${fmtDate(booking.check_in!)} → ${fmtDate(booking.check_out!)}).`,
+    title: 'New Booking Request 📥',
+    body: `${guestName} has requested to book ${propertyName} from ${fmtDate(booking.check_in!)} to ${fmtDate(booking.check_out!)}. Respond within 24 hours to avoid auto-decline.`,
     screenRoute: `/host/bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
@@ -228,8 +264,8 @@ export function instantBookingConfirmed(booking: BookingInfo, guestName: string,
   return {
     userId: booking.host_id!,
     type: 'instant_booking_confirmed',
-    title: 'Instant Booking!',
-    body: `${guestName} booked ${propertyName} (${fmtDate(booking.check_in!)} → ${fmtDate(booking.check_out!)}).`,
+    title: 'Instant Booking Received 🎉',
+    body: `${guestName} just instantly booked ${propertyName} from ${fmtDate(booking.check_in!)} to ${fmtDate(booking.check_out!)}. Your calendar has been updated.`,
     screenRoute: `/host/bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
@@ -240,9 +276,130 @@ export function bookingCancelledByGuest(booking: BookingInfo, guestName: string,
     userId: booking.host_id!,
     type: 'booking_cancelled_by_guest',
     title: 'Booking Cancelled',
-    body: `${guestName} cancelled their booking at ${propertyName}.`,
-    screenRoute: '/host/bookings',
+    body: `${guestName} has cancelled their booking for ${propertyName} from ${fmtDate(booking.check_in!)} to ${fmtDate(booking.check_out!)}. Your calendar is now available for those dates.`,
+    screenRoute: '/host/calendar',
     data: { booking_id: booking.id },
+  }
+}
+
+export function paymentReceived(booking: BookingInfo, amount: number, currency: string): NotificationPayload {
+  return {
+    userId: booking.host_id!,
+    type: 'payment_received',
+    title: 'Payment Received 💰',
+    body: `You received a payment of ${formatAmount(amount, currency)} for booking ${booking.id} at ${booking.title}.`,
+    screenRoute: '/host/earnings',
+    data: { booking_id: booking.id },
+  }
+}
+
+export function guestCheckedIn(booking: BookingInfo, guestName: string, propertyName: string): NotificationPayload {
+  return {
+    userId: booking.host_id!,
+    type: 'guest_checked_in',
+    title: 'Guest Checked In',
+    body: `${guestName} has checked into ${propertyName}. Their stay runs until ${fmtDate(booking.check_out!)}.`,
+    screenRoute: `/host/bookings/${booking.id}`,
+    data: { booking_id: booking.id },
+  }
+}
+
+export function guestCheckedOut(booking: BookingInfo, guestName: string, propertyName: string): NotificationPayload {
+  return {
+    userId: booking.host_id!,
+    type: 'guest_checked_out',
+    title: 'Guest Checked Out',
+    body: `${guestName} has checked out of ${propertyName}. The property is now available. Don't forget to leave a review.`,
+    screenRoute: `/host/reviews/${booking.id}`,
+    data: { booking_id: booking.id },
+  }
+}
+
+export function newReviewReceived(review: ReviewInfo, guestName: string, propertyName: string): NotificationPayload {
+  return {
+    userId: review.host_id,
+    type: 'new_review',
+    title: 'New Guest Review ⭐',
+    body: `${guestName} left a ${review.rating}-star review for ${propertyName}. Tap to read it and respond.`,
+    screenRoute: `/host/reviews`,
+    data: { review_id: review.id, booking_id: review.booking_id, rating: review.rating.toString() },
+  }
+}
+
+export function extraChargePaid(charge: ChargeInfo, booking: BookingInfo): NotificationPayload {
+  return {
+    userId: charge.host_id,
+    type: 'extra_charge_paid',
+    title: 'Extra Charge Paid',
+    body: `${booking.guest_name ?? 'The guest'} has paid the extra charge of ${formatAmount(charge.amount, charge.currency)} for booking ${charge.booking_id}.`,
+    screenRoute: `/host/bookings/${booking.id}`,
+    data: { charge_id: charge.id, booking_id: charge.booking_id },
+  }
+}
+
+export function disputeOpenedByGuest(dispute: DisputeInfo, guestName: string, booking: BookingInfo): NotificationPayload {
+  return {
+    userId: dispute.host_id,
+    type: 'dispute_opened',
+    title: 'Dispute Opened by Guest',
+    body: `${guestName} has opened a dispute on booking ${dispute.booking_id}. Tap to review the claim and respond.`,
+    screenRoute: `/host/disputes/${dispute.id}`,
+    data: { dispute_id: dispute.id, booking_id: dispute.booking_id },
+  }
+}
+
+export function listingApproved(hostId: string, listingName: string): NotificationPayload {
+  return {
+    userId: hostId,
+    type: 'listing_approved',
+    title: 'Your Listing is Live 🚀',
+    body: `${listingName} has been reviewed and approved. It is now visible to guests and available for booking.`,
+    screenRoute: '/host/listings',
+    data: {},
+  }
+}
+
+export function listingRejected(hostId: string, listingName: string): NotificationPayload {
+  return {
+    userId: hostId,
+    type: 'listing_rejected',
+    title: 'Listing Needs Attention',
+    body: `Your listing ${listingName} was not approved. Tap to see the reason and make the required changes before resubmitting.`,
+    screenRoute: '/host/listings',
+    data: {},
+  }
+}
+
+export function payoutSent(hostId: string, amount: number, currency: string): NotificationPayload {
+  return {
+    userId: hostId,
+    type: 'payout_sent',
+    title: 'Payout Sent 💸',
+    body: `A payout of ${formatAmount(amount, currency)} has been sent to your registered account. It may take 1 to 3 business days to arrive.`,
+    screenRoute: '/host/earnings',
+    data: {},
+  }
+}
+
+export function payoutFailed(hostId: string, amount: number, currency: string, reason: string): NotificationPayload {
+  return {
+    userId: hostId,
+    type: 'payout_failed',
+    title: 'Payout Failed',
+    body: `Payout of ${formatAmount(amount, currency)} failed: ${reason}. Update your payout details.`,
+    screenRoute: '/host/payouts',
+    data: {},
+  }
+}
+
+export function newMessageFromGuest(msg: MessageInfo, guestName: string, propertyName: string): NotificationPayload {
+  return {
+    userId: msg.receiver_id,
+    type: 'new_message',
+    title: 'New Message from Guest',
+    body: `${guestName} sent you a message about their upcoming stay at ${propertyName}.`,
+    screenRoute: `/host/messages/${msg.booking_id ?? msg.id}`,
+    data: { message_id: msg.id, booking_id: msg.booking_id ?? '' },
   }
 }
 
@@ -257,80 +414,93 @@ export function guestCheckInReminderHost(booking: BookingInfo, guestName: string
   }
 }
 
-export function guestCheckedOut(booking: BookingInfo, guestName: string, propertyName: string): NotificationPayload {
+// ── Admin notification builders ──
+
+export function newListingReview(property: PropertyInfo): NotificationPayload {
   return {
-    userId: booking.host_id!,
-    type: 'guest_checked_out',
-    title: 'Guest Checked Out',
-    body: `${guestName} checked out of ${propertyName}. Time to prepare for the next guest.`,
-    screenRoute: `/host/bookings/${booking.id}`,
+    userId: '', // filled by caller with all admin user IDs
+    type: 'listing_submitted',
+    title: 'New Listing Awaiting Review',
+    body: `${property.host_name} has submitted ${property.title} in ${property.location} for approval. Review it in the admin dashboard.`,
+    screenRoute: '/admin/listings',
+    data: { property_id: property.id },
+  }
+}
+
+export function newHostRegistered(hostName: string, hostId: string): NotificationPayload {
+  return {
+    userId: '', // filled by caller with all admin user IDs
+    type: 'host_registered',
+    title: 'New Host Registered',
+    body: `${hostName} has completed their host profile and is ready to list properties. Verify their identity documents if required.`,
+    screenRoute: '/admin/users',
+    data: { host_id: hostId },
+  }
+}
+
+export function disputeRequiresAdminReview(dispute: DisputeInfo, guestName: string, hostName: string): NotificationPayload {
+  return {
+    userId: '', // filled by caller with all admin user IDs
+    type: 'dispute_requires_admin',
+    title: 'Dispute Requires Admin Review',
+    body: `A dispute has been opened on booking ${dispute.booking_id} between ${guestName} and ${hostName}. Assign a resolution agent.`,
+    screenRoute: '/admin/disputes',
+    data: { dispute_id: dispute.id, booking_id: dispute.booking_id },
+  }
+}
+
+export function newSupportTicket(ticket: TicketInfo): NotificationPayload {
+  return {
+    userId: '', // filled by caller with all admin user IDs
+    type: 'new_support_ticket',
+    title: 'New Support Ticket',
+    body: `${ticket.user_name} submitted a support ticket: ${ticket.subject}. Tap to assign and respond.`,
+    screenRoute: '/admin/support',
+    data: { ticket_id: ticket.id },
+  }
+}
+
+export function highValueBooking(booking: BookingInfo, amount: number, currency: string): NotificationPayload {
+  return {
+    userId: '', // filled by caller with all admin user IDs
+    type: 'high_value_booking',
+    title: 'High-Value Booking Alert',
+    body: `A booking worth ${formatAmount(amount, currency)} was just confirmed for ${booking.title}. Review for fraud flags if necessary.`,
+    screenRoute: `/admin/bookings/${booking.id}`,
     data: { booking_id: booking.id },
   }
 }
 
-export function payoutSent(hostId: string, amountRWF: number): NotificationPayload {
+export function userFlagged(userName: string, userId: string, reportCount: number): NotificationPayload {
   return {
-    userId: hostId,
-    type: 'payout_sent',
-    title: 'Payout Sent',
-    body: `${formatRWF(amountRWF)} has been sent to your account.`,
-    screenRoute: '/host/payouts',
-    data: {},
+    userId: '', // filled by caller with all admin user IDs
+    type: 'user_flagged',
+    title: 'User Flagged for Review',
+    body: `${userName} has received ${reportCount} reports from other users. Review their account activity and take action.`,
+    screenRoute: '/admin/users',
+    data: { user_id: userId },
   }
 }
 
-export function payoutFailed(hostId: string, amountRWF: number, reason: string): NotificationPayload {
+export function platformMilestone(count: number): NotificationPayload {
   return {
-    userId: hostId,
-    type: 'payout_failed',
-    title: 'Payout Failed',
-    body: `Payout of ${formatRWF(amountRWF)} failed: ${reason}. Update your payout details.`,
-    screenRoute: '/host/payouts',
-    data: {},
+    userId: '', // filled by caller with all admin user IDs
+    type: 'platform_milestone',
+    title: 'Platform Milestone Reached 🏆',
+    body: `The platform just hit ${count} total bookings. Keep it up.`,
+    screenRoute: '/admin/analytics',
+    data: { milestone: count.toString() },
   }
 }
 
-export function newReviewReceived(review: ReviewInfo, propertyName: string): NotificationPayload {
+export function newTourApproval(tourName: string, operatorName: string, tourId: string): NotificationPayload {
   return {
-    userId: review.host_id,
-    type: 'new_review',
-    title: 'New Review',
-    body: `${review.reviewer_name ?? 'A guest'} left a ${review.rating}-star review for ${propertyName}.`,
-    screenRoute: `/host/properties/${propertyName}/reviews`,
-    data: { review_id: review.id, booking_id: review.booking_id, rating: review.rating.toString() },
-  }
-}
-
-export function listingApproved(hostId: string, listingName: string): NotificationPayload {
-  return {
-    userId: hostId,
-    type: 'listing_approved',
-    title: 'Listing Approved!',
-    body: `${listingName} is now live and visible to guests.`,
-    screenRoute: '/host/listings',
-    data: {},
-  }
-}
-
-export function listingFlagged(hostId: string, listingName: string, reason: string): NotificationPayload {
-  return {
-    userId: hostId,
-    type: 'listing_flagged',
-    title: 'Listing Needs Attention',
-    body: `${listingName} was flagged: ${reason}. Please review and take action.`,
-    screenRoute: '/host/listings',
-    data: {},
-  }
-}
-
-export function newMessageFromGuest(msg: MessageInfo): NotificationPayload {
-  return {
-    userId: msg.receiver_id,
-    type: 'new_message',
-    title: `Message from ${msg.sender_name ?? 'Guest'}`,
-    body: msg.content?.substring(0, 120) ?? 'You have a new message.',
-    screenRoute: `/host/messages/${msg.booking_id ?? msg.id}`,
-    data: { message_id: msg.id, booking_id: msg.booking_id ?? '' },
+    userId: '', // filled by caller with all admin user IDs
+    type: 'tour_pending_approval',
+    title: 'New Tour Pending Approval',
+    body: `${operatorName} has submitted ${tourName} for review. Approve or reject it from the admin panel.`,
+    screenRoute: '/admin/tours',
+    data: { tour_id: tourId },
   }
 }
 
@@ -354,28 +524,6 @@ export function passwordChanged(userId: string): NotificationPayload {
     title: 'Password Changed',
     body: 'Your password was changed successfully. If this wasn\'t you, contact support immediately.',
     screenRoute: '/profile',
-    data: {},
-  }
-}
-
-export function newFeature(userId: string, featureName: string): NotificationPayload {
-  return {
-    userId,
-    type: 'new_feature',
-    title: 'New Feature!',
-    body: `Check out ${featureName} — now available on Merry360x.`,
-    screenRoute: '/explore',
-    data: {},
-  }
-}
-
-export function promotionalOffer(userId: string, offerTitle: string, discount: string): NotificationPayload {
-  return {
-    userId,
-    type: 'promotional_offer',
-    title: 'Special Offer!',
-    body: `${offerTitle} — ${discount} off your next booking!`,
-    screenRoute: '/explore',
     data: {},
   }
 }
