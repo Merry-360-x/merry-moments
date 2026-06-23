@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../widgets/return_button.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 class SupportDashboardScreen extends StatefulWidget {
   const SupportDashboardScreen({super.key, required this.session});
@@ -283,9 +284,17 @@ class _SupportDashboardScreenState extends State<SupportDashboardScreen> {
                 subtitle: 'Realtime ticket queue with quick status changes.',
                 child: Column(
                   children: [
-                    for (final ticket in _tickets.take(50))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                    for (final ticket in _tickets.take(50)) ...[
+                      SwipeActionWrapper(
+                        key: ValueKey('support-ticket-${ticket['id']}'),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        borderRadius: 14,
+                        primaryAction: SwipeAction(
+                          onAction: () => _setTicketStatus((ticket['id'] ?? '').toString(), (ticket['status'] ?? '').toString() == 'closed' ? 'open' : 'resolved'),
+                          color: (ticket['status'] ?? '').toString() == 'closed' ? const Color(0xFF155EEF) : const Color(0xFF1E8E5A),
+                          icon: (ticket['status'] ?? '').toString() == 'closed' ? Icons.refresh : Icons.check,
+                          label: (ticket['status'] ?? '').toString() == 'closed' ? 'Reopen' : 'Resolve',
+                        ),
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -351,6 +360,7 @@ class _SupportDashboardScreenState extends State<SupportDashboardScreen> {
                           ),
                         ),
                       ),
+                    ]
                   ],
                 ),
               ),
@@ -378,16 +388,33 @@ class _SupportDashboardScreenState extends State<SupportDashboardScreen> {
                 child: Column(
                   children: [
                     for (final booking in _bookings.take(50))
-                      _SupportBookingCard(
-                        title: (booking['guest_name'] ?? 'Guest booking').toString(),
-                        subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
-                        topStatus: _label((booking['status'] ?? 'unknown').toString()),
-                        bottomStatus: _label((booking['payment_status'] ?? 'unknown').toString()),
-                        statusColor: _statusColor((booking['status'] ?? '').toString()),
-                        showRefundActions: _findOpenRefundTicket(booking) != null,
-                        onApproveRefund: () => _handleRefundDecision(booking, 'approve'),
-                        onDeclineRefund: () => _handleRefundDecision(booking, 'decline'),
-                        loading: _updatingBookingKey?.contains('${booking['id']}:refund:') == true,
+                      SwipeActionWrapper(
+                        key: ValueKey('refund-booking-${booking['id']}'),
+                        margin: EdgeInsets.zero,
+                        primaryAction: SwipeAction(
+                          onAction: () => _handleRefundDecision(booking, 'decline'),
+                          color: AppColors.rausch,
+                          icon: Icons.close,
+                          label: 'Decline',
+                          destructive: true,
+                        ),
+                        secondaryAction: SwipeAction(
+                          onAction: () => _handleRefundDecision(booking, 'approve'),
+                          color: const Color(0xFF0D9488),
+                          icon: Icons.check,
+                          label: 'Approve',
+                        ),
+                        child: _SupportBookingCard(
+                          title: (booking['guest_name'] ?? 'Guest booking').toString(),
+                          subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
+                          topStatus: _label((booking['status'] ?? 'unknown').toString()),
+                          bottomStatus: _label((booking['payment_status'] ?? 'unknown').toString()),
+                          statusColor: _statusColor((booking['status'] ?? '').toString()),
+                          showRefundActions: _findOpenRefundTicket(booking) != null,
+                          onApproveRefund: () => _handleRefundDecision(booking, 'approve'),
+                          onDeclineRefund: () => _handleRefundDecision(booking, 'decline'),
+                          loading: _updatingBookingKey?.contains('${booking['id']}:refund:') == true,
+                        ),
                       ),
                   ],
                 ),

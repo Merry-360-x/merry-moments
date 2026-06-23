@@ -6,6 +6,7 @@ import '../../app.dart';
 import '../../session_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({
@@ -276,7 +277,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               onNewChat: _showNewChatSheet,
                             )
                           else
-                            ...filtered.map((conversation) {
+                            ...filtered.asMap().entries.map((entry) {
+                              final i = entry.key;
+                              final conversation = entry.value;
                               final peerId =
                                   (conversation['peer_id'] ?? '').toString();
                               final peerProfile = conversation['peer_profile'];
@@ -297,16 +300,22 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                       ?.toInt() ??
                                   0);
 
-                              return _ConversationTile(
-                                peerName: peerName,
-                                lastMessage: lastMessage,
-                                lastMessageAt: lastMessageAt,
-                                unreadCount: unreadCount,
-                                avatarUrl:
-                                    profile?['avatar_url']?.toString(),
-                                onTap: () => _openConversation(
-                                  peerId,
-                                  peerDisplayName: peerName,
+                              return SwipeActionWrapper(
+                                key: ValueKey(
+                                    'conversation-${conversation['id'] ?? i}'),
+                                // Swipe actions reserved for future mutation
+                                // support (e.g. delete/archive conversation).
+                                child: _ConversationTile(
+                                  peerName: peerName,
+                                  lastMessage: lastMessage,
+                                  lastMessageAt: lastMessageAt,
+                                  unreadCount: unreadCount,
+                                  avatarUrl:
+                                      profile?['avatar_url']?.toString(),
+                                  onTap: () => _openConversation(
+                                    peerId,
+                                    peerDisplayName: peerName,
+                                  ),
                                 ),
                               );
                             }),

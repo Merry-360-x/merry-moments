@@ -9,6 +9,7 @@ import '../../services/app_database.dart';
 import '../../services/cloudinary_service.dart';
 import '../../session_controller.dart';
 import '../utils/app_snackbar.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 bool _isVideoMediaUrl(String? url) {
   final value = (url ?? '').trim().toLowerCase();
@@ -847,7 +848,7 @@ class _StoryCard extends StatelessWidget {
     final location = (story['location'] ?? '').toString();
     final author = _displayNameFromProfile(story['profiles'], fallback: 'Traveler');
 
-    return GestureDetector(
+    final card = GestureDetector(
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -986,6 +987,20 @@ class _StoryCard extends StatelessWidget {
         ),
       ),
     );
+    if (onDelete != null) {
+      return SwipeActionWrapper(
+        key: ValueKey('story-${story['id']}'),
+        primaryAction: SwipeAction(
+          onAction: onDelete!,
+          color: AppColors.rausch,
+          icon: Icons.delete_outline,
+          label: 'Delete',
+          destructive: true,
+        ),
+        child: card,
+      );
+    }
+    return card;
   }
 }
 
@@ -1158,12 +1173,14 @@ class _StoryCommentsSheet extends StatefulWidget {
     required this.session,
     required this.initialComments,
     required this.onSubmitComment,
+    this.onDeleteComment,
   });
 
   final Map<String, dynamic> story;
   final SessionController session;
   final List<Map<String, dynamic>> initialComments;
   final Future<Map<String, dynamic>?> Function(String text) onSubmitComment;
+  final void Function(int index)? onDeleteComment;
 
   @override
   State<_StoryCommentsSheet> createState() => _StoryCommentsSheetState();
@@ -1250,7 +1267,7 @@ class _StoryCommentsSheetState extends State<_StoryCommentsSheet> {
                   final created = (comment['created_at'] ?? '').toString();
                   final isMe = (comment['user_id'] ?? '').toString() == widget.session.userId;
 
-                  return Column(
+                  final commentTile = Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -1272,6 +1289,20 @@ class _StoryCommentsSheetState extends State<_StoryCommentsSheet> {
                       Text(text),
                     ],
                   );
+                  if (isMe && widget.onDeleteComment != null) {
+                    return SwipeActionWrapper(
+                      key: ValueKey('comment-${comment['id'] ?? index}'),
+                      primaryAction: SwipeAction(
+                        onAction: () => widget.onDeleteComment!(index),
+                        color: AppColors.rausch,
+                        icon: Icons.delete_outline,
+                        label: 'Delete',
+                        destructive: true,
+                      ),
+                      child: commentTile,
+                    );
+                  }
+                  return commentTile;
                 },
               ),
             ),

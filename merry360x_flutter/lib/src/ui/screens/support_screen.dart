@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../../../l10n/app_localizations.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -195,6 +196,10 @@ class _SupportScreenState extends State<SupportScreen> {
           ticket: _tickets[i],
           session: widget.session,
           onRefresh: _load,
+          onStatusUpdate: (status) => _api.updateSupportTicketStatus(
+            id: _tickets[i]['id'].toString(),
+            status: status,
+          ),
         ),
       ),
     );
@@ -254,10 +259,11 @@ class _SupportContactRow extends StatelessWidget {
 
 // ── Ticket Tile ───────────────────────────────────────────────
 class _TicketTile extends StatelessWidget {
-  const _TicketTile({required this.ticket, required this.session, required this.onRefresh});
+  const _TicketTile({required this.ticket, required this.session, required this.onRefresh, this.onStatusUpdate});
   final Map<String, dynamic> ticket;
   final SessionController session;
   final VoidCallback onRefresh;
+  final void Function(String status)? onStatusUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -275,38 +281,58 @@ class _TicketTile extends StatelessWidget {
       _ => (const Color(0xFFFF9800), const Color(0xFFFFF3E0)),
     };
 
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => _TicketThreadScreen(ticket: ticket, session: session, onRefresh: onRefresh),
-      )),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14),
-            ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(color: AppColors.surfaceSubtle, borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.support_agent_outlined, size: 20, color: AppColors.hof),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(subject, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
-              const SizedBox(height: 3),
-                Text(l.nMessages(messageCount),
-                  style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
-            ])),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-              child: Text(status[0].toUpperCase() + status.substring(1),
-                  style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
-            ),
-          ]),
+    final swipeAction = switch (status) {
+      'open' || 'in_progress' when onStatusUpdate != null => SwipeAction(
+        onAction: () => onStatusUpdate!('resolved'),
+        color: const Color(0xFF009688),
+        icon: Icons.check_circle,
+        label: 'Close',
+      ),
+      'closed' when onStatusUpdate != null => SwipeAction(
+        onAction: () => onStatusUpdate!('open'),
+        color: const Color(0xFF2196F3),
+        icon: Icons.refresh,
+        label: 'Reopen',
+      ),
+      _ => null,
+    };
+
+    return SwipeActionWrapper(
+      key: ValueKey('user-ticket-${ticket['id']}'),
+      primaryAction: swipeAction,
+      child: GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(
+          builder: (_) => _TicketThreadScreen(ticket: ticket, session: session, onRefresh: onRefresh),
+        )),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14),
+              ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: AppColors.surfaceSubtle, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.support_agent_outlined, size: 20, color: AppColors.hof),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(subject, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black)),
+                const SizedBox(height: 3),
+                  Text(l.nMessages(messageCount),
+                    style: const TextStyle(fontSize: 11, color: AppColors.foggy)),
+              ])),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
+                child: Text(status[0].toUpperCase() + status.substring(1),
+                    style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
         ),
       ),
     );

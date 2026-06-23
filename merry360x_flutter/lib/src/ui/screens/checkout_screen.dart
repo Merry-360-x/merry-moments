@@ -12,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
+import '../../utils/error_handler.dart';
 import 'package:merry360x_flutter/src/lib/fees.dart';
 import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -838,6 +839,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return '$normalizedCc$local';
   }
 
+  /// Validates a Rwanda mobile money phone number.
+  /// Returns null if valid, or an error message string if invalid.
+  String? _validateRwandaPhoneNumber(String input) {
+    final raw = input.trim();
+    if (raw.isEmpty) {
+      return 'Please enter your mobile money number to continue';
+    }
+
+    // Strip all non-digits
+    final digitsOnly = raw.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Remove country code +250 or 250 if present
+    String nationalNumber = digitsOnly;
+    if (nationalNumber.startsWith('250')) {
+      nationalNumber = nationalNumber.substring(3);
+    }
+
+    // Must be exactly 9 digits after country code
+    if (nationalNumber.length != 9) {
+      return 'Please enter a 9-digit Rwanda mobile number (e.g., 078 123 4567)';
+    }
+
+    // Must start with 7 (Rwanda mobile prefix)
+    if (!nationalNumber.startsWith('7')) {
+      return 'Please enter a valid Rwanda mobile number starting with 078, 079, 072, or 073';
+    }
+
+    // Valid prefixes: 078, 079, 072, 073
+    final prefix = nationalNumber.substring(0, 3);
+    const validPrefixes = {'078', '079', '072', '073'};
+    if (!validPrefixes.contains(prefix)) {
+      return 'Please enter a valid Rwanda mobile number starting with 078, 079, 072, or 073';
+    }
+
+    return null; // Valid
+  }
+
   Future<void> _bootstrapPendingPromoCode() async {
     final pendingCode = await getPendingPromoCode();
     if (!mounted || pendingCode == null || pendingCode.isEmpty) return;
@@ -963,9 +1001,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         validationError = _l.selectMomoProvider;
       } else {
         final localPhone = _phoneCtrl.text.trim();
-        validationPhone = _normalizedMobileMoneyPhone(localPhone);
-        if (localPhone.isEmpty || validationPhone == null || validationPhone.isEmpty) {
-          validationError = _l.enterMomoNumber;
+        // Validate phone number format before proceeding
+        final phoneValidationError = _validateRwandaPhoneNumber(localPhone);
+        if (phoneValidationError != null) {
+          validationError = phoneValidationError;
+        } else {
+          validationPhone = _normalizedMobileMoneyPhone(localPhone);
+          if (localPhone.isEmpty || validationPhone == null || validationPhone.isEmpty) {
+            validationError = _l.enterMomoNumber;
+          }
         }
       }
     }
@@ -1049,32 +1093,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ];
 
         // Always use checkout_request for PawaPay so the webhook can process it.
-        final checkoutId = await api.createCheckoutRequest(
-          userId: widget.session.userId,
-          name: _nameCtrl.text.trim(),
-          email: _emailCtrl.text.trim(),
-          phone: checkoutPhone.isEmpty ? null : checkoutPhone,
-          totalAmount: _total,
-          basePriceAmount: _cartBasePrice,
-          serviceFeeAmount: _serviceFee,
-          currency: _currency,
-          paymentMethod: 'mobile_money',
-          paymentProvider: _selectedMethod!.id,
-          items: checkoutItems,
-          specialRequests: _notesCtrl.text.trim().isEmpty
-              ? null
-              : _notesCtrl.text.trim(),
-          metadata: {
-            if (_appliedDiscount != null)
-              'discount_code': _appliedDiscount!['code'],
-            if (_discountAmount > 0) 'discount_amount': _discountAmount,
-            'booking_details': {
-              'check_in': _checkIn?.toIso8601String().split('T').first,
-              'check_out': _checkOut?.toIso8601String().split('T').first,
-              'guests': _guests,
+        String? checkoutId;
+        try {
+          checkoutId = await api.createCheckoutRequest(
+            userId: widget.session.userId,
+            name: _nameCtrl.text.trim(),
+            email: _emailCtrl.text.trim(),
+            phone: checkoutPhone.isEmpty ? null : checkoutPhone,
+            totalAmount: _total,
+            basePriceAmount: _cartBasePrice,
+            serviceFeeAmount: _serviceFee,
+            currency: _currency,
+            paymentMethod: 'mobile_money',
+            paymentProvider: _selectedMethod!.id,
+            items: checkoutItems,
+            specialRequests: _notesCtrl.text.trim().isEmpty
+                ? null
+                : _notesCtrl.text.trim(),
+            metadata: {
+              if (_appliedDiscount != null)
+                'discount_code': _appliedDiscount!['code'],
+              if (_discountAmount > 0) 'discount_amount': _discountAmount,
+              'booking_details': {
+                'check_in': _checkIn?.toIso8601String().split('T').first,
+                'check_out': _checkOut?.toIso8601String().split('T').first,
+                'guests': _guests,
+              },
             },
-          },
-        );
+          );
+        } catch (e) {
+          final friendlyMsg = ErrorHandler.formatPaymentError(e);
+          _showSnack(friendlyMsg);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = friendlyMsg;
+          });
+          return;
+        }
         if (_appliedDiscount != null && _discountAmount > 0) {
           AppDatabase().incrementPromoCodeUsage(
             codeId: _appliedDiscount!['id'].toString(),
@@ -1103,19 +1158,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
 
-        final pawaPayResult = await api.initiatePawaPayDeposit(
-          bookingId: checkoutId,
-          amount: payAmount,
-          currency: payCurrency,
-          phoneNumber: phone,
-          payerName: _nameCtrl.text.trim().isNotEmpty
-              ? _nameCtrl.text.trim()
-              : null,
-          payerEmail: _emailCtrl.text.trim().isNotEmpty
-              ? _emailCtrl.text.trim()
-              : null,
-          provider: _selectedMethod!.id,
-        );
+        Map<String, dynamic>? pawaPayResult;
+        try {
+          pawaPayResult = await api.initiatePawaPayDeposit(
+            bookingId: checkoutId,
+            amount: payAmount,
+            currency: payCurrency,
+            phoneNumber: phone,
+            payerName: _nameCtrl.text.trim().isNotEmpty
+                ? _nameCtrl.text.trim()
+                : null,
+            payerEmail: _emailCtrl.text.trim().isNotEmpty
+                ? _emailCtrl.text.trim()
+                : null,
+            provider: _selectedMethod!.id,
+          );
+        } catch (e) {
+          final friendlyMsg = ErrorHandler.formatPaymentError(e);
+          _showSnack(friendlyMsg);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = friendlyMsg;
+          });
+          return;
+        }
         // Check if PawaPay immediately rejected the payment (insufficient funds, invalid number, etc.)
         final pawaSuccess = pawaPayResult['success'];
         final pawaStatus =
@@ -1132,16 +1198,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (pawaSuccess == false ||
             (pawaStatus.isNotEmpty &&
                 !validInitiationStatuses.contains(pawaStatus))) {
-          final msg =
+          final rawMsg =
               pawaPayResult['message']?.toString() ??
               pawaPayResult['error']?.toString() ??
               (pawaStatus.isEmpty
                   ? 'Payment was not initiated. The payment provider returned an empty status.'
                   : 'Payment failed with status: $pawaStatus. Please try again.');
-          _showSnack(msg);
+          final friendlyMsg = ErrorHandler.formatPaymentError(rawMsg);
+          _showSnack(friendlyMsg);
           setState(() {
             _submitState = _SubmitState.idle;
-            _slideErrorText = msg;
+            _slideErrorText = friendlyMsg;
           });
           return;
         }
@@ -1237,40 +1304,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 },
               ];
 
-        final checkoutId = await api.createCheckoutRequest(
-          userId: widget.session.userId,
-          name: _nameCtrl.text.trim(),
-          email: _emailCtrl.text.trim(),
-          phone: checkoutPhone.isEmpty ? null : checkoutPhone,
-          totalAmount: _total,
-          basePriceAmount: allItems != null ? _cartBasePrice : _subtotal,
-          serviceFeeAmount: _serviceFee,
-          currency: _currency,
-          paymentMethod: 'card',
-          paymentProvider: 'FLUTTERWAVE',
-          items: checkoutItems,
-          specialRequests: _notesCtrl.text.trim().isEmpty
-              ? null
-              : _notesCtrl.text.trim(),
-          metadata: {
-            if (_appliedDiscount != null)
-              'discount_code': _appliedDiscount!['code'],
-            if (_discountAmount > 0) 'discount_amount': _discountAmount,
-          },
-        );
-        final flwResult = await api.initFlutterwavePayment(
-          checkoutId: checkoutId,
-          amount: _total,
-          currency: _currency,
-          payerName: _nameCtrl.text.trim(),
-          payerEmail: _emailCtrl.text.trim(),
-          description: 'Merry360x Booking',
-        );
+        String? checkoutId;
+        try {
+          checkoutId = await api.createCheckoutRequest(
+            userId: widget.session.userId,
+            name: _nameCtrl.text.trim(),
+            email: _emailCtrl.text.trim(),
+            phone: checkoutPhone.isEmpty ? null : checkoutPhone,
+            totalAmount: _total,
+            basePriceAmount: allItems != null ? _cartBasePrice : _subtotal,
+            serviceFeeAmount: _serviceFee,
+            currency: _currency,
+            paymentMethod: 'card',
+            paymentProvider: 'FLUTTERWAVE',
+            items: checkoutItems,
+            specialRequests: _notesCtrl.text.trim().isEmpty
+                ? null
+                : _notesCtrl.text.trim(),
+            metadata: {
+              if (_appliedDiscount != null)
+                'discount_code': _appliedDiscount!['code'],
+              if (_discountAmount > 0) 'discount_amount': _discountAmount,
+            },
+          );
+        } catch (e) {
+          final friendlyMsg = ErrorHandler.formatPaymentError(e);
+          _showSnack(friendlyMsg);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = friendlyMsg;
+          });
+          return;
+        }
+        Map<String, dynamic>? flwResult;
+        try {
+          flwResult = await api.initFlutterwavePayment(
+            checkoutId: checkoutId,
+            amount: _total,
+            currency: _currency,
+            payerName: _nameCtrl.text.trim(),
+            payerEmail: _emailCtrl.text.trim(),
+            description: 'Merry360x Booking',
+          );
+        } catch (e) {
+          final friendlyMsg = ErrorHandler.formatPaymentError(e);
+          _showSnack(friendlyMsg);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = friendlyMsg;
+          });
+          return;
+        }
         final redirectUrl =
             flwResult['redirectUrl']?.toString() ??
             flwResult['link']?.toString();
         if (redirectUrl == null || redirectUrl.isEmpty) {
-          throw Exception('No payment URL received');
+          final friendlyMsg = ErrorHandler.formatPaymentError('No payment URL received');
+          _showSnack(friendlyMsg);
+          setState(() {
+            _submitState = _SubmitState.idle;
+            _slideErrorText = friendlyMsg;
+          });
+          return;
         }
         if (_appliedDiscount != null && _discountAmount > 0) {
           api.incrementPromoCodeUsage(
@@ -2357,6 +2452,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.black, width: 1.5),
+            ),
+            errorText: (_payTab == 0 && _slideErrorText != null &&
+                (_slideErrorText!.contains('mobile') ||
+                 _slideErrorText!.contains('Rwanda') ||
+                 _slideErrorText!.contains('9-digit') ||
+                 _slideErrorText!.contains('starting with')))
+                ? _slideErrorText
+                : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.red, width: 1.5),
             ),
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../app.dart';
 import '../../l10n/app_localizations.dart';
 import '../session_controller.dart';
+import '../utils/keyboard_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 import 'screens/auth_screen.dart';
 import 'screens/explore_screen.dart';
@@ -32,20 +33,24 @@ class MainShell extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
+  /// Notifier for the currently selected tab index.
+  /// Exposed so that floating UI (e.g. AI FAB) can show/hide based on tab.
   @override
-  State<MainShell> createState() => _MainShellState();
+  State<MainShell> createState() => MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class MainShellState extends State<MainShell> {
   int _tab = 0;
   bool _authSheetOpen = false;
   bool _wasAuthenticated = false;
+  late final ValueNotifier<int> tabNotifier = ValueNotifier<int>(0);
 
   @override
   void initState() {
     super.initState();
     _wasAuthenticated = widget.session.isAuthenticated;
     widget.session.addListener(_onSessionChanged);
+    tabNotifier.value = _tab;
   }
 
   @override
@@ -183,9 +188,11 @@ class _MainShellState extends State<MainShell> {
       return;
     }
     HapticFeedback.selectionClick();
+    KeyboardUtils.dismiss(context);
     setState(() {
       _tab = index;
     });
+    tabNotifier.value = index;
   }
 
   List<Widget> _buildTabs(SessionController session) => [

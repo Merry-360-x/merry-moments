@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../utils/number_format.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
@@ -454,8 +455,25 @@ class _AdminListingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = resolveListingImageUrl(item);
     final title = (item['title'] ?? 'Listing').toString();
+    final itemId = (item['id'] ?? '').toString();
 
-    return Container(
+    return SwipeActionWrapper(
+      key: ValueKey('admin-listing-$itemId'),
+      primaryAction: SwipeAction(
+        onAction: () => onDelete(),
+        color: AppColors.rausch,
+        icon: Icons.delete_outline,
+        label: 'Delete',
+        destructive: true,
+      ),
+      secondaryAction: SwipeAction(
+        onAction: () => onToggle(),
+        color: const Color(0xFF0D9488),
+        icon: isPublished ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        label: isPublished ? 'Unpublish' : 'Publish',
+        direction: DismissDirection.startToEnd,
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -636,6 +654,7 @@ class _AdminListingCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -2780,8 +2799,37 @@ class _AdminPayoutsTabState extends State<_AdminPayoutsTab> {
                       'T',
                     )[0];
                     final isPending = status == 'pending';
+                    final payoutId = (p['id'] ?? '').toString();
 
-                    return Container(
+                    return SwipeActionWrapper(
+                      key: ValueKey('payout-$payoutId'),
+                      borderRadius: 12,
+                      primaryAction: isPending ? SwipeAction(
+                        onAction: () {
+                          widget.api.updatePayoutStatus(
+                            id: payoutId,
+                            status: 'paid',
+                          );
+                          widget.onRefresh();
+                        },
+                        color: const Color(0xFF4CAF50),
+                        icon: Icons.check_circle_outline,
+                        label: 'Paid',
+                      ) : null,
+                      secondaryAction: isPending ? SwipeAction(
+                        onAction: () {
+                          widget.api.updatePayoutStatus(
+                            id: payoutId,
+                            status: 'processing',
+                          );
+                          widget.onRefresh();
+                        },
+                        color: const Color(0xFF3949AB),
+                        icon: Icons.thumb_up_outlined,
+                        label: 'Approve',
+                        direction: DismissDirection.startToEnd,
+                      ) : null,
+                      child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -2851,7 +2899,7 @@ class _AdminPayoutsTabState extends State<_AdminPayoutsTab> {
                                   child: OutlinedButton(
                                     onPressed: () async {
                                       await widget.api.updatePayoutStatus(
-                                        id: p['id'].toString(),
+                                        id: payoutId,
                                         status: 'processing',
                                       );
                                       widget.onRefresh();
@@ -2879,7 +2927,7 @@ class _AdminPayoutsTabState extends State<_AdminPayoutsTab> {
                                   child: ElevatedButton(
                                     onPressed: () async {
                                       await widget.api.updatePayoutStatus(
-                                        id: p['id'].toString(),
+                                        id: payoutId,
                                         status: 'paid',
                                       );
                                       widget.onRefresh();
@@ -2904,6 +2952,7 @@ class _AdminPayoutsTabState extends State<_AdminPayoutsTab> {
                             ),
                           ],
                         ],
+                      ),
                       ),
                     );
                   },
@@ -2944,8 +2993,22 @@ class _AdminReviewsTab extends StatelessWidget {
             ((r['accommodation_rating'] ?? r['rating']) as num?)?.toDouble() ??
             0;
         final createdAt = (r['created_at'] ?? '').toString().split('T')[0];
+        final reviewId = (r['id'] ?? '').toString();
 
-        return Container(
+        return SwipeActionWrapper(
+          key: ValueKey('review-$reviewId'),
+          borderRadius: 12,
+          primaryAction: SwipeAction(
+            onAction: () {
+              api.deleteReview(id: reviewId);
+              onRefresh();
+            },
+            color: AppColors.rausch,
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            destructive: true,
+          ),
+          child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -2999,7 +3062,7 @@ class _AdminReviewsTab extends StatelessWidget {
                       minHeight: 28,
                     ),
                     onPressed: () async {
-                      await api.deleteReview(id: r['id'].toString());
+                      await api.deleteReview(id: reviewId);
                       onRefresh();
                     },
                   ),
@@ -3018,6 +3081,7 @@ class _AdminReviewsTab extends StatelessWidget {
                   style: const TextStyle(fontSize: 10, color: AppColors.foggy),
                 ),
             ],
+          ),
           ),
         );
       },
@@ -3107,8 +3171,24 @@ class _AdminSupportTabState extends State<_AdminSupportTab> {
                       'T',
                     )[0];
                     final message = (t['message'] ?? '').toString();
+                    final ticketId = (t['id'] ?? '').toString();
 
-                    return Container(
+                    return SwipeActionWrapper(
+                      key: ValueKey('ticket-$ticketId'),
+                      borderRadius: 12,
+                      primaryAction: status != 'closed' ? SwipeAction(
+                        onAction: () {
+                          widget.api.updateSupportTicketStatus(
+                            id: ticketId,
+                            status: 'closed',
+                          );
+                          widget.onRefresh();
+                        },
+                        color: const Color(0xFF0D9488),
+                        icon: Icons.check_circle_outline,
+                        label: 'Close',
+                      ) : null,
+                      child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -3208,6 +3288,7 @@ class _AdminSupportTabState extends State<_AdminSupportTab> {
                             ),
                           ],
                         ],
+                      ),
                       ),
                     );
                   },

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/swipe_action_wrapper.dart';
+
 import '../../app.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/animations.dart';
@@ -39,6 +41,13 @@ class WishlistsScreen extends StatelessWidget {
                 item: items[i],
                 session: session,
                 index: i,
+                onRemove: () async {
+                  final id = (items[i]['id'] ?? '').toString();
+                  await session.removeWishlistItem(id);
+                  if (context.mounted) {
+                    AppSnackBar.success(context, l.removedFromWishlist);
+                  }
+                },
               ),
             ),
       ],
@@ -51,11 +60,13 @@ class _WishlistItem extends StatelessWidget {
     required this.item,
     required this.session,
     required this.index,
+    required this.onRemove,
   });
 
   final Map<String, dynamic> item;
   final SessionController session;
   final int index;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -64,45 +75,50 @@ class _WishlistItem extends StatelessWidget {
     final title = (item['title'] ?? item['item_type'] ?? 'Saved item').toString();
 
     return AnimatedPressable(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+      child: SwipeActionWrapper(
+        key: ValueKey('wishlist-${item['id']}'),
+        primaryAction: SwipeAction(
+          color: AppColors.rausch,
+          icon: Icons.delete_outline,
+          label: 'Remove',
+          destructive: true,
+          onAction: onRemove,
         ),
-        child: Row(
-          children: [
-            HeartBurst(
-              size: 20,
-              color: AppColors.rausch,
-              liked: true,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 3),
-                  Text(
-                    (item['created_at'] ?? '').toString(),
-                    style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                  ),
-                ],
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              HeartBurst(
+                size: 20,
+                color: AppColors.rausch,
+                liked: true,
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () async {
-                await session.removeWishlistItem(id);
-                if (context.mounted) {
-                  AppSnackBar.success(context, l.removedFromWishlist);
-                }
-              },
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(
+                      (item['created_at'] ?? '').toString(),
+                      style: const TextStyle(fontSize: 12, color: AppColors.foggy),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: onRemove,
+              ),
+            ],
+          ),
         ),
       ),
     );

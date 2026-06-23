@@ -26,6 +26,7 @@ import 'ui/screens/wishlists_screen.dart';
 import 'ui/screens/host_dashboard_screen.dart';
 import 'ui/screens/admin_dashboard_screen.dart';
 import 'ui/widgets/draggable_ai_fab.dart';
+import 'utils/keyboard_utils.dart';
 
 /// Global route observer — used to hide floating UI (e.g. AI button tooltip)
 /// when a modal/sheet is pushed on top of the main shell.
@@ -649,12 +650,27 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
             },
           ),
           builder: (context, child) {
-            return Stack(
-              children: [
-                if (child != null) child,
-                InAppNotificationBanner(session: _session),
-                DraggableAiFab(session: _session, navigatorKey: _navigatorKey),
-              ],
+            final mainShellState = context.findAncestorStateOfType<MainShellState>();
+            return KeyboardUtils.dismissOnTap(
+              child: Stack(
+                children: [
+                  if (child != null) child,
+                  InAppNotificationBanner(session: _session),
+                  if (mainShellState != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: mainShellState.tabNotifier,
+                      builder: (context, tabIndex, _) {
+                        // Show AI button only on Explore (0), WishList (1), TripCart (2), Messages (3)
+                        // Hide on Profile (4) and any detail screens
+                        const aiButtonTabs = {0, 1, 2, 3};
+                        if (aiButtonTabs.contains(tabIndex)) {
+                          return DraggableAiFab(session: _session, navigatorKey: _navigatorKey);
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                ],
+              ),
             );
           },
           navigatorObservers: [appRouteObserver],

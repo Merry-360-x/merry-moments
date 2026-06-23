@@ -12,8 +12,17 @@ const _kPosKey = 'ai_fab_position';
 const _kHoldDuration = Duration(milliseconds: 600);
 const _kTapThreshold = Duration(milliseconds: 200);
 
+/// Tabs where the AI FAB should be visible:
+/// 0 = Explore, 1 = WishList, 2 = TripCart, 3 = Messages
+/// NOT visible on: 4 = Profile, or any detail/push screens
+const _kAiFabVisibleTabs = {0, 1, 2, 3};
+
 class DraggableAiFab extends StatefulWidget {
-  const DraggableAiFab({super.key, required this.session, required this.navigatorKey});
+  const DraggableAiFab({
+    super.key,
+    required this.session,
+    required this.navigatorKey,
+  });
 
   final SessionController session;
   final GlobalKey<NavigatorState> navigatorKey;

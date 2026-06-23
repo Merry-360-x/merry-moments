@@ -17,6 +17,7 @@ import '../../session_controller.dart';
 import '../../app.dart';
 import '../../utils/number_format.dart';
 import '../widgets/return_button.dart';
+import '../widgets/swipe_action_wrapper.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
 import 'tour_package_wizard_screen.dart';
 import 'host_quick_create_screen.dart';
@@ -6343,21 +6344,30 @@ class _ListingCard extends StatelessWidget {
             ? ratingValue.toStringAsFixed(0)
             : ratingValue.toStringAsFixed(1));
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return SwipeActionWrapper(
+      key: ValueKey(item['id']),
+      primaryAction: SwipeAction(
+        onAction: onDelete,
+        color: AppColors.rausch,
+        icon: Icons.delete_rounded,
+        label: 'Delete',
+        destructive: true,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -6632,6 +6642,7 @@ class _ListingCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

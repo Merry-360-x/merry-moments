@@ -6,6 +6,7 @@ import '../../utils/number_format.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../widgets/return_button.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 class FinancialDashboardScreen extends StatefulWidget {
   const FinancialDashboardScreen({super.key, required this.session});
@@ -370,19 +371,39 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                 child: Column(
                   children: [
                     for (final booking in _bookings.take(40))
-                      _FinanceBookingCard(
-                        title: (booking['guest_name'] ?? 'Guest booking').toString(),
-                        subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
-                        amount: _money(booking['total_price'], (booking['currency'] ?? 'RWF').toString()),
-                        status: _label((booking['payment_status'] ?? booking['status'] ?? 'unknown').toString()),
-                        statusColor: _statusColor((booking['payment_status'] ?? booking['status'] ?? '').toString()),
-                        onRequestPayment: ((booking['payment_status'] ?? '').toString() == 'paid' || (booking['payment_status'] ?? '').toString() == 'refunded')
-                            ? null
-                            : () => _updateBookingPaymentStatus(booking, 'requested'),
-                        onMarkPaid: ((booking['payment_status'] ?? '').toString() == 'paid' || (booking['payment_status'] ?? '').toString() == 'refunded')
-                            ? null
-                            : () => _updateBookingPaymentStatus(booking, 'paid'),
-                        loading: _updatingBookingKey == '${booking['id']}:requested' || _updatingBookingKey == '${booking['id']}:paid',
+                      SwipeActionWrapper(
+                        key: ValueKey('finance-booking-${booking['id']}'),
+                        primaryAction: ((booking['payment_status'] ?? '').toString() != 'paid' && (booking['payment_status'] ?? '').toString() != 'refunded')
+                            ? SwipeAction(
+                                onAction: () => _updateBookingPaymentStatus(booking, 'paid'),
+                                color: const Color(0xFF1E8E5A),
+                                icon: Icons.check_circle,
+                                label: 'Mark Paid',
+                              )
+                            : null,
+                        secondaryAction: ((booking['payment_status'] ?? '').toString() != 'paid' && (booking['payment_status'] ?? '').toString() != 'refunded')
+                            ? SwipeAction(
+                                onAction: () => _updateBookingPaymentStatus(booking, 'requested'),
+                                color: const Color(0xFFEF6C00),
+                                icon: Icons.payments,
+                                label: 'Request',
+                                direction: DismissDirection.startToEnd,
+                              )
+                            : null,
+                        child: _FinanceBookingCard(
+                          title: (booking['guest_name'] ?? 'Guest booking').toString(),
+                          subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
+                          amount: _money(booking['total_price'], (booking['currency'] ?? 'RWF').toString()),
+                          status: _label((booking['payment_status'] ?? booking['status'] ?? 'unknown').toString()),
+                          statusColor: _statusColor((booking['payment_status'] ?? booking['status'] ?? '').toString()),
+                          onRequestPayment: ((booking['payment_status'] ?? '').toString() == 'paid' || (booking['payment_status'] ?? '').toString() == 'refunded')
+                              ? null
+                              : () => _updateBookingPaymentStatus(booking, 'requested'),
+                          onMarkPaid: ((booking['payment_status'] ?? '').toString() == 'paid' || (booking['payment_status'] ?? '').toString() == 'refunded')
+                              ? null
+                              : () => _updateBookingPaymentStatus(booking, 'paid'),
+                          loading: _updatingBookingKey == '${booking['id']}:requested' || _updatingBookingKey == '${booking['id']}:paid',
+                        ),
                       ),
                   ],
                 ),
@@ -394,67 +415,78 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                 child: Column(
                   children: [
                     for (final payout in _payouts.take(40))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      (payout['profiles'] is Map ? ((payout['profiles'] as Map)['full_name'] ?? 'Host payout') : 'Host payout').toString(),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.black,
+                      SwipeActionWrapper(
+                        key: ValueKey('finance-payout-${payout['id']}'),
+                        primaryAction: (payout['status'] ?? '').toString() == 'pending'
+                            ? SwipeAction(
+                                onAction: () => _markPayoutPaid((payout['id'] ?? '').toString()),
+                                color: const Color(0xFF1E8E5A),
+                                icon: Icons.check_circle,
+                                label: 'Mark Paid',
+                              )
+                            : null,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        (payout['profiles'] is Map ? ((payout['profiles'] as Map)['full_name'] ?? 'Host payout') : 'Host payout').toString(),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.black,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  _Pill(
-                                    label: _label((payout['status'] ?? 'unknown').toString()),
-                                    color: _statusColor((payout['status'] ?? '').toString()),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _money(payout['amount'], (payout['currency'] ?? 'RWF').toString()),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              if ((payout['status'] ?? '').toString() == 'pending')
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton(
-                                    onPressed: _updatingPayoutId == payout['id'] ? null : () => _markPayoutPaid((payout['id'] ?? '').toString()),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppColors.rausch,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                      textStyle: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    _Pill(
+                                      label: _label((payout['status'] ?? 'unknown').toString()),
+                                      color: _statusColor((payout['status'] ?? '').toString()),
                                     ),
-                                    child: Text(_updatingPayoutId == payout['id'] ? 'Updating...' : 'Mark as paid'),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _money(payout['amount'], (payout['currency'] ?? 'RWF').toString()),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.black,
                                   ),
                                 ),
-                            ],
+                                const SizedBox(height: 10),
+                                if ((payout['status'] ?? '').toString() == 'pending')
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed: _updatingPayoutId == payout['id'] ? null : () => _markPayoutPaid((payout['id'] ?? '').toString()),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.rausch,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        textStyle: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      child: Text(_updatingPayoutId == payout['id'] ? 'Updating...' : 'Mark as paid'),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -470,22 +502,9 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                     : Column(
                         children: [
                           for (final ticket in _refundTickets.take(40))
-                            _FinanceRefundCard(
-                              title: (ticket['subject'] ?? 'Support ticket').toString(),
-                              subtitle: (ticket['message'] ?? '').toString().replaceAll('\n', ' ').trim(),
-                              status: _label((ticket['status'] ?? 'open').toString()),
-                              statusColor: _statusColor((ticket['status'] ?? '').toString()),
-                              booking: _bookings.cast<Map<String, dynamic>?>().firstWhere(
-                                    (booking) {
-                                      if (booking == null) return false;
-                                      final refs = _extractRefundRefs(ticket);
-                                      final bookingId = (booking['id'] ?? '').toString().toLowerCase();
-                                      final orderId = (booking['order_id'] ?? '').toString().toLowerCase();
-                                      return refs.contains(bookingId) || (orderId.isNotEmpty && refs.contains(orderId));
-                                    },
-                                    orElse: () => null,
-                                  ),
-                              onApprove: () {
+                            SwipeActionWrapper(
+                              key: ValueKey('finance-refund-${ticket['id']}'),
+                              primaryAction: (() {
                                 final booking = _bookings.cast<Map<String, dynamic>?>().firstWhere(
                                       (entry) {
                                         if (entry == null) return false;
@@ -496,11 +515,14 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                                       },
                                       orElse: () => null,
                                     );
-                                if (booking != null) {
-                                  _handleRefundDecision(booking, 'approve');
-                                }
-                              },
-                              onDecline: () {
+                                return booking != null ? SwipeAction(
+                                  onAction: () => _handleRefundDecision(booking, 'approve'),
+                                  color: const Color(0xFF1E8E5A),
+                                  icon: Icons.check_circle,
+                                  label: 'Approve',
+                                ) : null;
+                              })(),
+                              secondaryAction: (() {
                                 final booking = _bookings.cast<Map<String, dynamic>?>().firstWhere(
                                       (entry) {
                                         if (entry == null) return false;
@@ -511,11 +533,61 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                                       },
                                       orElse: () => null,
                                     );
-                                if (booking != null) {
-                                  _handleRefundDecision(booking, 'decline');
-                                }
-                              },
-                              loading: _updatingBookingKey?.contains(':refund:') == true,
+                                return booking != null ? SwipeAction(
+                                  onAction: () => _handleRefundDecision(booking, 'decline'),
+                                  color: const Color(0xFFC73D32),
+                                  icon: Icons.cancel,
+                                  label: 'Decline',
+                                  direction: DismissDirection.startToEnd,
+                                ) : null;
+                              })(),
+                              child: _FinanceRefundCard(
+                                title: (ticket['subject'] ?? 'Support ticket').toString(),
+                                subtitle: (ticket['message'] ?? '').toString().replaceAll('\n', ' ').trim(),
+                                status: _label((ticket['status'] ?? 'open').toString()),
+                                statusColor: _statusColor((ticket['status'] ?? '').toString()),
+                                booking: _bookings.cast<Map<String, dynamic>?>().firstWhere(
+                                      (booking) {
+                                        if (booking == null) return false;
+                                        final refs = _extractRefundRefs(ticket);
+                                        final bookingId = (booking['id'] ?? '').toString().toLowerCase();
+                                        final orderId = (booking['order_id'] ?? '').toString().toLowerCase();
+                                        return refs.contains(bookingId) || (orderId.isNotEmpty && refs.contains(orderId));
+                                      },
+                                      orElse: () => null,
+                                    ),
+                                onApprove: () {
+                                  final booking = _bookings.cast<Map<String, dynamic>?>().firstWhere(
+                                        (entry) {
+                                          if (entry == null) return false;
+                                          final refs = _extractRefundRefs(ticket);
+                                          final bookingId = (entry['id'] ?? '').toString().toLowerCase();
+                                          final orderId = (entry['order_id'] ?? '').toString().toLowerCase();
+                                          return refs.contains(bookingId) || (orderId.isNotEmpty && refs.contains(orderId));
+                                        },
+                                        orElse: () => null,
+                                      );
+                                  if (booking != null) {
+                                    _handleRefundDecision(booking, 'approve');
+                                  }
+                                },
+                                onDecline: () {
+                                  final booking = _bookings.cast<Map<String, dynamic>?>().firstWhere(
+                                        (entry) {
+                                          if (entry == null) return false;
+                                          final refs = _extractRefundRefs(ticket);
+                                          final bookingId = (entry['id'] ?? '').toString().toLowerCase();
+                                          final orderId = (entry['order_id'] ?? '').toString().toLowerCase();
+                                          return refs.contains(bookingId) || (orderId.isNotEmpty && refs.contains(orderId));
+                                        },
+                                        orElse: () => null,
+                                      );
+                                  if (booking != null) {
+                                    _handleRefundDecision(booking, 'decline');
+                                  }
+                                },
+                                loading: _updatingBookingKey?.contains(':refund:') == true,
+                              ),
                             ),
                         ],
                       ),

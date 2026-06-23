@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../app.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/app_database.dart';
+import '../../utils/error_handler.dart';
+import '../utils/app_snackbar.dart';
 import '../widgets/cloudinary_image_picker.dart';
 import '../widgets/host_creation_scaffold.dart';
 
@@ -220,7 +222,9 @@ class _VehicleWizardScreenState extends State<VehicleWizardScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      final friendlyMsg = ErrorHandler.formatPublishError(e);
+      setState(() => _error = friendlyMsg);
+      AppSnackBar.error(context, friendlyMsg);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

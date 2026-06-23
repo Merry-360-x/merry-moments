@@ -8,6 +8,8 @@ import '../widgets/return_button.dart';
 import '../../services/app_database.dart';
 import '../../services/local_draft_store.dart';
 import '../../session_controller.dart';
+import '../../utils/error_handler.dart';
+import '../utils/app_snackbar.dart';
 
 const _kRed = AppColors.rausch;
 
@@ -137,16 +139,24 @@ class _BecomeHostScreenState extends State<BecomeHostScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _submitting = true);
-    await _api.submitHostApplication(
-      userId: widget.session.userId,
-      fullName: _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
-      serviceTypes: _serviceTypes,
-      about: _aboutCtrl.text.trim().isNotEmpty ? _aboutCtrl.text.trim() : null,
-      nationalIdNumber: _nationalIdCtrl.text.trim().isNotEmpty ? _nationalIdCtrl.text.trim() : null,
-    );
-    await LocalDraftStore.clear(_draftKey);
-    setState(() { _submitting = false; _step = 1; });
+    try {
+      await _api.submitHostApplication(
+        userId: widget.session.userId,
+        fullName: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        serviceTypes: _serviceTypes,
+        about: _aboutCtrl.text.trim().isNotEmpty ? _aboutCtrl.text.trim() : null,
+        nationalIdNumber: _nationalIdCtrl.text.trim().isNotEmpty ? _nationalIdCtrl.text.trim() : null,
+      );
+      await LocalDraftStore.clear(_draftKey);
+      if (!mounted) return;
+      setState(() { _submitting = false; _step = 1; });
+    } catch (e) {
+      if (!mounted) return;
+      final friendlyMsg = ErrorHandler.formatApiError(e, operation: 'Host Application');
+      AppSnackBar.error(context, friendlyMsg);
+      setState(() => _submitting = false);
+    }
   }
 
   @override

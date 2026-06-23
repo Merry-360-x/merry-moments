@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../widgets/return_button.dart';
+import '../widgets/swipe_action_wrapper.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
   const OperationsDashboardScreen({super.key, required this.session});
@@ -244,8 +245,23 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                 child: Column(
                   children: [
                     for (final app in _applications.take(50))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                      SwipeActionWrapper(
+                        key: ValueKey('application-${app['id']}'),
+                        primaryAction: SwipeAction(
+                          onAction: () => _setApplicationStatus((app['id'] ?? '').toString(), 'rejected'),
+                          color: AppColors.rausch,
+                          icon: Icons.close,
+                          label: 'Reject',
+                          destructive: true,
+                        ),
+                        secondaryAction: SwipeAction(
+                          onAction: () => _setApplicationStatus((app['id'] ?? '').toString(), 'approved'),
+                          color: const Color(0xFF0D9488),
+                          icon: Icons.check,
+                          label: 'Approve',
+                        ),
+                        borderRadius: 14,
+                        margin: const EdgeInsets.only(bottom: 10),
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -323,8 +339,31 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                 child: Column(
                   children: [
                     for (final item in allListings.take(80))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                      SwipeActionWrapper(
+                        key: ValueKey('ops-listing-${item['id']}'),
+                        primaryAction: SwipeAction(
+                          onAction: () => _toggleListing(
+                            (item['_table'] ?? 'properties').toString(),
+                            (item['id'] ?? '').toString(),
+                            false,
+                          ),
+                          color: AppColors.rausch,
+                          icon: Icons.delete_outline,
+                          label: 'Unpublish',
+                          destructive: true,
+                        ),
+                        secondaryAction: SwipeAction(
+                          onAction: () => _toggleListing(
+                            (item['_table'] ?? 'properties').toString(),
+                            (item['id'] ?? '').toString(),
+                            !(item['is_published'] == true),
+                          ),
+                          color: const Color(0xFF0D9488),
+                          icon: Icons.publish,
+                          label: item['is_published'] == true ? 'Unpublish' : 'Publish',
+                        ),
+                        borderRadius: 14,
+                        margin: const EdgeInsets.only(bottom: 10),
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -375,12 +414,36 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                 child: Column(
                   children: [
                     for (final booking in _bookings.take(60))
-                      _OpsDenseRow(
-                        title: (booking['guest_name'] ?? 'Guest booking').toString(),
-                        subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
-                        trailingTop: _label((booking['status'] ?? 'unknown').toString()),
-                        trailingBottom: _label((booking['payment_status'] ?? 'unknown').toString()),
-                        trailingColor: _statusColor((booking['status'] ?? '').toString()),
+                      SwipeActionWrapper(
+                        key: ValueKey('booking-${booking['id']}'),
+                        primaryAction: SwipeAction(
+                          onAction: () async {
+                            await _api.updateBookingStatus(bookingId: (booking['id'] ?? '').toString(), status: 'cancelled');
+                            _load();
+                          },
+                          color: AppColors.rausch,
+                          icon: Icons.cancel_outlined,
+                          label: 'Cancel',
+                          destructive: true,
+                        ),
+                        secondaryAction: SwipeAction(
+                          onAction: () async {
+                            await _api.updateBookingStatus(bookingId: (booking['id'] ?? '').toString(), status: 'completed');
+                            _load();
+                          },
+                          color: const Color(0xFF0D9488),
+                          icon: Icons.check_circle_outline,
+                          label: 'Complete',
+                        ),
+                        borderRadius: 14,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: _OpsDenseRow(
+                          title: (booking['guest_name'] ?? 'Guest booking').toString(),
+                          subtitle: '${_label((booking['booking_type'] ?? 'booking').toString())} • ${(booking['id'] ?? '').toString().substring(0, 8)}',
+                          trailingTop: _label((booking['status'] ?? 'unknown').toString()),
+                          trailingBottom: _label((booking['payment_status'] ?? 'unknown').toString()),
+                          trailingColor: _statusColor((booking['status'] ?? '').toString()),
+                        ),
                       ),
                   ],
                 ),

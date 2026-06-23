@@ -3,6 +3,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app.dart';
 import '../../session_controller.dart';
+import '../widgets/swipe_action_wrapper.dart';
 import '../utils/app_snackbar.dart';
 
 class PostBookingCenterScreen extends StatefulWidget {
@@ -641,12 +642,28 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           final charge = _charges[index];
           final linkedDispute = _disputes.where((d) => d['charge_id'] == charge['id']).toList();
 
-          return _ChargeCard(
+          final chargeId = (charge['id'] ?? '').toString();
+          return SwipeActionWrapper(
+            key: ValueKey('charge-$chargeId'),
+            primaryAction: SwipeAction(
+              onAction: () => _openDispute(chargeId: chargeId),
+              color: const Color(0xFFE65100),
+              icon: Icons.flag_outlined,
+              label: 'Dispute',
+            ),
+            secondaryAction: SwipeAction(
+              onAction: () => _showPayChargeSheet(charge),
+              color: const Color(0xFF4CAF50),
+              icon: Icons.payment,
+              label: 'Pay',
+            ),
+            child: _ChargeCard(
               charge: charge,
               linkedDispute: linkedDispute.isNotEmpty ? linkedDispute.first : null,
               onPay: () => _showPayChargeSheet(charge),
-              onDispute: () => _openDispute(chargeId: (charge['id'] ?? '').toString()),
-            );
+              onDispute: () => _openDispute(chargeId: chargeId),
+            ),
+          );
         },
       ),
     );
@@ -674,127 +691,144 @@ class _PostBookingCenterScreenState extends State<PostBookingCenterScreen>
           final diff = _num(mod['difference']);
           final currency = (mod['currency'] ?? 'USD').toString();
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+          final modId = (mod['id'] ?? '').toString();
+          return SwipeActionWrapper(
+            key: ValueKey('modification-$modId'),
+            primaryAction: SwipeAction(
+              onAction: () => _respondModification(modId, 'reject'),
+              color: AppColors.rausch,
+              icon: Icons.close,
+              label: 'Decline',
+              destructive: true,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _statusChip(status),
-                      const SizedBox(width: 6),
-                      _statusChip(paymentStatus),
-                      const SizedBox(width: 6),
-                      _outlineChip(_label((mod['modification_type'] ?? '').toString())),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    (mod['proposal_message'] ?? 'Booking update requested').toString(),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.black,
+            secondaryAction: SwipeAction(
+              onAction: () => _respondModification(modId, 'accept'),
+              color: const Color(0xFF0D9488),
+              icon: Icons.check,
+              label: 'Accept',
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _statusChip(status),
+                        const SizedBox(width: 6),
+                        _statusChip(paymentStatus),
+                        const SizedBox(width: 6),
+                        _outlineChip(_label((mod['modification_type'] ?? '').toString())),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Old: ${_money(_num(mod['old_price']), currency)}\nNew: ${_money(_num(mod['new_price']), currency)}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.hof, height: 1.4),
-                        ),
+                    const SizedBox(height: 8),
+                    Text(
+                      (mod['proposal_message'] ?? 'Booking update requested').toString(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.black,
                       ),
-                      Text(
-                        '${diff > 0 ? '+' : ''}${_money(diff, currency)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: diff > 0
-                              ? AppColors.rausch
-                              : diff < 0
-                                  ? AppColors.babu
-                                  : AppColors.foggy,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Created ${_fmtDate(mod['created_at']?.toString() ?? '')}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.foggy),
-                  ),
-                  if (status == 'pending') ...[
-                    const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _respondModification(
-                              (mod['id'] ?? '').toString(),
-                              'accept',
-                            ),
-                            icon: const Icon(Icons.check_circle_outline),
-                            label: const Text('Accept'),
+                          child: Text(
+                            'Old: ${_money(_num(mod['old_price']), currency)}\nNew: ${_money(_num(mod['new_price']), currency)}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.hof, height: 1.4),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _respondModification(
-                              (mod['id'] ?? '').toString(),
-                              'reject',
-                            ),
-                            icon: const Icon(Icons.close),
-                            label: const Text('Reject'),
+                        Text(
+                          '${diff > 0 ? '+' : ''}${_money(diff, currency)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: diff > 0
+                                ? AppColors.rausch
+                                : diff < 0
+                                    ? AppColors.babu
+                                    : AppColors.foggy,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _openDispute(
-                          modificationId: (mod['id'] ?? '').toString(),
-                        ),
-                        icon: const Icon(Icons.gavel_outlined),
-                        label: const Text('Open dispute'),
-                      ),
+                    Text(
+                      'Created ${_fmtDate(mod['created_at']?.toString() ?? '')}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.foggy),
                     ),
-                  ],
-                  if (status == 'accepted' && paymentStatus == 'pending') ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceSubtle,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
+                    if (status == 'pending') ...[
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          const Expanded(
-                            child: Text(
-                              'Payment is required to finalize this change.',
-                              style: TextStyle(fontSize: 12, color: AppColors.hof),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _respondModification(
+                                (mod['id'] ?? '').toString(),
+                                'accept',
+                              ),
+                              icon: const Icon(Icons.check_circle_outline),
+                              label: const Text('Accept'),
                             ),
                           ),
-                          TextButton(
-                            onPressed: () => _tabs.animateTo(0),
-                            child: const Text('Go to Charges'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _respondModification(
+                                (mod['id'] ?? '').toString(),
+                                'reject',
+                              ),
+                              icon: const Icon(Icons.close),
+                              label: const Text('Reject'),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openDispute(
+                            modificationId: (mod['id'] ?? '').toString(),
+                          ),
+                          icon: const Icon(Icons.gavel_outlined),
+                          label: const Text('Open dispute'),
+                        ),
+                      ),
+                    ],
+                    if (status == 'accepted' && paymentStatus == 'pending') ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceSubtle,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Payment is required to finalize this change.',
+                                style: TextStyle(fontSize: 12, color: AppColors.hof),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => _tabs.animateTo(0),
+                              child: const Text('Go to Charges'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           );

@@ -4,6 +4,7 @@ import '../../app.dart';
 
 import '../../services/app_database.dart';
 import '../utils/app_snackbar.dart';
+import '../../utils/error_handler.dart';
 import '../widgets/host_creation_scaffold.dart';
 import '../widgets/cloudinary_image_picker.dart';
 
@@ -307,9 +308,9 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      setState(() { _saving = false; _error = msg; });
-      AppSnackBar.error(context, 'Failed to publish. Check details and retry.');
+      final friendlyMsg = ErrorHandler.formatPublishError(e);
+      setState(() { _saving = false; _error = friendlyMsg; });
+      AppSnackBar.error(context, friendlyMsg);
     }
   }
 

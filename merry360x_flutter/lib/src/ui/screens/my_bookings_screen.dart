@@ -7,6 +7,7 @@ import '../../session_controller.dart';
 import 'post_booking_center_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
+import '../widgets/swipe_action_wrapper.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key, required this.session});
@@ -121,7 +122,7 @@ class _BookingList extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.all(20),
         itemCount: bookings.length,
-        itemBuilder: (_, i) => _BookingTile(booking: bookings[i], session: session, isPast: isPast, onRefresh: onRefresh),
+        itemBuilder: (_, i) => _BookingTile(booking: bookings[i], session: session, isPast: isPast, onRefresh: onRefresh, index: i),
       ),
     );
   }
@@ -145,11 +146,12 @@ String? _resolveBookingImage(Map<String, dynamic> booking, List<Map<String, dyna
 }
 
 class _BookingTile extends StatelessWidget {
-  const _BookingTile({required this.booking, required this.session, required this.isPast, required this.onRefresh});
+  const _BookingTile({required this.booking, required this.session, required this.isPast, required this.onRefresh, required this.index});
   final Map<String, dynamic> booking;
   final SessionController session;
   final bool isPast;
   final VoidCallback onRefresh;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -182,8 +184,7 @@ class _BookingTile extends StatelessWidget {
       _ => (const Color(0xFFFF8F00), isDark ? const Color(0xFF3A2800) : const Color(0xFFFFF8E1)),
     };
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+    final Widget cardBody = Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
@@ -263,6 +264,41 @@ class _BookingTile extends StatelessWidget {
           ]),
         ]),
       ),
+    );
+
+    final SwipeAction? action;
+    if (!isPast && (status == 'pending' || status == 'confirmed')) {
+      action = SwipeAction(
+        onAction: () => _confirmCancel(context, bookingId),
+        color: AppColors.rausch,
+        icon: Icons.cancel_outlined,
+        label: 'Cancel',
+        destructive: true,
+      );
+    } else if (isPast && status == 'completed' && !hasReview) {
+      action = SwipeAction(
+        onAction: () => _openReview(context, bookingId, title),
+        color: const Color(0xFF4CAF50),
+        icon: Icons.star_outline,
+        label: 'Review',
+      );
+    } else {
+      action = null;
+    }
+
+    if (action != null) {
+      return SwipeActionWrapper(
+        key: ValueKey('my-booking-${booking['id'] ?? index}'),
+        borderRadius: 12,
+        margin: const EdgeInsets.only(bottom: 16),
+        primaryAction: action,
+        child: cardBody,
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: cardBody,
     );
   }
 
