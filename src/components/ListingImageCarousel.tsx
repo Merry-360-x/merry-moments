@@ -133,6 +133,23 @@ export default function ListingImageCarousel({
           );
         })}
       </div>
+
+      {/* Dot indicators - Flutter style, max 5 dots */}
+      {clean.length > 1 && (
+        <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-[3px]">
+          {(clean.length > 5 ? clean.slice(0, 5) : clean).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: idx === i ? 6 : 4,
+                height: idx === i ? 6 : 4,
+                backgroundColor: idx === i ? "#FFFFFF" : "rgba(255,255,255,0.54)",
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
