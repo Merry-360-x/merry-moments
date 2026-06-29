@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, Fragment } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle, Bell, Banknote, Clock, XCircle, User, Loader2 } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Wallet, Calendar, Download, CheckCircle, Bell, Banknote, Clock, XCircle, User, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNotificationBadge, NotificationBadge } from "@/hooks/useNotificationBadge";
 import { useToast } from "@/hooks/use-toast";
@@ -84,6 +84,7 @@ export default function FinancialStaffDashboard() {
   const [processingPayout, setProcessingPayout] = useState<string | null>(null);
   const [processingRefundBooking, setProcessingRefundBooking] = useState<string | null>(null);
   const [payoutFilter, setPayoutFilter] = useState<string>("pending");
+  const [expandedPayoutId, setExpandedPayoutId] = useState<string | null>(null);
   const dashboardCurrency = "RWF";
 
   // Notification badge hook
@@ -489,7 +490,23 @@ export default function FinancialStaffDashboard() {
         console.error("Error fetching payouts:", error);
         return [];
       }
-      return data || [];
+
+      const rows = data || [];
+
+      const processorIds = [...new Set(rows.map(p => p.processed_by).filter(Boolean))];
+      if (processorIds.length > 0) {
+        const { data: processors } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", processorIds);
+        const processorMap = Object.fromEntries((processors || []).map(p => [p.id, p]));
+        return rows.map(p => ({
+          ...p,
+          processor: p.processed_by ? processorMap[p.processed_by] || null : null,
+        }));
+      }
+
+      return rows;
     },
     staleTime: 30000,
   });
@@ -1415,17 +1432,33 @@ export default function FinancialStaffDashboard() {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Host</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Details</TableHead>
                       <TableHead>Status</TableHead>
-                       <TableHead>Date</TableHead>
+                      <TableHead>Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payouts.map((payout: any) => (
-                      <TableRow key={payout.id}>
+                      <Fragment key={payout.id}>
+                      <TableRow>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setExpandedPayoutId(expandedPayoutId === payout.id ? null : payout.id)}
+                          >
+                            {expandedPayoutId === payout.id ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
@@ -1479,6 +1512,60 @@ export default function FinancialStaffDashboard() {
                           </span>
                         </TableCell>
                       </TableRow>
+                      {expandedPayoutId === payout.id && (
+                        <TableRow>
+                          <TableCell colSpan={7}>
+                            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+                              <h4 className="font-semibold text-sm flex items-center gap-2">
+                                <Banknote className="h-4 w-4" />
+                                Transaction Details
+                              </h4>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Payout ID</p>
+                                  <p className="font-mono text-xs break-all">{payout.id}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Created</p>
+                                  <p>{new Date(payout.created_at).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Last Updated</p>
+                                  <p>{payout.updated_at ? new Date(payout.updated_at).toLocaleString() : 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Processed By</p>
+                                  <p>{payout.processor?.full_name || payout.processed_by || 'Not processed'}</p>
+                                  {payout.processor?.email && (
+                                    <p className="text-xs text-muted-foreground">{payout.processor.email}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Processed At</p>
+                                  <p>{payout.processed_at ? new Date(payout.processed_at).toLocaleString() : 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">PawaPay Payout ID</p>
+                                  <p className="font-mono text-xs break-all">{payout.pawapay_payout_id || 'N/A'}</p>
+                                </div>
+                                <div className="col-span-full">
+                                  <p className="text-muted-foreground text-xs">Admin Notes</p>
+                                  <p>{payout.admin_notes || 'No notes'}</p>
+                                </div>
+                                {payout.payout_details && Object.keys(payout.payout_details).length > 0 && (
+                                  <div className="col-span-full">
+                                    <p className="text-muted-foreground text-xs">Payout Details</p>
+                                    <pre className="text-xs bg-background p-2 rounded mt-1 overflow-x-auto">
+                                      {JSON.stringify(payout.payout_details, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
                     ))}
                     {payouts.length === 0 && (
                       <TableRow>
