@@ -84,7 +84,7 @@ const fetchProperties = async (args: {
       .split(/\s+/)
       .filter(Boolean);
     if (trimmed) {
-      query = query.ilike("title", `%${trimmed}%`);
+      query = query.or(`title.ilike.%${trimmed}%,location.ilike.%${trimmed}%`);
     }
 
     if (args.hostId) {

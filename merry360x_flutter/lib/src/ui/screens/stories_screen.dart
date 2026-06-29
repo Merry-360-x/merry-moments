@@ -9,6 +9,7 @@ import '../../services/app_database.dart';
 import '../../services/cloudinary_service.dart';
 import '../../session_controller.dart';
 import '../utils/app_snackbar.dart';
+import '../utils/report_dialog.dart';
 import '../widgets/swipe_action_wrapper.dart';
 
 bool _isVideoMediaUrl(String? url) {
@@ -206,7 +207,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final stories = await _api.fetchStories();
+    final stories = await _api.fetchStories(currentUserId: widget.session.userId.isNotEmpty ? widget.session.userId : null);
     final activeStories = stories.where((story) => _isStoryActive(story)).toList();
     if (!mounted) return;
 
@@ -395,6 +396,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => _StoryViewerScreen(
+          session: widget.session,
           stories: _stories,
           initialIndex: initialIndex,
           likeCounts: _likeCounts,
@@ -608,6 +610,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
 
 class _StoryViewerScreen extends StatefulWidget {
   const _StoryViewerScreen({
+    required this.session,
     required this.stories,
     required this.initialIndex,
     required this.likeCounts,
@@ -617,6 +620,7 @@ class _StoryViewerScreen extends StatefulWidget {
     required this.onOpenComments,
   });
 
+  final SessionController session;
   final List<Map<String, dynamic>> stories;
   final int initialIndex;
   final Map<String, int> likeCounts;
@@ -646,6 +650,18 @@ class _StoryViewerScreenState extends State<_StoryViewerScreen> {
     super.dispose();
   }
 
+  void _reportStory(BuildContext context) {
+    final story = widget.stories[_index];
+    final storyAuthorId = (story['user_id'] ?? '').toString();
+    showReportDialog(
+      context: context,
+      session: widget.session,
+      reportedUserId: storyAuthorId.isNotEmpty ? storyAuthorId : null,
+      title: 'Report Story',
+      subtitle: 'Report this story as inappropriate',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -663,6 +679,13 @@ class _StoryViewerScreenState extends State<_StoryViewerScreen> {
           '${_index + 1} / ${widget.stories.length}',
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flag_outlined, color: Colors.white70, size: 20),
+            tooltip: 'Report',
+            onPressed: () => _reportStory(context),
+          ),
+        ],
       ),
       body: PageView.builder(
         controller: _pc,

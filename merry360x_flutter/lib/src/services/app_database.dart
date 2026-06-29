@@ -853,7 +853,7 @@ class AppDatabase {
 
   // ── Stories ──
 
-  Future<List<Map<String, dynamic>>> fetchStories() async {
+  Future<List<Map<String, dynamic>>> fetchStories({String? currentUserId}) async {
     try {
       final cutoffIso = DateTime.now().toUtc().subtract(const Duration(hours: 24)).toIso8601String();
       final data = await _sb
@@ -865,6 +865,20 @@ class AppDatabase {
 
       final stories = (data as List).cast<Map<String, dynamic>>();
       if (stories.isEmpty) return stories;
+
+      Set<String> blocked = {};
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        try {
+          final blockedRows = await _sb
+              .from('blocked_users')
+              .select('blocked_id')
+              .eq('blocker_id', currentUserId);
+          blocked = (blockedRows as List)
+              .map((r) => (r as Map)['blocked_id'].toString())
+              .where((id) => id.isNotEmpty)
+              .toSet();
+        } catch (_) {}
+      }
 
       final userIds = stories
           .map((row) => (row['user_id'] ?? '').toString())
@@ -887,7 +901,12 @@ class AppDatabase {
         }
       }
 
-      return stories
+      final filtered = stories.where((s) {
+        final uid = (s['user_id'] ?? '').toString();
+        return uid.isNotEmpty && !blocked.contains(uid);
+      }).toList();
+
+      return filtered
           .map((story) {
             final uid = (story['user_id'] ?? '').toString();
             final profile = profileMap[uid];
@@ -1636,6 +1655,17 @@ class AppDatabase {
     final validationError = validateDirectMessage(body);
     if (validationError != null) {
       throw Exception(validationError);
+    }
+
+    // Check if sender is blocked by recipient
+    final blocked = await _sb
+        .from('blocked_users')
+        .select('blocker_id')
+        .eq('blocker_id', recipientId)
+        .eq('blocked_id', senderId)
+        .maybeSingle();
+    if (blocked != null) {
+      throw Exception('Message could not be delivered.');
     }
 
     await _sb.from('direct_messages').insert({
@@ -2497,6 +2527,122 @@ class AppDatabase {
     }
   }
 
+  // ── Reporting & Blocking (Apple Guideline 1.2) ──
+
+  Future<void> reportContent({
+    required String reporterId,
+    required String incidentType,
+    required String description,
+    String? reportedUserId,
+    String? reportedPropertyId,
+    String? severity,
+  }) async {
+    await _sb.from('incident_reports').insert({
+      'reporter_id': reporterId,
+      'reported_user_id': reportedUserId,
+      'reported_property_id': reportedPropertyId,
+      'incident_type': incidentType,
+      'description': description,
+      'severity': severity ?? 'low',
+      'status': 'open',
+    });
+  }
+
+  Future<void> blockUser({
+    required String blockerId,
+    required String blockedId,
+  }) async {
+    await _sb.from('blocked_users').upsert({
+      'blocker_id': blockerId,
+      'blocked_id': blockedId,
+    }, onConflict: 'blocker_id,blocked_id');
+
+    try {
+      await _sb.from('incident_reports').insert({
+        'reporter_id': blockerId,
+        'reported_user_id': blockedId,
+        'incident_type': 'abuse',
+        'description': 'User blocked by $blockerId — automatic report generated upon blocking.',
+        'severity': 'medium',
+        'status': 'open',
+      });
+    } catch (_) {}
+  }
+
+  Future<bool> isBlocked({
+    required String userId,
+    required String otherUserId,
+  }) async {
+    final row = await _sb
+        .from('blocked_users')
+        .select('blocker_id')
+        .eq('blocker_id', userId)
+        .eq('blocked_id', otherUserId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBlockedUsers({
+    required String userId,
+  }) async {
+    final rows = await _sb
+        .from('blocked_users')
+        .select('*, blocked_id')
+        .eq('blocker_id', userId);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> unblockUser({
+    required String blockerId,
+    required String blockedId,
+  }) async {
+    await _sb
+        .from('blocked_users')
+        .delete()
+        .eq('blocker_id', blockerId)
+        .eq('blocked_id', blockedId);
+  }
+
+  /// Admin-only: fetches all blocked-user relations for cross-referencing.
+  Future<Set<String>> fetchAllBlockedRelations() async {
+    try {
+      final rows = await _sb.from('blocked_users').select('blocker_id, blocked_id');
+      final pairs = (rows as List).map((r) {
+        final map = r as Map;
+        return '${map['blocker_id']}:${map['blocked_id']}';
+      }).toSet();
+      return pairs;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // ── Admin: Incident Reports ──
+
+  Future<List<Map<String, dynamic>>> fetchIncidentReports({int limit = 100}) async {
+    try {
+      final data = await _sb
+          .from('incident_reports')
+          .select('*, reporter:profiles!reporter_id(full_name, avatar_url), reported:profiles!reported_user_id(full_name, avatar_url)')
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return (data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> resolveIncidentReport({
+    required String id,
+    required String resolution,
+  }) async {
+    await _sb.from('incident_reports').update({
+      'status': 'resolved',
+      'resolution': resolution,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
+  }
+
   // ── Post-booking API (server-validated flows) ──
 
   Future<Map<String, dynamic>> fetchPostBookingOverview({
@@ -2581,7 +2727,7 @@ class AppDatabase {
     try {
       final data = await _sb
           .from('properties')
-          .select('id, title, location, price_per_night, price_per_month, currency, is_published, images, main_image, property_type, listing_mode, rating, review_count, max_guests, bedrooms, bathrooms')
+          .select('id, title, location, address, description, price_per_night, price_per_month, currency, is_published, images, main_image, property_type, listing_mode, rating, review_count, max_guests, bedrooms, bathrooms, beds, check_in_time, check_out_time, weekly_discount, monthly_discount, breakfast_price_per_night, cancellation_policy, available_for_monthly_rental, breakfast_available, pets_allowed, events_allowed, smoking_allowed, amenities')
           .eq('host_id', userId)
           .order('created_at', ascending: false);
       return (data as List).cast<Map<String, dynamic>>().map(_normalizeProperty).toList();
