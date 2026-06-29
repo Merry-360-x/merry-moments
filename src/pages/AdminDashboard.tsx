@@ -837,7 +837,7 @@ export default function AdminDashboard() {
     currency: string;
   } | null>(null);
 
-  const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy'>('privacy_policy');
+  const [legalContentType, setLegalContentType] = useState<'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy' | 'eula'>('privacy_policy');
   const [legalContent, setLegalContent] = useState('');
   const [savingLegal, setSavingLegal] = useState(false);
 
@@ -3648,7 +3648,8 @@ For support, contact: support@merry360x.com
         privacy_policy: 'Privacy Policy',
         terms_and_conditions: 'Terms and Conditions',
         safety_guidelines: 'Safety Guidelines',
-        refund_policy: 'Refund & Cancellation Policy'
+        refund_policy: 'Refund & Cancellation Policy',
+        eula: 'End User License Agreement'
       };
 
       // Use upsert to create or update the record
@@ -7367,8 +7368,7 @@ For support, contact: support@merry360x.com
                       <TableHead>Method</TableHead>
                       <TableHead>Details</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                       <TableHead>Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -7455,39 +7455,6 @@ For support, contact: support@merry360x.com
                           <span className="text-sm text-muted-foreground">
                             {new Date(payout.created_at).toLocaleDateString()}
                           </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {payout.status === "pending" && (
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => processPayout(payout.id, "completed")}
-                                disabled={processingPayout === payout.id}
-                              >
-                                {processingPayout === payout.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                )}
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => processPayout(payout.id, "rejected", "Rejected by admin")}
-                                disabled={processingPayout === payout.id}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                          {payout.status !== "pending" && (
-                            <span className="text-sm text-muted-foreground">
-                              {payout.processed_at && new Date(payout.processed_at).toLocaleDateString()}
-                            </span>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -8079,7 +8046,7 @@ For support, contact: support@merry360x.com
                 <h3 className="text-lg font-semibold">Manage Legal Content</h3>
                 <Select
                   value={legalContentType}
-                  onValueChange={(v: 'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy') => setLegalContentType(v)}
+                  onValueChange={(v: 'privacy_policy' | 'terms_and_conditions' | 'safety_guidelines' | 'refund_policy' | 'eula') => setLegalContentType(v)}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue />
@@ -8089,6 +8056,7 @@ For support, contact: support@merry360x.com
                     <SelectItem value="terms_and_conditions">Terms & Conditions</SelectItem>
                     <SelectItem value="safety_guidelines">Safety Guidelines</SelectItem>
                     <SelectItem value="refund_policy">Refund & Cancellation</SelectItem>
+                    <SelectItem value="eula">EULA</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -8105,7 +8073,8 @@ For support, contact: support@merry360x.com
                   <label className="text-sm font-medium mb-2 block">
                     {legalContentType === 'privacy_policy' ? 'Privacy Policy' : 
                      legalContentType === 'terms_and_conditions' ? 'Terms and Conditions' :
-                     legalContentType === 'safety_guidelines' ? 'Safety Guidelines' : 'Refund & Cancellation Policy'} Content
+                     legalContentType === 'safety_guidelines' ? 'Safety Guidelines' :
+                     legalContentType === 'refund_policy' ? 'Refund & Cancellation Policy' : 'End User License Agreement'} Content
                   </label>
                   <textarea
                     className="w-full min-h-[400px] p-4 rounded-md border border-input bg-background text-sm font-mono"

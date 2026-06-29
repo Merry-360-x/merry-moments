@@ -1420,8 +1420,7 @@ export default function FinancialStaffDashboard() {
                       <TableHead>Method</TableHead>
                       <TableHead>Details</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                       <TableHead>Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1478,39 +1477,6 @@ export default function FinancialStaffDashboard() {
                           <span className="text-sm text-muted-foreground">
                             {new Date(payout.created_at).toLocaleDateString()}
                           </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {payout.status === "pending" && (
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => processPayout(payout.id, "completed")}
-                                disabled={processingPayout === payout.id}
-                              >
-                                {processingPayout === payout.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                )}
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => processPayout(payout.id, "rejected", "Rejected by finance team")}
-                                disabled={processingPayout === payout.id}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                          {payout.status !== "pending" && (
-                            <span className="text-sm text-muted-foreground">
-                              {payout.processed_at && new Date(payout.processed_at).toLocaleDateString()}
-                            </span>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
