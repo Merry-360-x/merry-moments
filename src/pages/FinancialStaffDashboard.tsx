@@ -483,6 +483,8 @@ export default function FinancialStaffDashboard() {
 
       if (payoutFilter !== "all") {
         query = query.eq("status", payoutFilter);
+      } else {
+        query = query.in("status", ["pending", "completed"]);
       }
 
       const { data, error } = await query;
