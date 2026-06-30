@@ -1993,6 +1993,8 @@ export default function AdminDashboard() {
       
       if (tab === "payouts" && payoutFilter !== "all") {
         query = query.eq("status", payoutFilter);
+      } else if (tab === "payouts") {
+        query = query.in("status", ["pending", "completed"]);
       }
 
       const { data, error } = await query;
