@@ -194,6 +194,9 @@ const Footer = () => {
             <Link to="/terms-and-conditions" className="hover:text-primary transition-colors">
               Terms
             </Link>
+            <Link to="/eula" className="hover:text-primary transition-colors">
+              EULA
+            </Link>
           </div>
           {/* Social links row */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground mb-4">

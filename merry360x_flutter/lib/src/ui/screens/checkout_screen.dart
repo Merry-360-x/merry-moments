@@ -13,6 +13,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/app_database.dart';
 import '../../session_controller.dart';
 import '../../utils/error_handler.dart';
+import '../widgets/animated_date_picker.dart';
 import 'package:merry360x_flutter/src/lib/fees.dart';
 import 'package:merry360x_flutter/src/lib/promo_prefill.dart';
 import 'explore_screen.dart' show resolveListingImageUrl;
@@ -408,6 +409,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   int _payTab = 0;
   _PayMethod? _selectedMethod;
   final _phoneCtrl = TextEditingController();
+  final _phoneFocusNode = FocusNode();
+  String? _phoneErrorText;
   bool _showMobileMoney = true; // hidden for non-African regions
   String? _detectedCountryISO; // 2-letter ISO e.g. 'RW', 'US'
 
@@ -455,6 +458,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Listen for text edits to clear slide error
     _nameCtrl.addListener(_onFieldChanged);
     _phoneCtrl.addListener(_onFieldChanged);
+    _phoneFocusNode.addListener(_onPhoneFocusChange);
     // Detect user region
     _detectRegion();
     // Load discount passed from trip cart
@@ -476,6 +480,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _notesCtrl.dispose();
     _phoneCtrl.removeListener(_onFieldChanged);
     _phoneCtrl.dispose();
+    _phoneFocusNode.removeListener(_onPhoneFocusChange);
+    _phoneFocusNode.dispose();
     _promoCtrl.dispose();
     super.dispose();
   }
@@ -680,17 +686,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ? now
         : (_checkIn ?? now).add(const Duration(days: 1));
     final initialDate = isCheckIn ? (_checkIn ?? now) : (_checkOut ?? minDate);
-    final picked = await showDatePicker(
+    final picked = await AnimatedDatePicker.show(
       context: context,
       initialDate: initialDate.isBefore(minDate) ? minDate : initialDate,
       firstDate: minDate,
       lastDate: now.add(const Duration(days: 730)),
+      title: isCheckIn ? 'Select check-in' : 'Select check-out',
     );
     if (picked == null) return;
     setState(() {
       if (isCheckIn) {
         _checkIn = picked;
-        // If check-out is now on or before new check-in, clear it.
         if (_checkOut != null && !_checkOut!.isAfter(picked)) {
           _checkOut = null;
         }
@@ -815,24 +821,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
+  void _onPhoneFocusChange() {
+    if (!_phoneFocusNode.hasFocus) {
+      final text = _phoneCtrl.text.trim();
+      if (text.isNotEmpty) {
+        final error = _validateRwandaPhoneNumber(text);
+        if (error != null) {
+          setState(() => _phoneErrorText = error);
+        } else {
+          setState(() => _phoneErrorText = null);
+        }
+      } else {
+        setState(() => _phoneErrorText = null);
+      }
+    }
+  }
+
   String _normalizedMobileMoneyPhone(String input) {
     final raw = input.trim();
     if (raw.isEmpty) return '';
 
-    final compact = raw.replaceAll(RegExp(r'[^0-9+]'), '');
+    final compact = raw.replaceAll(RegExp(r'[^0-9]'), '');
     if (compact.isEmpty) return '';
-    if (compact.startsWith('+')) return compact;
 
     final cc = (_selectedMethod?.countryCode ?? '').trim();
-    if (cc.isEmpty) return compact;
-
     final ccDigits = cc.replaceAll('+', '');
+
+    // Strip country code prefix if present
     var local = compact;
     if (local.startsWith(ccDigits)) {
-      return '+$local';
+      local = local.substring(ccDigits.length);
     }
 
-    local = local.replaceFirst(RegExp(r'^0+'), '');
+    // Strip leading zero if present (user typed 078... instead of 78...)
+    if (local.startsWith('0')) {
+      local = local.substring(1);
+    }
+
     if (local.isEmpty) return '';
 
     final normalizedCc = cc.startsWith('+') ? cc : '+$cc';
@@ -843,12 +868,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Returns null if valid, or an error message string if invalid.
   String? _validateRwandaPhoneNumber(String input) {
     final raw = input.trim();
-    if (raw.isEmpty) {
-      return 'Please enter your mobile money number to continue';
-    }
+    if (raw.isEmpty) return null;
 
     // Strip all non-digits
     final digitsOnly = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) return 'Enter a valid mobile number';
 
     // Remove country code +250 or 250 if present
     String nationalNumber = digitsOnly;
@@ -856,24 +880,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       nationalNumber = nationalNumber.substring(3);
     }
 
-    // Must be exactly 9 digits after country code
+    // Accept 9 digits (without leading 0) or 10 digits (with leading 0)
+    if (nationalNumber.length == 10) {
+      if (nationalNumber.startsWith('0')) {
+        nationalNumber = nationalNumber.substring(1);
+      } else {
+        return 'Enter a valid Rwanda mobile number (e.g., 078 123 4567)';
+      }
+    }
+
     if (nationalNumber.length != 9) {
-      return 'Please enter a 9-digit Rwanda mobile number (e.g., 078 123 4567)';
+      return 'Enter a valid Rwanda mobile number (e.g., 078 123 4567)';
     }
 
-    // Must start with 7 (Rwanda mobile prefix)
-    if (!nationalNumber.startsWith('7')) {
-      return 'Please enter a valid Rwanda mobile number starting with 078, 079, 072, or 073';
+    // Regex: starts with 78, 79, 72, or 73 followed by exactly 7 digits
+    final regex = RegExp(r'^(78|79|72|73)\d{7}$');
+    if (!regex.hasMatch(nationalNumber)) {
+      return 'Enter a valid Rwanda mobile number starting with 078, 079, 072, or 073';
     }
 
-    // Valid prefixes: 078, 079, 072, 073
-    final prefix = nationalNumber.substring(0, 3);
-    const validPrefixes = {'078', '079', '072', '073'};
-    if (!validPrefixes.contains(prefix)) {
-      return 'Please enter a valid Rwanda mobile number starting with 078, 079, 072, or 073';
-    }
-
-    return null; // Valid
+    return null;
   }
 
   Future<void> _bootstrapPendingPromoCode() async {
@@ -1001,14 +1027,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         validationError = _l.selectMomoProvider;
       } else {
         final localPhone = _phoneCtrl.text.trim();
-        // Validate phone number format before proceeding
-        final phoneValidationError = _validateRwandaPhoneNumber(localPhone);
-        if (phoneValidationError != null) {
-          validationError = phoneValidationError;
+        if (localPhone.isEmpty) {
+          validationError = _l.enterMomoNumber;
         } else {
-          validationPhone = _normalizedMobileMoneyPhone(localPhone);
-          if (localPhone.isEmpty || validationPhone == null || validationPhone.isEmpty) {
-            validationError = _l.enterMomoNumber;
+          final phoneValidationError = _validateRwandaPhoneNumber(localPhone);
+          if (phoneValidationError != null) {
+            validationError = phoneValidationError;
+          } else {
+            validationPhone = _normalizedMobileMoneyPhone(localPhone);
+            if (validationPhone.isEmpty) {
+              validationError = _l.enterMomoNumber;
+            }
           }
         }
       }
@@ -1037,7 +1066,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (_payTab == 0) {
         // ── Mobile Money (PawaPay) ──
-        final phone = validationPhone ?? _normalizedMobileMoneyPhone(_phoneCtrl.text);
+        final phone =
+            validationPhone ?? _normalizedMobileMoneyPhone(_phoneCtrl.text);
 
         final api = AppDatabase();
         final checkoutPhone = phone;
@@ -1242,12 +1272,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             _step = 3;
           });
         } else {
-          // Timed out — payment may still be pending on the network side.
+          // Timed out — payment may still be pending.  Continue polling
+          // in the background so we eventually surface the real outcome
+          // even when PawaPay's webhook is slow (e.g. insufficient funds
+          // detected asynchronously).
           if (!mounted) return;
-          _showPawaPayPendingDialog(checkoutId, phone);
+          _showPawaPayPendingDialog(
+            checkoutId,
+            phone,
+            backgroundPoll: _pollCheckoutStatus(
+              checkoutId,
+              'paid',
+              depositId: depositId,
+              maxAttempts: 30,
+            ),
+          );
           setState(() {
             _bookingId = checkoutId;
-            _slideErrorText = 'Payment is pending. Confirm on your phone to complete.';
+            _slideErrorText =
+                'Payment is pending. Confirm on your phone to complete.';
           });
         }
       } else if (_payTab == 1) {
@@ -1359,7 +1402,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             flwResult['redirectUrl']?.toString() ??
             flwResult['link']?.toString();
         if (redirectUrl == null || redirectUrl.isEmpty) {
-          final friendlyMsg = ErrorHandler.formatPaymentError('No payment URL received');
+          final friendlyMsg = ErrorHandler.formatPaymentError(
+            'No payment URL received',
+          );
           _showSnack(friendlyMsg);
           setState(() {
             _submitState = _SubmitState.idle;
@@ -1388,10 +1433,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             if (mounted) setState(() => _step = 2);
           } else if (status.toLowerCase() == 'failed' ||
               status.toLowerCase() == 'rejected') {
-            if (mounted) setState(() {
-              _submitState = _SubmitState.idle;
-              _step = 3;
-            });
+            if (mounted)
+              setState(() {
+                _submitState = _SubmitState.idle;
+                _step = 3;
+              });
           } else {
             // Payment still pending on Flutterwave side — poll briefly
             final pollResult = await _pollCheckoutStatus(
@@ -1417,10 +1463,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }
           }
         } else if (payResult == 'failed') {
-          if (mounted) setState(() {
-            _submitState = _SubmitState.idle;
-            _step = 3;
-          });
+          if (mounted)
+            setState(() {
+              _submitState = _SubmitState.idle;
+              _step = 3;
+            });
         }
         // 'cancelled' or null: user closed the sheet, stay on payment step
       } else {
@@ -1450,18 +1497,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _step = 2;
         });
       }
-      } catch (e) {
-        final msg = 'Booking failed: ${e.toString().replaceAll('Exception: ', '')}';
-        _showSnack(msg);
-        setState(() => _slideErrorText = msg);
-      } finally {
-        if (mounted) {
-          setState(() {
-            _submitState = _SubmitState.idle;
-            _resetCounter++;
-          });
-        }
+    } catch (e) {
+      final msg =
+          'Booking failed: ${e.toString().replaceAll('Exception: ', '')}';
+      _showSnack(msg);
+      setState(() => _slideErrorText = msg);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitState = _SubmitState.idle;
+          _resetCounter++;
+        });
       }
+    }
   }
 
   Future<String?> _showPaymentWebView(String url) {
@@ -1482,6 +1530,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _onFieldChanged() {
     if (_slideErrorText != null) {
       setState(() => _slideErrorText = null);
+    }
+    if (_phoneErrorText != null) {
+      setState(() => _phoneErrorText = null);
     }
   }
 
@@ -1519,78 +1570,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   /// Show dialog when PawaPay payment is pending (webhook hasn't confirmed yet).
-  void _showPawaPayPendingDialog(String checkoutId, String phone) {
+  /// If [backgroundPoll] is provided, the dialog auto-closes when the future
+  /// resolves with 'paid' (success) or 'failed'/'rejected'/'cancelled' (failure).
+  void _showPawaPayPendingDialog(
+    String checkoutId,
+    String phone, {
+    Future<String?>? backgroundPoll,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          _l.paymentInitiated,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.hourglass_top, size: 40, color: AppColors.foggy),
-            const SizedBox(height: 16),
-            Text(
-              'Awaiting confirmation from $phone',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You should receive an SMS prompt to confirm payment on your mobile money account. '
-              'Confirm on your phone to complete the booking.',
-              style: TextStyle(fontSize: 13, color: AppColors.foggy),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => Clipboard.setData(ClipboardData(text: checkoutId)),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceSubtle,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.copy,
-                      size: 12,
-                      color: AppColors.hackberry,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Ref: ${checkoutId.substring(0, 8)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.hackberry,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+      builder: (ctx) => _PawaPayPendingDialogContent(
+        checkoutId: checkoutId,
+        phone: phone,
+        backgroundPoll: backgroundPoll,
+        onPaid: () {
+          if (!mounted) return;
+          Navigator.of(ctx).pop();
+          setState(() {
+            _bookingId = checkoutId;
+            _submitState = _SubmitState.success;
+          });
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (!mounted) return;
+            setState(() => _step = 2);
+          });
+        },
+        onFailed: () {
+          if (!mounted) return;
+          Navigator.of(ctx).pop();
+          setState(() {
+            _bookingId = checkoutId;
+            _submitState = _SubmitState.idle;
+            _step = 3;
+          });
+        },
       ),
     );
   }
@@ -1702,7 +1716,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 label: _l.confirmAndPay,
                 onConfirmed: _confirmAndPay,
                 disabled: _submitState != _SubmitState.idle,
-                confirmed: _submitState == _SubmitState.processing ||
+                confirmed:
+                    _submitState == _SubmitState.processing ||
                     _submitState == _SubmitState.success,
                 isProcessing: _submitState == _SubmitState.processing,
                 showSuccess: _submitState == _SubmitState.success,
@@ -1727,7 +1742,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.people_outline, size: 20, color: AppColors.hackberry),
+          const Icon(
+            Icons.people_outline,
+            size: 20,
+            color: AppColors.hackberry,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -1735,13 +1754,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
-          _buildCounterRow(_guests, 1, maxGuests, (v) => setState(() => _guests = v)),
+          _buildCounterRow(
+            _guests,
+            1,
+            maxGuests,
+            (v) => setState(() => _guests = v),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCounterRow(int value, int min, int max, ValueChanged<int> onChanged) {
+  Widget _buildCounterRow(
+    int value,
+    int min,
+    int max,
+    ValueChanged<int> onChanged,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1756,12 +1785,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 color: value > min ? AppColors.hackberry : AppColors.border,
               ),
             ),
-            child: Icon(Icons.remove, size: 16, color: value > min ? AppColors.black : AppColors.hackberry),
+            child: Icon(
+              Icons.remove,
+              size: 16,
+              color: value > min ? AppColors.black : AppColors.hackberry,
+            ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text('$value', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          child: Text(
+            '$value',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
         ),
         GestureDetector(
           onTap: value < max ? () => onChanged(value + 1) : null,
@@ -1774,7 +1810,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 color: value < max ? AppColors.hackberry : AppColors.border,
               ),
             ),
-            child: Icon(Icons.add, size: 16, color: value < max ? AppColors.black : AppColors.hackberry),
+            child: Icon(
+              Icons.add,
+              size: 16,
+              color: value < max ? AppColors.black : AppColors.hackberry,
+            ),
           ),
         ),
       ],
@@ -1953,36 +1993,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // ── Trip dates ──
         _SectionTitle(label: _l.yourTrip),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _pickDate(isCheckIn: true),
-                child: _InfoTile(
-                  icon: Icons.calendar_today_outlined,
-                  label: _l.checkIn,
-                  value: _checkIn != null ? _fmtDate(_checkIn!) : 'Select date',
-                  highlight: _checkIn == null,
-                ),
-              ),
-            ),
-            if (itemType != 'tour' && itemType != 'tour_package') ...[
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _pickDate(isCheckIn: false),
-                  child: _InfoTile(
-                    icon: Icons.calendar_today_outlined,
-                    label: _l.checkOut,
-                    value: _checkOut != null
-                        ? _fmtDate(_checkOut!)
-                        : 'Select date',
-                    highlight: _checkOut == null,
-                  ),
-                ),
-              ),
-            ],
-          ],
+        _DateRangeTile(
+          checkIn: _checkIn,
+          checkOut: _checkOut,
+          onTapCheckIn: () => _pickDate(isCheckIn: true),
+          onTapCheckOut: () => _pickDate(isCheckIn: false),
+          nights: _nights,
+          showCheckOut: itemType != 'tour' && itemType != 'tour_package',
         ),
         const SizedBox(height: 10),
         _buildGuestCounter(),
@@ -2326,15 +2343,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Row(
             children: [
               if (_showMobileMoney)
-              _PayTabButton(
-                label: _l.mobileMoney,
-                assetPath: 'assets/payment/mtn-momo.png',
-                selected: _payTab == 0,
-                onTap: () => setState(() {
-                  _payTab = 0;
-                  _slideErrorText = null;
-                }),
-              ),
+                _PayTabButton(
+                  label: _l.mobileMoney,
+                  assetPath: 'assets/payment/mtn-momo.png',
+                  selected: _payTab == 0,
+                  onTap: () => setState(() {
+                    _payTab = 0;
+                    _slideErrorText = null;
+                  }),
+                ),
               _PayTabButton(
                 label: _l.card,
                 assetPath: 'assets/payment/card.png',
@@ -2420,9 +2437,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _phoneCtrl,
+          focusNode: _phoneFocusNode,
           keyboardType: TextInputType.phone,
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[\d\s+]')),
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
           ],
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
@@ -2451,15 +2470,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.black, width: 1.5),
+              borderSide: BorderSide(
+                color: _phoneErrorText != null
+                    ? AppColors.rausch
+                    : AppColors.black,
+                width: 1.5,
+              ),
             ),
-            errorText: (_payTab == 0 && _slideErrorText != null &&
-                (_slideErrorText!.contains('mobile') ||
-                 _slideErrorText!.contains('Rwanda') ||
-                 _slideErrorText!.contains('9-digit') ||
-                 _slideErrorText!.contains('starting with')))
-                ? _slideErrorText
-                : null,
+            errorText: _phoneErrorText,
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Colors.red),
@@ -2721,6 +2739,128 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// PawaPay pending dialog with background polling
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PawaPayPendingDialogContent extends StatefulWidget {
+  const _PawaPayPendingDialogContent({
+    required this.checkoutId,
+    required this.phone,
+    this.backgroundPoll,
+    this.onPaid,
+    this.onFailed,
+  });
+
+  final String checkoutId;
+  final String phone;
+  final Future<String?>? backgroundPoll;
+  final VoidCallback? onPaid;
+  final VoidCallback? onFailed;
+
+  @override
+  State<_PawaPayPendingDialogContent> createState() =>
+      _PawaPayPendingDialogContentState();
+}
+
+class _PawaPayPendingDialogContentState
+    extends State<_PawaPayPendingDialogContent> {
+  bool _resolved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startBackgroundPoll();
+  }
+
+  Future<void> _startBackgroundPoll() async {
+    final poll = widget.backgroundPoll;
+    if (poll == null) return;
+    final result = await poll;
+    if (!mounted || _resolved) return;
+    if (result == 'paid') {
+      _resolved = true;
+      widget.onPaid?.call();
+    } else if (result != null) {
+      _resolved = true;
+      widget.onFailed?.call();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        _resolved ? '' : AppLocalizations.of(context)!.paymentInitiated,
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.hourglass_top, size: 40, color: AppColors.foggy),
+          const SizedBox(height: 16),
+          Text(
+            'Awaiting confirmation from ${widget.phone}',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You should receive an SMS prompt to confirm payment on your mobile money account. '
+            'Confirm on your phone to complete the booking.',
+            style: TextStyle(fontSize: 13, color: AppColors.foggy),
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () =>
+                Clipboard.setData(ClipboardData(text: widget.checkoutId)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSubtle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.copy,
+                    size: 12,
+                    color: AppColors.hackberry,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ref: ${widget.checkoutId.substring(0, 8)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.hackberry,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -2744,79 +2884,209 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _InfoTile extends StatelessWidget {
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.highlight = false,
+class _DateRangeTile extends StatelessWidget {
+  const _DateRangeTile({
+    required this.checkIn,
+    required this.checkOut,
+    required this.onTapCheckIn,
+    required this.onTapCheckOut,
+    required this.nights,
+    required this.showCheckOut,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final bool highlight;
+  final DateTime? checkIn;
+  final DateTime? checkOut;
+  final VoidCallback onTapCheckIn;
+  final VoidCallback onTapCheckOut;
+  final int nights;
+  final bool showCheckOut;
+
+  String _fmt(DateTime? d) {
+    if (d == null) return 'Select';
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = highlight
-        ? AppColors.rausch.withValues(alpha: 0.6)
-        : AppColors.border;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bothSelected = checkIn != null && checkOut != null;
+    final borderColor = isDark
+        ? const Color(0xFF38383A)
+        : const Color(0xFFE0E0E0);
+
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF1C1C1E) : AppColors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.rausch.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.rausch),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onTapCheckIn,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.rausch.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 17,
+                            color: AppColors.rausch,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Check-in',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: checkIn == null
+                                      ? AppColors.rausch
+                                      : AppColors.foggy,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _fmt(checkIn),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: checkIn == null
+                                      ? AppColors.rausch
+                                      : AppColors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: bothSelected ? AppColors.rausch : AppColors.hackberry,
+                ),
+              ),
+              if (showCheckOut)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onTapCheckOut,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.rausch.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 17,
+                              color: AppColors.rausch,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Check-out',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: checkOut == null
+                                        ? AppColors.rausch
+                                        : AppColors.foggy,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _fmt(checkOut),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: checkOut == null
+                                        ? AppColors.rausch
+                                        : AppColors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
+          if (bothSelected && showCheckOut)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.rausch.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  nights == 1 ? '1 night' : '$nights nights',
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.foggy,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: highlight ? AppColors.rausch : AppColors.black,
+                    color: AppColors.rausch,
                   ),
                 ),
-              ],
-            ),
-          ),
-          if (highlight)
-            const Icon(
-              Icons.edit_calendar_outlined,
-              size: 16,
-              color: AppColors.rausch,
+              ),
             ),
         ],
       ),

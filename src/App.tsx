@@ -57,6 +57,7 @@ const AdminPostBooking = lazy(() => import("./pages/AdminPostBooking"));
 const PostBookingRouteRedirect = lazy(() => import("./components/post-booking/PostBookingRouteRedirect"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const Eula = lazy(() => import("./pages/Eula"));
 const SafetyGuidelines = lazy(() => import("./pages/SafetyGuidelines"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
@@ -691,6 +692,7 @@ const App = () => (
               <Route path="/cookies" element={<InfoPage kind="cookies" />} />
               <Route path="/terms" element={<InfoPage kind="terms" />} />
               <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+              <Route path="/eula" element={<Eula />} />
               <Route path="/safety-guidelines" element={<SafetyGuidelines />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/help-center" element={<HelpCenter />} />

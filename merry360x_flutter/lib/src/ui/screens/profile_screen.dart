@@ -458,6 +458,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
+                      _ProfileRow(
+                        title: 'End User License Agreement',
+                        icon: Icons.description_outlined,
+                        subtitle: 'License terms for using the app',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LegalContentScreen(
+                              contentType: 'eula',
+                              fallbackTitle: 'End User License Agreement',
+                              emptyMessage:
+                                  'No End User License Agreement has been added yet.',
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

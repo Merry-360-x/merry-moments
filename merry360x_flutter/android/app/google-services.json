@@ -9,10 +9,15 @@
       "client_info": {
         "mobilesdk_app_id": "1:592965243458:android:c2e1cd0f11d8650dccd3db",
         "android_client_info": {
-          "package_name": "com.merry360x.mobile"
+          "package_name": "com.merry360x.merry360x"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "592965243458-uq163d5tp104n71qqcbgpco3fajg71k8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBsTYirQx45gkH9BbUXj6a1mVisvTVr2ak"
@@ -20,7 +25,41 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "592965243458-uq163d5tp104n71qqcbgpco3fajg71k8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:592965243458:android:3405f966ab03b5afccd3db",
+        "android_client_info": {
+          "package_name": "com.merry360x.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "592965243458-uq163d5tp104n71qqcbgpco3fajg71k8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsTYirQx45gkH9BbUXj6a1mVisvTVr2ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "592965243458-uq163d5tp104n71qqcbgpco3fajg71k8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

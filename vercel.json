@@ -36,7 +36,11 @@
     { "source": "/index-:hash.css", "destination": "/assets/index-:hash.css" },
     { "source": "/api/flutterwave-webhook", "destination": "/api/flutterwave?action=webhook" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/.well-known/(.*)",
+      "destination": "/.well-known/$1"
+    },
+    { "source": "/((?!assets/|\\.well-known/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -45,6 +49,12 @@
         { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
       ]
     },
     {

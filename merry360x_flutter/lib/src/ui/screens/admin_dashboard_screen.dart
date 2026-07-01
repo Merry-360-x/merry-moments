@@ -674,7 +674,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     with SingleTickerProviderStateMixin {
   final _api = AppDatabase();
   late TabController _tabs;
-  static const _tabCount = 14;
+  static const _tabCount = 15;
 
   Map<String, dynamic>? _enhancedStats;
   List<Map<String, dynamic>> _bookings = [];
@@ -687,6 +687,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   List<Map<String, dynamic>> _banners = [];
   List<Map<String, dynamic>> _reviews = [];
   List<Map<String, dynamic>> _support = [];
+  List<Map<String, dynamic>> _incidentReports = [];
+  Set<String> _blockedRelations = {};
   bool _loading = true;
 
   @override
@@ -717,6 +719,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         _api.fetchAdminBanners(),
         _api.fetchReviews(limit: 50),
         _api.fetchAdminSupportTickets(),
+        _api.fetchIncidentReports(),
+        _api.fetchAllBlockedRelations(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -731,6 +735,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         _banners = results[8] as List<Map<String, dynamic>>;
         _reviews = results[9] as List<Map<String, dynamic>>;
         _support = results[10] as List<Map<String, dynamic>>;
+        _incidentReports = results[11] as List<Map<String, dynamic>>;
+        _blockedRelations = results[12] as Set<String>;
         _loading = false;
       });
     } catch (_) {
@@ -799,6 +805,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
             const Tab(text: 'Reviews'),
             const Tab(text: 'Support'),
+            const Tab(text: 'Reports'),
             const Tab(text: 'Notify'),
           ],
         ),
@@ -858,6 +865,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 _AdminSupportTab(
                   tickets: _support,
+                  api: _api,
+                  onRefresh: _load,
+                ),
+                _AdminReportsTab(
+                  reports: _incidentReports,
+                  blockedRelations: _blockedRelations,
                   api: _api,
                   onRefresh: _load,
                 ),
@@ -3299,7 +3312,220 @@ class _AdminSupportTabState extends State<_AdminSupportTab> {
   }
 }
 
-// ─── Tab 13: Notify ──────────────────────────────────────────────────────────
+// ─── Tab 13: Reports (incident_reports) ─────────────────────────────────────
+
+class _AdminReportsTab extends StatelessWidget {
+  const _AdminReportsTab({
+    required this.reports,
+    required this.blockedRelations,
+    required this.api,
+    required this.onRefresh,
+  });
+  final List<Map<String, dynamic>> reports;
+  final Set<String> blockedRelations;
+  final AppDatabase api;
+  final VoidCallback onRefresh;
+
+  bool _isUserBlocked(Map<String, dynamic> report) {
+    final reportedUserId = (report['reported_user_id'] ?? '').toString();
+    if (reportedUserId.isEmpty) return false;
+    return blockedRelations.any((pair) => pair.endsWith(':$reportedUserId'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (reports.isEmpty) {
+      return const Center(
+        child: Text('No reports', style: TextStyle(color: AppColors.foggy)),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: reports.length,
+      itemBuilder: (_, i) {
+        final r = reports[i];
+        final id = (r['id'] ?? '').toString();
+        final incidentType = (r['incident_type'] ?? '').toString();
+        final description = (r['description'] ?? '').toString();
+        final severity = (r['severity'] ?? 'low').toString();
+        final status = (r['status'] ?? 'open').toString();
+        final createdAt = (r['created_at'] ?? '').toString().split('T')[0];
+        final reporter = r['reporter'] is Map ? (r['reporter'] as Map)['full_name'] ?? 'Unknown' : 'Unknown';
+        final reported = r['reported'] is Map ? (r['reported'] as Map)['full_name'] ?? 'Unknown' : 'Unknown';
+
+        final sevColor = switch (severity) {
+          'high' || 'critical' => AppColors.rausch,
+          'medium' => const Color(0xFFFFB800),
+          _ => AppColors.foggy,
+        };
+        final statusColor = status == 'open' ? AppColors.rausch : const Color(0xFF34C759);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: status == 'open'
+                ? Border.all(color: AppColors.rausch.withValues(alpha: 0.3))
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: sevColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      severity.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: sevColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    incidentType.replaceAll('_', ' '),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: AppColors.black),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.person_outline, size: 12, color: AppColors.foggy),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Reporter: $reporter',
+                    style: const TextStyle(fontSize: 11, color: AppColors.foggy),
+                  ),
+                  if (reported != 'Unknown') ...[
+                    const SizedBox(width: 12),
+                    Icon(Icons.flag_outlined, size: 12, color: AppColors.foggy),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Reported: $reported',
+                      style: const TextStyle(fontSize: 11, color: AppColors.foggy),
+                    ),
+                    if (_isUserBlocked(r)) ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.block, size: 14, color: AppColors.rausch),
+                    ],
+                  ],
+                ],
+              ),
+              if (createdAt.isNotEmpty)
+                Text(
+                  createdAt,
+                  style: const TextStyle(fontSize: 10, color: AppColors.foggy),
+                ),
+              if (status == 'open')
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SizedBox(
+                    height: 32,
+                    child: TextButton.icon(
+                      onPressed: () => _resolveReport(context, id),
+                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                      label: const Text('Resolve', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF34C759),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _resolveReport(BuildContext context, String id) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: AppColors.border.withValues(alpha: isDark ? 0.95 : 1.0),
+            ),
+          ),
+          title: const Text('Resolve Report', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.black)),
+          content: TextField(
+            controller: ctrl,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Resolution notes\u2026',
+              filled: true,
+              fillColor: AppColors.surfaceSubtle,
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.foggy)),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (ctrl.text.trim().isEmpty) return;
+                await api.resolveIncidentReport(id: id, resolution: ctrl.text.trim());
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                onRefresh();
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppColors.rausch),
+              child: const Text('Resolve'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─── Tab 14: Notify ──────────────────────────────────────────────────────────
 
 class _AdminNotifyTab extends StatefulWidget {
   const _AdminNotifyTab({required this.api});

@@ -193,6 +193,7 @@ const Auth = () => {
   
   // Terms agreement
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToEula, setAgreedToEula] = useState(false);
   
   // Password validation
   const passwordChecks = {
@@ -387,6 +388,15 @@ const Auth = () => {
           setIsLoading(false);
           return;
         }
+        if (!agreedToEula) {
+          toast({
+            variant: "destructive",
+            title: "EULA Required",
+            description: "Please agree to the End User License Agreement to continue.",
+          });
+          setIsLoading(false);
+          return;
+        }
         
         // Validate password strength
         if (!passwordIsStrong) {
@@ -531,6 +541,14 @@ const Auth = () => {
         variant: "destructive",
         title: "Terms Required",
         description: "Please agree to the Terms of Service and Privacy Policy to continue.",
+      });
+      return;
+    }
+    if (!isLogin && !agreedToEula) {
+      toast({
+        variant: "destructive",
+        title: "EULA Required",
+        description: "Please agree to the End User License Agreement to continue.",
       });
       return;
     }
@@ -914,32 +932,49 @@ const Auth = () => {
 
                   {/* Terms and Privacy Agreement - Signup only */}
                   {!isLogin && (
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        id="termsPhone"
-                        checked={agreedToTerms}
-                        onChange={(e) => setAgreedToTerms(e.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                      />
-                      <label htmlFor="termsPhone" className="text-sm text-muted-foreground cursor-pointer">
-                        I agree to the{' '}
-                        <Link to="/terms" target="_blank" className="text-primary hover:underline">
-                          Terms of Service
-                        </Link>{' '}
-                        and{' '}
-                        <Link to="/privacy" target="_blank" className="text-primary hover:underline">
-                          Privacy Policy
-                        </Link>
-                      </label>
-                    </div>
+                    <>
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="termsPhone"
+                          checked={agreedToTerms}
+                          onChange={(e) => setAgreedToTerms(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                        <label htmlFor="termsPhone" className="text-sm text-muted-foreground cursor-pointer">
+                          I agree to the{' '}
+                          <Link to="/terms" target="_blank" className="text-primary hover:underline">
+                            Terms of Service
+                          </Link>
+                          {' '}and{' '}
+                          <Link to="/privacy" target="_blank" className="text-primary hover:underline">
+                            Privacy Policy
+                          </Link>
+                        </label>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="eulaPhone"
+                          checked={agreedToEula}
+                          onChange={(e) => setAgreedToEula(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                        />
+                        <label htmlFor="eulaPhone" className="text-sm text-muted-foreground cursor-pointer">
+                          I agree to the{' '}
+                          <Link to="/eula" target="_blank" className="text-primary hover:underline">
+                            End User License Agreement
+                          </Link>
+                        </label>
+                      </div>
+                    </>
                   )}
 
                   <Button
                     type="button"
                     className="w-full h-11"
                     onClick={handleSendOTP}
-                    disabled={otpLoading || !phoneNumber.trim() || phoneNumber.replace(/\D/g, '').length < 8 || (!isLogin ? (!firstName.trim() || !lastName.trim() || !agreedToTerms) : false)}
+                    disabled={otpLoading || !phoneNumber.trim() || phoneNumber.replace(/\D/g, '').length < 8 || (!isLogin ? (!firstName.trim() || !lastName.trim() || !agreedToTerms || !agreedToEula) : false)}
                   >
                     {otpLoading ? (
                       <>
@@ -1145,28 +1180,45 @@ const Auth = () => {
 
               {/* Terms and Privacy Agreement - Signup only */}
               {!isLogin && (
-                <div className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={agreedToTerms}
-                    onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                  />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
-                    I agree to the{' '}
-                    <Link to="/terms" target="_blank" className="text-primary hover:underline">
-                      Terms of Service
-                    </Link>{' '}
-                    and{' '}
-                    <Link to="/privacy" target="_blank" className="text-primary hover:underline">
-                      Privacy Policy
-                    </Link>
-                  </label>
-                </div>
+                <>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
+                      I agree to the{' '}
+                      <Link to="/terms" target="_blank" className="text-primary hover:underline">
+                        Terms of Service
+                      </Link>
+                      {' '}and{' '}
+                      <Link to="/privacy" target="_blank" className="text-primary hover:underline">
+                        Privacy Policy
+                      </Link>
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="eula"
+                      checked={agreedToEula}
+                      onChange={(e) => setAgreedToEula(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <label htmlFor="eula" className="text-sm text-muted-foreground cursor-pointer">
+                      I agree to the{' '}
+                      <Link to="/eula" target="_blank" className="text-primary hover:underline">
+                        End User License Agreement
+                      </Link>
+                    </label>
+                  </div>
+                </>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && !agreedToTerms)}>
+              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && (!agreedToTerms || !agreedToEula))}>
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

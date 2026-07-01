@@ -6,8 +6,9 @@ import '../../app.dart';
 import '../../session_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
-import '../widgets/swipe_action_wrapper.dart';
+import '../utils/report_dialog.dart';
 
+import '../widgets/swipe_action_wrapper.dart';
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({
     super.key,
@@ -365,6 +366,7 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
   Map<String, dynamic>? _peerProfile;
   bool _loading = true;
   bool _sending = false;
+  bool _isBlocked = false;
   String? _error;
   Timer? _pollTimer;
 
@@ -390,7 +392,13 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
     await Future.wait([
       _loadPeerProfile(),
       _loadMessages(),
+      _checkBlocked(),
     ]);
+  }
+
+  Future<void> _checkBlocked() async {
+    final blocked = await widget.session.isBlocked(otherUserId: widget.peerId);
+    if (mounted) setState(() => _isBlocked = blocked);
   }
 
   Future<void> _loadPeerProfile() async {
@@ -511,6 +519,44 @@ class _DirectMessageThreadScreenState extends State<DirectMessageThreadScreen> {
             fontSize: 18,
           ),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: _isBlocked
+                ? const Icon(Icons.block, color: AppColors.rausch)
+                : const Icon(Icons.more_vert, color: AppColors.black),
+            onSelected: (value) async {
+              if (value == 'report') {
+                showReportDialog(
+                  context: context,
+                  session: widget.session,
+                  reportedUserId: widget.peerId,
+                  title: 'Report $_peerName',
+                  subtitle: 'Report this user for inappropriate behaviour',
+                );
+              } else if (value == 'block') {
+                showBlockUserDialog(
+                  context: context,
+                  session: widget.session,
+                  userId: widget.peerId,
+                  userName: _peerName,
+                );
+                await _checkBlocked();
+              } else if (value == 'unblock') {
+                await widget.session.unblockUser(userId: widget.peerId);
+                if (!mounted) return;
+                AppSnackBar.success(context, 'Unblocked $_peerName.');
+                await _checkBlocked();
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'report', child: ListTile(leading: Icon(Icons.flag_outlined), title: Text('Report'), contentPadding: EdgeInsets.zero, visualDensity: VisualDensity.compact)),
+              if (_isBlocked)
+                const PopupMenuItem(value: 'unblock', child: ListTile(leading: Icon(Icons.block, color: AppColors.rausch), title: Text('Unblock', style: TextStyle(color: AppColors.rausch)), contentPadding: EdgeInsets.zero, visualDensity: VisualDensity.compact))
+              else
+                const PopupMenuItem(value: 'block', child: ListTile(leading: Icon(Icons.block), title: Text('Block'), contentPadding: EdgeInsets.zero, visualDensity: VisualDensity.compact)),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

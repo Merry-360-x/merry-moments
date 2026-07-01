@@ -224,18 +224,38 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> signUpWithEmail(String email, String password, {String? fullName}) async {
+  Future<void> signUpWithEmail(
+    String email, String password, {
+    String? fullName,
+    bool agreedToTerms = false,
+    bool agreedToEula = false,
+  }) async {
+    if (!agreedToTerms) {
+      throw Exception('You must agree to the Terms & Conditions to create an account.');
+    }
+    if (!agreedToEula) {
+      throw Exception('You must agree to the End User License Agreement to create an account.');
+    }
     final client = _supabase;
     if (client == null) throw Exception('Supabase not configured');
     _loading = true;
     _error = null;
     notifyListeners();
     try {
+      final metadata = <String, dynamic>{
+        'terms_accepted': true,
+        'terms_accepted_at': DateTime.now().toIso8601String(),
+        'eula_accepted': true,
+        'eula_accepted_at': DateTime.now().toIso8601String(),
+      };
+      if (fullName != null) {
+        metadata['full_name'] = fullName;
+      }
       await client.auth.signUp(
         email: email,
         password: password,
         emailRedirectTo: _mobileAuthRedirectUri,
-        data: fullName != null ? {'full_name': fullName} : null,
+        data: metadata,
       );
     } catch (e) {
       _error = e.toString();
@@ -349,13 +369,19 @@ class SessionController extends ChangeNotifier {
             queryParams: googlePickerParams,
           );
         } else {
+          final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+          final androidClientId = AppConfig.googleAndroidClientId.trim();
           final iosClientId = AppConfig.googleIosClientId.trim();
           final webClientId = AppConfig.googleWebClientId.trim();
           final googleSignIn = GoogleSignIn(
             scopes: const <String>['email', 'profile'],
-            clientId: defaultTargetPlatform == TargetPlatform.iOS && iosClientId.isNotEmpty
-                ? iosClientId
-                : null,
+            clientId: isIos
+                ? iosClientId.isNotEmpty
+                    ? iosClientId
+                    : null
+                : androidClientId.isNotEmpty
+                    ? androidClientId
+                    : null,
             // Use web client ID as serverClientId so the ID token is issued for the backend (Supabase).
             serverClientId: webClientId.isNotEmpty ? webClientId : null,
           );
@@ -1125,6 +1151,46 @@ class SessionController extends ChangeNotifier {
   Future<void> markDirectConversationRead({required String peerId}) async {
     if (!isAuthenticated) return;
     await _api.markDirectConversationRead(userId: _userId, peerId: peerId);
+  }
+
+  // ---- Reporting & Blocking (Apple Guideline 1.2) ----
+
+  Future<void> reportContent({
+    required String incidentType,
+    required String description,
+    String? reportedUserId,
+    String? reportedPropertyId,
+    String? severity,
+  }) {
+    if (!isAuthenticated) throw Exception('Sign in to report content');
+    return _api.reportContent(
+      reporterId: _userId,
+      incidentType: incidentType,
+      description: description,
+      reportedUserId: reportedUserId,
+      reportedPropertyId: reportedPropertyId,
+      severity: severity,
+    );
+  }
+
+  Future<void> blockUser({required String userId}) {
+    if (!isAuthenticated) throw Exception('Sign in to block users');
+    return _api.blockUser(blockerId: _userId, blockedId: userId);
+  }
+
+  Future<bool> isBlocked({required String otherUserId}) {
+    if (!isAuthenticated) return Future.value(false);
+    return _api.isBlocked(userId: _userId, otherUserId: otherUserId);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBlockedUsers() {
+    if (!isAuthenticated) return Future.value([]);
+    return _api.fetchBlockedUsers(userId: _userId);
+  }
+
+  Future<void> unblockUser({required String userId}) {
+    if (!isAuthenticated) throw Exception('Sign in to manage blocks');
+    return _api.unblockUser(blockerId: _userId, blockedId: userId);
   }
 
   // ---- Post-booking workflows ----

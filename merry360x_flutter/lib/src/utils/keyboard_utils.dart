@@ -19,7 +19,7 @@ class KeyboardUtils {
   static Widget dismissOnTap({
     required Widget child,
     bool dismissOnTap = true,
-    HitTestBehavior behavior = HitTestBehavior.opaque,
+    HitTestBehavior behavior = HitTestBehavior.translucent,
   }) {
     if (!dismissOnTap) return child;
 

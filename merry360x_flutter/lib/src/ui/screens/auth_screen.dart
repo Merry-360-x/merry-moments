@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-
 import '../../app.dart';
 import '../../../l10n/app_localizations.dart';
 import '../utils/app_snackbar.dart';
+import 'legal_content_screen.dart';
 
 import '../../session_controller.dart';
 
@@ -41,6 +41,8 @@ class _AuthScreenState extends State<AuthScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscureSignup = true;
+  bool _agreedToTerms = false;
+  bool _agreedToEula = false;
 
   String? _error;
   bool _busy = false;
@@ -147,6 +149,8 @@ class _AuthScreenState extends State<AuthScreen>
         email,
         password,
         fullName: name.isEmpty ? null : name,
+        agreedToTerms: _agreedToTerms,
+        agreedToEula: _agreedToEula,
       );
       if (!mounted) return;
       if (widget.session.isAuthenticated) {
@@ -166,6 +170,19 @@ class _AuthScreenState extends State<AuthScreen>
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _openLegalLink(String contentType, String fallbackTitle, String emptyMessage) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LegalContentScreen(
+          contentType: contentType,
+          fallbackTitle: fallbackTitle,
+          emptyMessage: emptyMessage,
+        ),
+      ),
+    );
   }
 
   Future<void> _submitLogin() async {
@@ -789,10 +806,101 @@ class _AuthScreenState extends State<AuthScreen>
               onSubmitted: (_) => _busy ? null : _submitSignup(),
             ),
             if (_error != null) _errorText(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _agreedToTerms,
+                    onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
+                    activeColor: AppColors.rausch,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _openLegalLink(
+                      'terms_and_conditions',
+                      'Terms and Conditions',
+                      'No terms and conditions have been added yet.',
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 13, color: AppColors.hof),
+                        children: [
+                          TextSpan(text: '${_l.iAgree} to the '),
+                          TextSpan(
+                            text: _l.termsAndConditions,
+                            style: const TextStyle(
+                              color: AppColors.rausch,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const TextSpan(text: ' and '),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: const TextStyle(
+                              color: AppColors.rausch,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _agreedToEula,
+                    onChanged: (v) => setState(() => _agreedToEula = v ?? false),
+                    activeColor: AppColors.rausch,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _openLegalLink(
+                      'eula',
+                      'End User License Agreement',
+                      'No End User License Agreement has been added yet.',
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 13, color: AppColors.hof),
+                        children: [
+                          const TextSpan(text: 'I agree to the '),
+                          TextSpan(
+                            text: 'End User License Agreement',
+                            style: const TextStyle(
+                              color: AppColors.rausch,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             _continueButton(
               label: _l.createAccount,
-              onTap: _busy ? null : _submitSignup,
+              onTap: (_busy || !_agreedToTerms || !_agreedToEula) ? null : _submitSignup,
               loading: _busy,
             ),
             const SizedBox(height: 6),

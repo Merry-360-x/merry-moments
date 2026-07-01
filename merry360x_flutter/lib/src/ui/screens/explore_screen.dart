@@ -366,6 +366,8 @@ class _ExploreScreenState extends State<ExploreScreen>
   // Static flag: sheet shows at most once per app process lifetime.
   static bool _startupSheetEverShown = false;
 
+  List<Map<String, dynamic>> _lastListings = const [];
+
   bool _startupSheetsQueued = false;
   bool _startupSheetsInProgress = false;
   DateTime? _lastStartupSheetsAt;
@@ -481,7 +483,8 @@ class _ExploreScreenState extends State<ExploreScreen>
     final gridAspect = isTablet ? 0.85 : 0.76;
 
     final payload = session.payload;
-    final all = payload?.homeListings ?? const <Map<String, dynamic>>[];
+    final all = payload?.homeListings ?? _lastListings;
+    if (payload != null) _lastListings = all;
     _precacheListingImages(context, all);
 
     final properties = all.where((i) {
@@ -660,7 +663,7 @@ class _ExploreScreenState extends State<ExploreScreen>
 
                     _CategoryChips(isTablet: isTablet, session: session),
                     const SizedBox(height: 16),
-                    if (session.loading)
+                    if (session.payload == null && _lastListings.isEmpty)
                       _ShimmerGrid(
                         gridColumns: gridColumns,
                         gridAspect: gridAspect,
@@ -2059,10 +2062,10 @@ class _ListingImage extends StatelessWidget {
         imageUrl: imageUrl!,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.medium,
-        fadeInDuration: Duration.zero,
+        fadeInDuration: const Duration(milliseconds: 200),
         fadeOutDuration: Duration.zero,
         placeholderFadeInDuration: Duration.zero,
-        placeholder: (_, _) => _placeholder(),
+        placeholder: (_, _) => const SizedBox.shrink(),
         errorWidget: (_, _, _) => _placeholder(),
       ),
     );

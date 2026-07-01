@@ -12,6 +12,7 @@ import '../l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/deep_link_service.dart';
 import 'services/push_notification_service.dart';
 import 'ui/widgets/in_app_notification_banner.dart';
 import 'session_controller.dart';
@@ -25,6 +26,8 @@ import 'ui/screens/messages_screen.dart';
 import 'ui/screens/wishlists_screen.dart';
 import 'ui/screens/host_dashboard_screen.dart';
 import 'ui/screens/admin_dashboard_screen.dart';
+import 'ui/screens/property_details_screen.dart';
+import 'ui/screens/legal_content_screen.dart';
 import 'ui/widgets/draggable_ai_fab.dart';
 import 'utils/keyboard_utils.dart';
 
@@ -440,6 +443,15 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     _session = SessionController();
     _bootstrap();
     _listenToNotificationTaps();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    await DeepLinkService.instance.initialize();
+    _listenToDeepLinks();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handlePendingDeepLink();
+    });
   }
 
   void _listenToNotificationTaps() {
@@ -522,6 +534,64 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     nav.push(MaterialPageRoute(builder: (_) => screen));
   }
 
+  void _listenToDeepLinks() {
+    DeepLinkService.instance.onLink.listen(_handleDeepLink);
+  }
+
+  void _handlePendingDeepLink() {
+    final link = DeepLinkService.instance.initialLink;
+    if (link != null) _handleDeepLink(link);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    final nav = _navigatorKey.currentState;
+    if (nav == null) return;
+
+    final path = uri.path;
+
+    // /listing/{id} or /properties/{id} → PropertyDetailsScreen
+    final listingMatch = RegExp(r'^/(listing|properties)/(.+)$').firstMatch(path);
+    if (listingMatch != null) {
+      final id = listingMatch.group(2)!;
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => PropertyDetailsScreen(
+            item: {'id': id, 'item_type': 'property'},
+            session: _session,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Legal content pages
+    String? contentType;
+    String? fallbackTitle;
+    switch (path) {
+      case '/terms':
+      case '/terms-and-conditions':
+        contentType = 'terms_and_conditions';
+        fallbackTitle = 'Terms and Conditions';
+      case '/privacy-policy':
+        contentType = 'privacy_policy';
+        fallbackTitle = 'Privacy Policy';
+      case '/eula':
+        contentType = 'eula';
+        fallbackTitle = 'End User License Agreement';
+    }
+    if (contentType != null) {
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => LegalContentScreen(
+            contentType: contentType!,
+            fallbackTitle: fallbackTitle ?? '',
+            emptyMessage: 'No $fallbackTitle content has been added yet.',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -560,6 +630,11 @@ class _Merry360xMobileAppState extends State<Merry360xMobileApp>
     AppColors.setBrightnessOverride(effectiveBrightness);
     // Native iOS surfaces should follow the device appearance, not a saved in-app override.
     _syncNativePlatformStyle(platformBrightness);
+    SystemChrome.setSystemUIOverlayStyle(
+      effectiveBrightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+    );
 
     return AnimatedBuilder(
       animation: _session,

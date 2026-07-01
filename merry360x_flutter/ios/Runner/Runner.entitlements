@@ -8,5 +8,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:merry360x.com</string>
+		<string>applinks:www.merry360x.com</string>
+	</array>
 </dict>
 </plist>
